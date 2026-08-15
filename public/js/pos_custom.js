@@ -261,6 +261,37 @@ frappe.provide("solua_home.pos");
 
 		const original_bind_events = erpnext.PointOfSale.ItemSelector.prototype.bind_events;
 		const original_get_items = erpnext.PointOfSale.ItemSelector.prototype.get_items;
+		const original_filter_items = erpnext.PointOfSale.ItemSelector.prototype.filter_items;
+
+		// 搜索命中「唯一模板」→ 自动弹颜色选择框。
+		// 覆盖：手工输入条码回车、原生扫码路径（搜索→展示）——
+		// POS Profile auto_add_item_to_cart=0 时原生路径只显示模板卡片不会弹框。
+		erpnext.PointOfSale.ItemSelector.prototype.filter_items = function (opts = {}) {
+			const me = this;
+			original_filter_items.call(this, opts);
+
+			const search_term = (opts.search_term || "").toString().trim();
+			if (!search_term) return;
+
+			// 等原生异步渲染完成（fetch + render）后再检查结果
+			setTimeout(() => {
+				const items = me.items || [];
+				if (items.length !== 1 || !items[0].has_variants) return;
+				// 搜索框内容已变（用户继续输入/已清空）则跳过，避免误弹
+				const cur =
+					me.search_field && me.search_field.get_value && me.search_field.get_value();
+				if (cur !== search_term) return;
+
+				frappe.call({
+					method: "solua_home.api.pos.scan_barcode_for_pos",
+					args: { barcode: items[0].item_code },
+					callback: (r) => {
+						const res = r.message;
+						if (res && res.type === "template") show_color_picker(res);
+					},
+				});
+			}, 500);
+		};
 
 		// POS 商品数据带 has_variants：换用 solua_home 包装器
 		// （附加模板标记后转发原生查询，前端据此拦截模板直加）
