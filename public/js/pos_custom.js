@@ -294,6 +294,13 @@ frappe.provide("solua_home.pos");
 					args: { barcode: items[0].item_code },
 					callback: (r) => {
 						const res = r.message;
+						console.log(
+							"[solua_home:pos] scan 返回:",
+							res && res.type,
+							res && res.template_code,
+							"颜色数:",
+							res && res.colors ? res.colors.length : 0
+						);
 						if (res && res.type === "template") show_color_picker(res);
 					},
 				});
