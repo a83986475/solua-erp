@@ -453,19 +453,51 @@ frappe.provide("solua_home.pos");
 			pos_silent_print(this.doc.doctype, this.doc.name, frm.pos_print_format);
 		};
 
-		// 收银成功后：正常渲染收据摘要（临时关掉默认新标签打印）→ 静默打印 → 自动开新单
+		// 独立开关「收银后自动开新单」（与自动打印分开控制）：
+		// settings 由 get_pos_profile_data 返回完整 POS Profile 文档（含自定义字段）。
+		// 透明包装构造函数（保留原型链），把 custom_auto_new_order 存到实例上，
+		// 字段不存在时默认 1（保持原「打印后自动开新单」行为）。
+		const OriginalPastOrderSummary = erpnext.PointOfSale.PastOrderSummary;
+		function PosPastOrderSummary(...args) {
+			const inst = Reflect.construct(OriginalPastOrderSummary, args, PosPastOrderSummary);
+			const settings = (args && args[1]) || {};
+			inst.auto_new_order_on_complete =
+				settings.custom_auto_new_order === undefined
+					? 1
+					: Number(settings.custom_auto_new_order) === 1;
+			return inst;
+		}
+		PosPastOrderSummary.prototype = OriginalPastOrderSummary.prototype;
+		erpnext.PointOfSale.PastOrderSummary = PosPastOrderSummary;
+
+		// 收银成功后：正常渲染收据摘要（临时关掉默认 new-tab 打印）→ 静默打印 → 自动开新单
+		// 两个开关独立控制：
+		//   打印开 + 开新单开 → 静默打印，打印完成（对话框关闭）后自动开新单
+		//   打印开 + 开新单关 → 只静默打印，停留在收据摘要页
+		//   打印关 + 开新单开 → 不打印，短暂显示摘要后自动开新单
+		//   打印关 + 开新单关 → 原生行为（停留摘要页，手动点新订单）
 		const original_load_summary_of =
 			erpnext.PointOfSale.PastOrderSummary.prototype.load_summary_of;
 		erpnext.PointOfSale.PastOrderSummary.prototype.load_summary_of = function (doc, after_submission = false) {
-			if (after_submission && this.print_receipt_on_order_complete) {
+			const should_print = after_submission && this.print_receipt_on_order_complete;
+			const auto_new = after_submission && this.auto_new_order_on_complete;
+			if (should_print || auto_new) {
 				const frm = this.events.get_frm();
-				this.print_receipt_on_order_complete = 0; // 阻止默认 new-tab 打印
-				original_load_summary_of.call(this, doc, after_submission);
-				this.print_receipt_on_order_complete = 1;
-				pos_silent_print(doc.doctype || frm.doctype, doc.name, frm.pos_print_format).then(() => {
-					// 打印完成 → 自动开始新订单（超市收银模式）
-					if (this.events && this.events.new_order) this.events.new_order();
-				});
+				if (should_print) {
+					this.print_receipt_on_order_complete = 0; // 阻止默认 new-tab 打印
+					original_load_summary_of.call(this, doc, after_submission);
+					this.print_receipt_on_order_complete = 1;
+					pos_silent_print(doc.doctype || frm.doctype, doc.name, frm.pos_print_format).then(() => {
+						// 打印完成 → 自动开始新订单（超市收银模式）
+						if (auto_new && this.events && this.events.new_order) this.events.new_order();
+					});
+				} else {
+					// 打印关、开新单开：短暂显示收据摘要后自动开新单
+					original_load_summary_of.call(this, doc, after_submission);
+					setTimeout(() => {
+						if (this.events && this.events.new_order) this.events.new_order();
+					}, 1200);
+				}
 				return;
 			}
 			return original_load_summary_of.call(this, doc, after_submission);

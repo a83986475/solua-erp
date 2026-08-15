@@ -12,6 +12,7 @@ def after_install():
     configure_item_variant_settings()
     add_discount_approval_field()
     add_company_discount_settings()
+    add_pos_profile_settings()
     sync_standard_print_formats()
     frappe.db.commit()
 
@@ -383,6 +384,41 @@ def add_company_discount_settings():
         except Exception as e:
             frappe.log_error(f"公司折扣审批字段创建失败 [{field.get('fieldname')}]: {e}", "solua_home.custom_fields")
 
+    frappe.db.commit()
+
+
+def add_pos_profile_settings():
+    """POS Profile 独立开关：收银后自动开新单（与自动打印分开控制）
+
+    2026-08-16：原实现把「自动开新单」绑在 print_receipt_on_order_complete 上
+    （打印开=自动打印+自动开新单）。拆成独立开关后，打印与小票/开新单可分别控制：
+    打印开+开新单开=打印完自动开新单；打印开+开新单关=只打印停留摘要页；
+    打印关+开新单开=不打印直接自动开新单；打印关+开新单关=原生手动流程。
+    """
+    field = {
+        "dt": "POS Profile",
+        "fieldname": "custom_auto_new_order",
+        "label": "收银后自动开新单",
+        "fieldtype": "Check",
+        "default": "1",
+        "insert_after": "print_receipt_on_order_complete",
+        "description": "收银完成后自动开始新订单（与「打印收据」独立控制）",
+    }
+    try:
+        if not frappe.db.exists("Custom Field", {"dt": "POS Profile", "fieldname": field["fieldname"]}):
+            doc = frappe.get_doc({
+                "doctype": "Custom Field",
+                **field,
+                "owner": "Administrator",
+            })
+            doc.insert(ignore_permissions=True)
+    except Exception as e:
+        frappe.log_error(f"POS Profile 开关字段创建失败 [{field.get('fieldname')}]: {e}", "solua_home.custom_fields")
+
+    # 存量 POS Profile 补默认值（新建字段对已有记录不生效，自动补 1 保持原行为）
+    frappe.db.sql(
+        "UPDATE `tabPOS Profile` SET custom_auto_new_order = 1 WHERE custom_auto_new_order IS NULL"
+    )
     frappe.db.commit()
 
 

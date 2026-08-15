@@ -465,6 +465,12 @@
 - 开关：仍用 POS Profile「打印收据」(print_receipt_on_order_complete)——开=自动打印+自动开新单，关=手动流程；手动打印始终是静默方式
 - 提交 `d74a1fc` 已推送 GitHub；printview 本身不响应 trigger_print（`frappe.utils.print` 的 trigger_print=1 只存在于 utils.js），打印由 iframe 自己调 window.print()
 
+**自动开新单独立开关（2026-08-16，与自动打印分开控制）**：
+- 需求：自动开新单与自动打印解耦——原实现绑在 `print_receipt_on_order_complete` 上（打印开=自动打印+自动开新单）
+- 新增 POS Profile 自定义字段 `custom_auto_new_order`（Check，默认 1，标签「收银后自动开新单」，insert_after `print_receipt_on_order_complete`），install.py 的 `add_pos_profile_settings()` 创建并给存量 Profile 补默认 1；`after_install` 已挂接，bench migrate 即生效
+- pos_custom.js：① 透明包装 `PastOrderSummary` 构造函数（`Reflect.construct` + 原型链保留），从 settings（`get_pos_profile_data` 返回完整 Profile 文档，自定义字段自动包含）读出 `inst.auto_new_order_on_complete`；② `load_summary_of` 改双开关逻辑——打印开+开新单开=静默打印完自动开新单；打印开+开新单关=只打印停留摘要页；打印关+开新单开=不打印、短暂显示 1.2s 后自动开新单；打印关+开新单关=原生手动流程
+- 验证：bench migrate 建字段 ✅、`get_pos_profile_data` 返回 `custom_auto_new_order: 1` ✅、服务器 JS node --check ✅；收银方式1 - SH 已置 1（保持原行为）
+
 ---
 
 ## 二、服务器环境信息
