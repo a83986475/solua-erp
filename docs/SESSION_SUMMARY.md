@@ -479,6 +479,12 @@
 - **免确认静默打印方案**（用户问“什么插件”）：① 方案 A：Chrome `--kiosk-printing` 启动参数——`window.print()` 直接打到默认打印机、完全不弹对话框（零安装，热敏机设为系统默认打印机即可，免费）；② 方案 B：**QZ Tray**（行业标准）——收银台装桌面程序+浏览器扩展，网页 JS 发原始 ESC/POS 指令，更快更稳、支持钱箱自动弹开/直接打条码，商业使用需授权（个人免费）
 - **待确认**：用户热敏小票机纸宽（58mm/80mm），确认后在 Print Designer 搭「小票 80mm/58mm」版式，两个方案通用
 
+**清理测试日志与控制台监控（2026-08-16）**：
+- pos_custom.js 移除全部调试 console.log：脚本版本标记（"script v3 loaded"）、filter_items 检查、搜索框内容已变跳过、scan 返回日志；保留 `console.error`（小票打印失败真实错误处理）
+- 服务器 /tmp 清理：历次诊断脚本（*.py/*.b64）、测试 PDF（before_label/before_SI/label_CR-001-BR）、config-snapshot 临时副本、decrypt_fail.log（已无）、headless Chrome 临时目录
+- 本地 .freebuff/ 清理：34 个诊断脚本 + 根目录 check_mo.py/.tmp_setup_cr001.py（.html/.png/.pdf 预览产物保留）
+- 确认：`frappe/utils/password.py` 已恢复原版（无补丁残留）、`/tmp/decrypt_fail.log` 已不存在
+
 ---
 
 ## 二、服务器环境信息

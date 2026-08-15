@@ -17,9 +17,6 @@ frappe.provide("solua_home.pos");
 (function () {
 	"use strict";
 
-	// 版本标记：改版后递增，用于确认浏览器是否加载到最新脚本（F12 控制台查看）
-	console.log("[solua_home:pos] script v3 loaded", new Date().toISOString());
-
 	let applied = false;
 	let styles_injected = false;
 	let active_dialog = null;
@@ -337,7 +334,7 @@ frappe.provide("solua_home.pos");
 		// 搜索命中「唯一模板」→ 自动弹颜色选择框。
 		// 覆盖：手工输入条码回车、原生扫码路径（搜索→展示）——
 		// POS Profile auto_add_item_to_cart=0 时原生路径只显示模板卡片不会弹框。
-		erpnext.PointOfSale.ItemSelector.prototype.filter_items = function (opts = {}) {
+				erpnext.PointOfSale.ItemSelector.prototype.filter_items = function (opts = {}) {
 			const me = this;
 			original_filter_items.call(this, opts);
 
@@ -347,28 +344,17 @@ frappe.provide("solua_home.pos");
 			// 等原生异步渲染完成（fetch + render）后再检查结果
 			setTimeout(() => {
 				const items = me.items || [];
-				console.log("[solua_home:pos] filter_items 检查:", search_term, "结果数:", items.length, "has_variants:", items[0] && items[0].has_variants);
 				if (items.length !== 1 || !items[0].has_variants) return;
 				// 搜索框内容已变（用户继续输入/已清空）则跳过，避免误弹
 				const cur =
 					me.search_field && me.search_field.get_value && me.search_field.get_value();
-				if (cur !== search_term) {
-					console.log("[solua_home:pos] 搜索框内容已变，跳过:", cur);
-					return;
-				}
+				if (cur !== search_term) return;
 
 				frappe.call({
 					method: "solua_home.api.pos.scan_barcode_for_pos",
 					args: { barcode: items[0].item_code },
 					callback: (r) => {
 						const res = r.message;
-						console.log(
-							"[solua_home:pos] scan 返回:",
-							res && res.type,
-							res && res.template_code,
-							"颜色数:",
-							res && res.colors ? res.colors.length : 0
-						);
 						if (res && res.type === "template") show_color_picker(res);
 					},
 				});
