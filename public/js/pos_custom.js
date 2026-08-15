@@ -391,6 +391,86 @@ frappe.provide("solua_home.pos");
 			return original_form_savesubmit.call(me, btn, callback, on_error);
 		};
 
+		// ------------------------------------------------------------------
+		// 收银完成后：静默小票打印（无信头、不弹新标签页）+ 打印完成后自动开新单
+		// ------------------------------------------------------------------
+		// 默认行为：POS Profile 勾了「打印收据」后，收银完成会走 frappe.utils.print
+		// 在【新标签页】打开带正式信头的 printview —— 太慢太正式。
+		// 这里替换为：隐藏 iframe 加载 printview（no_letterhead=1）→ 调 window.print()
+		// （阻塞到打印对话框关闭）→ 自动开始新订单，像超市收银台一样无缝衔接。
+
+		// 静默小票打印：返回 Promise，打印对话框关闭后 resolve
+		function pos_silent_print(doctype, docname, print_format) {
+			return new Promise((resolve) => {
+				const url =
+					"/printview?doctype=" +
+					encodeURIComponent(doctype) +
+					"&name=" +
+					encodeURIComponent(docname) +
+					"&trigger_print=0" +
+					"&format=" +
+					encodeURIComponent(print_format || "") +
+					"&no_letterhead=1" +
+					"&_lang=" +
+					encodeURIComponent(frappe.boot.lang || "zh");
+
+				const iframe = document.createElement("iframe");
+				// 移到屏幕外但保留真实尺寸，保证打印版式正常计算
+				iframe.style.cssText =
+					"position:absolute;left:-9999px;top:0;width:595px;height:842px;border:0;opacity:0;";
+				let done = false;
+				const finish = () => {
+					if (done) return;
+					done = true;
+					setTimeout(() => {
+						if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+						resolve();
+					}, 200);
+				};
+
+				iframe.onload = () => {
+					try {
+						iframe.contentWindow.focus();
+						iframe.contentWindow.print(); // 阻塞直到打印对话框关闭
+					} catch (e) {
+						console.error("[solua_home] 小票打印失败:", e);
+					}
+					finish();
+				};
+				iframe.onerror = finish;
+				// 兜底：15 秒内未完成也继续，避免卡住收银
+				setTimeout(finish, 15000);
+				iframe.src = url;
+				document.body.appendChild(iframe);
+			});
+		}
+
+		// 手动「打印小票」按钮也走静默打印（不再弹新标签页）
+		const original_print_receipt =
+			erpnext.PointOfSale.PastOrderSummary.prototype.print_receipt;
+		erpnext.PointOfSale.PastOrderSummary.prototype.print_receipt = function () {
+			const frm = this.events.get_frm();
+			pos_silent_print(this.doc.doctype, this.doc.name, frm.pos_print_format);
+		};
+
+		// 收银成功后：正常渲染收据摘要（临时关掉默认新标签打印）→ 静默打印 → 自动开新单
+		const original_load_summary_of =
+			erpnext.PointOfSale.PastOrderSummary.prototype.load_summary_of;
+		erpnext.PointOfSale.PastOrderSummary.prototype.load_summary_of = function (doc, after_submission = false) {
+			if (after_submission && this.print_receipt_on_order_complete) {
+				const frm = this.events.get_frm();
+				this.print_receipt_on_order_complete = 0; // 阻止默认 new-tab 打印
+				original_load_summary_of.call(this, doc, after_submission);
+				this.print_receipt_on_order_complete = 1;
+				pos_silent_print(doc.doctype || frm.doctype, doc.name, frm.pos_print_format).then(() => {
+					// 打印完成 → 自动开始新订单（超市收银模式）
+					if (this.events && this.events.new_order) this.events.new_order();
+				});
+				return;
+			}
+			return original_load_summary_of.call(this, doc, after_submission);
+		};
+
 		// POS 商品数据带 has_variants：换用 solua_home 包装器
 		// （附加模板标记后转发原生查询，前端据此拦截模板直加）
 		erpnext.PointOfSale.ItemSelector.prototype.get_items = function (args) {
