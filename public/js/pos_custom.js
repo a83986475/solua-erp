@@ -210,11 +210,11 @@ frappe.provide("solua_home.pos");
 	// ------------------------------------------------------------------
 	function has_unapproved_discount(doc) {
 		if (!doc) return false;
-		if (frappe.utils.flt(doc.additional_discount_percentage) > 0) return true;
-		if (frappe.utils.flt(doc.discount_amount) > 0) return true;
+		if (flt(doc.additional_discount_percentage) > 0) return true;
+		if (flt(doc.discount_amount) > 0) return true;
 		for (const it of doc.items || []) {
-			if (frappe.utils.flt(it.discount_percentage) > 0) return true;
-			if (frappe.utils.flt(it.discount_amount) > 0) return true;
+			if (flt(it.discount_percentage) > 0) return true;
+			if (flt(it.discount_amount) > 0) return true;
 		}
 		return false;
 	}
