@@ -51,9 +51,18 @@ def get_max_discount_percentage(doc):
 
 
 def _try_decrypt(value):
-    """尝试解密密码字段值：已加密则解密出明文，已是明文则原样返回"""
+    """尝试解密密码字段值：已加密则解密出明文，已是明文则原样返回
+
+    注意：Frappe 的 decrypt() 对非 Fernet 密文（如明文密码）会先执行
+    frappe.throw（内部 msgprint 写入 message_log）再抛异常——即使这里
+    try/except 接住，"加密密钥无效"等消息仍会随响应返回并在前端弹出误导性
+    警告。因此**只对 Fernet 密文（固定以 gAAAA 开头）调用 decrypt**，
+    其余值直接原样返回。
+    """
     if not value:
         return ""
+    if not str(value).startswith("gAAAA"):
+        return value
     try:
         from frappe.utils.password import decrypt
 
