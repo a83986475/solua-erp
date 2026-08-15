@@ -430,6 +430,24 @@
 
 **二次修复**（用户仍报「只出现模板」）：查配置发现 `收银方式1 - SH` 的 **auto_add_item_to_cart=0**——原生搜索命中模板后只**展示**模板卡片，不会自动点击也不会弹框（硬件扫码才走自定义 onScan）。补 `filter_items` 覆写：搜索命中**唯一模板**时自动调后端弹颜色选择框；防误弹守卫（搜索框内容已变则跳过）。page_js 是服务端内联进页面 HTML、每请求从磁盘读，改完刷新页面即可生效（无需重启）。
 
+### POS 库存开关参考（上线配置，2026-08-15）
+
+用户问「库存不准时能否临时关闭无库存不可售」——答案是两级开关 + 一个显示开关，机制如下（供上线后参照）：
+
+| 开关 | 位置 | 当前值 | 作用 | 影响范围 |
+|------|------|:---:|------|------|
+| **允许负库存**（allow_negative_stock） | 设置 → 库存设置（Stock Settings） | 关（0） | POS 不检查库存，**没库存也能卖**，库存变负 | **全系统**（POS/采购/交货/库存单据） |
+| **允许负库存**（物料级） | 物料档案 → 允许负库存 | 全关（0） | 只放开**这一个物料**，其他仍保护 | 单物料 |
+| **隐藏无库存商品**（hide_unavailable_items） | POS Profile | 关（0） | 只控制 0 库存商品**在 POS 列表显不显示**，不影响能否卖 | POS 显示 |
+
+**代码机制**：POS `check_stock_availability`（pos_controller.js）开头 `if (is_negative_stock_allowed) return;` 直接跳过库存校验；`is_negative_stock_allowed`（erpnext/stock/stock_ledger.py:2357）优先读全局 Stock Settings，其次读单物料 Item.allow_negative_stock。POS 前端通过 `pos_invoice.get_stock_availability` 拿 `(available_qty, is_stock_item, is_negative_stock_allowed)`。
+
+**配合用法（上线后库存不准时）**：
+- 个别物料不准 → 只开**单物料开关**，对完库存/盘点后关掉
+- 整体不准 → **全局开关临时开**，对完账立刻关；不建议长期开（库存变负后报表/毛利/盘点失真）
+- 「隐藏无库存商品」与能否卖无关，纯显示控制：想看到 0 库存商品保持关，不想看到就开
+- 开负库存卖出的缺口，事后必须用入库/盘点把账调平
+
 ---
 
 ## 二、服务器环境信息
