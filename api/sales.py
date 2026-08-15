@@ -110,10 +110,30 @@ def validate_sales_invoice(doc, method=None):
                     max_pct
                 )
             )
+        elif doc.get("is_pos"):
+            # POS 草稿保存静默——提交时由前端弹审批密码对话框处理
+            pass
         else:
+            # 桌面表单草稿保存：仅提示不拦截
             frappe.msgprint(
                 _("折扣 {0}% 未经审批：提交前需管理员输入审批密码").format(max_pct)
             )
+
+
+@frappe.whitelist()
+def verify_discount_approval_password(password, company=None):
+    """POS 审批对话框用：校验审批密码是否正确（不修改任何数据）
+
+    返回 {"ok": True/False}；审批未启用或密码为空时视为通过（由提交时后端门再次把关）。
+    """
+    if not company:
+        company = frappe.defaults.get_user_default("company")
+    enabled, threshold, approval_pwd = _get_discount_approval_settings(
+        frappe._dict({"company": company})
+    )
+    if not enabled or not approval_pwd:
+        return {"ok": True}
+    return {"ok": password == approval_pwd}
 
     # 示例3：检查自定义字段
     if doc.get("custom_approver") and not doc.get("custom_approval_date"):

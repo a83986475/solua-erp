@@ -206,6 +206,74 @@ frappe.provide("solua_home.pos");
 	}
 
 	// ------------------------------------------------------------------
+	// 判断单据是否含任何折扣（行折扣/整单折扣）
+	// ------------------------------------------------------------------
+	function has_unapproved_discount(doc) {
+		if (!doc) return false;
+		if (frappe.utils.flt(doc.additional_discount_percentage) > 0) return true;
+		if (frappe.utils.flt(doc.discount_amount) > 0) return true;
+		for (const it of doc.items || []) {
+			if (frappe.utils.flt(it.discount_percentage) > 0) return true;
+			if (frappe.utils.flt(it.discount_amount) > 0) return true;
+		}
+		return false;
+	}
+
+	// ------------------------------------------------------------------
+	// POS 折扣审批密码对话框：提交时弹窗输入密码，验证通过才继续提交。
+	// 返回 Promise：resolve(密码) 表示通过；resolve(null) 表示取消。
+	// ------------------------------------------------------------------
+	function show_pos_discount_approval(frm) {
+		return new Promise((resolve) => {
+			const dialog = new frappe.ui.Dialog({
+				title: __("折扣审批"),
+				static: true,
+				fields: [
+					{
+						fieldtype: "HTML",
+						fieldname: "info",
+						options: `<div style="margin-bottom:6px;color:var(--text-muted);font-size:0.9rem;">${__("本单据含折扣，提交前需管理员输入审批密码")}</div>`,
+					},
+					{
+						fieldtype: "Password",
+						fieldname: "approval_password",
+						label: __("审批密码"),
+						reqd: 1,
+					},
+				],
+				primary_action_label: __("确认提交"),
+				primary_action(values) {
+					const password = (values.approval_password || "").trim();
+					if (!password) return;
+					frappe.call({
+						method: "solua_home.api.sales.verify_discount_approval_password",
+						args: { password, company: frm.doc.company },
+						callback: (r) => {
+							if (r.message && r.message.ok) {
+								dialog.hide();
+								resolve(password);
+							} else {
+								frappe.show_alert({
+									message: __("审批密码错误，请重新输入"),
+									indicator: "red",
+								});
+								frappe.utils.play_sound("error");
+								dialog.get_field("approval_password").$input.focus();
+							}
+						},
+					});
+				},
+				secondary_action() {
+					dialog.hide();
+					resolve(null);
+				},
+			});
+			dialog.show();
+			dialog.get_field("approval_password").$input.focus();
+		});
+	}
+
+	// ------------------------------------------------------------------
 	// 拦截模板物料的「点击/自动加购」：不直接加（模板无价会报
 	// 「未设置物料价格」），改为弹颜色选择框让收银员选具体颜色。
 	// 覆盖场景：手工输入条码回车、原生扫码路径（搜索→自动加购）、
@@ -305,6 +373,22 @@ frappe.provide("solua_home.pos");
 					},
 				});
 			}, 500);
+		};
+
+		// POS 提交拦截：带未审批折扣时弹审批密码对话框（仅 POS 发票）
+		const original_form_savesubmit = frappe.ui.form.Form.prototype.savesubmit;
+		frappe.ui.form.Form.prototype.savesubmit = function (btn, callback, on_error) {
+			const me = this;
+			const doc = me.doc;
+			const is_pos =
+				window.cur_pos && window.cur_pos.frm === me && doc && doc.is_pos;
+			if (is_pos && has_unapproved_discount(doc)) {
+				return show_pos_discount_approval(me).then((password) => {
+					if (password) doc.custom_approval_password = password;
+					return original_form_savesubmit.call(me, btn, callback, on_error);
+				});
+			}
+			return original_form_savesubmit.call(me, btn, callback, on_error);
 		};
 
 		// POS 商品数据带 has_variants：换用 solua_home 包装器

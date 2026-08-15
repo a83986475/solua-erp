@@ -448,6 +448,14 @@
 - 「隐藏无库存商品」与能否卖无关，纯显示控制：想看到 0 库存商品保持关，不想看到就开
 - 开负库存卖出的缺口，事后必须用入库/盘点把账调平
 
+**POS 折扣审批改为弹窗输密码**（2026-08-15，用户要求：审批流程要快，直接在 POS 页面弹窗，不去后台翻草稿）：
+- 原流程：POS 提交被拦 → 去 销售→销售发票 打开草稿 → 填「审批密码」→ 保存 → 再提交（太慢）
+- 新流程：POS 提交时 `Form.prototype.savesubmit` 被 pos_custom.js 拦截（仅 `doc.is_pos=1` 的 POS 发票）→ 弹「折扣审批」对话框 → 输密码 → 后端 `verify_discount_approval_password` 校验 → 通过则写入 `custom_approval_password` 继续提交（后端门再次把关，绕不过）
+- 后端配套：`api/sales.py` 新增 whitelisted `verify_discount_approval_password(password, company)`；草稿保存提示只在**非 POS**（`is_pos` 为空）时弹，POS 草稿保存静默（避免频繁提示）
+- 桌面发票/订单保持原流程（字段填密码）不变——用户明确「那是另一回事」
+- 验证：verify 正确/错误密码 ✅｜POS 发票(is_pos=1,10%)草稿静默保存 ✅｜提交被拦「未经审批」✅｜带密码提交成功 approved=1 ✅
+- 踩坑：脚本测试 POS 发票提交需带 payments 全额付款（Partial Payment 检查在折扣门前），真实 POS 付款对话框已自动满足
+
 ---
 
 ## 二、服务器环境信息
