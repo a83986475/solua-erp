@@ -89,14 +89,16 @@ def before_validate_item(doc, method=None):
 
 def validate_item(doc, method=None):
     """物料保存时验证"""
-    # 示例：物料编码规则校验
+    # 物料编码规则校验：至少 3 位
     if doc.item_code and len(doc.item_code) < 3:
         frappe.throw(_("物料编码长度不能少于3位"))
 
-    # 示例：物料名称不能包含特殊字符
+    # 物料名称校验：只拦截危险字符（< > " '），放开常见字符（如 /、&、:、（））
+    # 2026-08-15 用户要求放开：导入真实物料时名称常含 "/"（如 "140×200 / Algodão"），
+    # 斜杠无实际危害，只影响打印/文件名观感，不应因此拦建档
     import re
-    if doc.item_name and re.search(r'[<>"\'/]', doc.item_name):
-        frappe.throw(_("物料名称不能包含特殊字符（< > \" \' /）"))
+    if doc.item_name and re.search(r'[<>"\']', doc.item_name):
+        frappe.throw(_("物料名称不能包含特殊字符（< > \" \'）"))
 
     # 标签条码自动填充（Print Designer 用）
     if doc.variant_of:
