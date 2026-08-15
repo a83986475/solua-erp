@@ -182,10 +182,29 @@ def fix_is_billing_contact():
 
 @frappe.whitelist()
 def get_items(start, page_length, price_list, item_group, pos_profile, search_term=''):
-    """POS 商品加载：默认不返回商品（扫码/搜索才加载），避免全量物料导致卡顿"""
+    """POS 商品加载：默认不返回商品（扫码/搜索才加载），避免全量物料导致卡顿；
+
+    附加 has_variants 标记：前端据此拦截「模板物料直接加购」（模板无价会报
+    错「未设置物料价格」），改为弹颜色选择框让收银员选具体颜色。
+    """
     if not search_term:
         return {"items": []}
 
     from erpnext.selling.page.point_of_sale import point_of_sale as pos_page
 
-    return pos_page.get_items(start, page_length, price_list, item_group, pos_profile, search_term)
+    result = pos_page.get_items(start, page_length, price_list, item_group, pos_profile, search_term)
+    items = (result or {}).get("items") or []
+    if items:
+        codes = [it.get("item_code") for it in items if it.get("item_code")]
+        if codes:
+            hv_map = dict(
+                frappe.db.get_all(
+                    "Item",
+                    filters={"name": ["in", codes]},
+                    fields=["name", "has_variants"],
+                    as_list=True,
+                )
+            )
+            for it in items:
+                it["has_variants"] = 1 if hv_map.get(it.get("item_code")) else 0
+    return result

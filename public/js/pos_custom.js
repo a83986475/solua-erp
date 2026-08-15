@@ -203,6 +203,44 @@ frappe.provide("solua_home.pos");
 	}
 
 	// ------------------------------------------------------------------
+	// 拦截模板物料的「点击/自动加购」：不直接加（模板无价会报
+	// 「未设置物料价格」），改为弹颜色选择框让收银员选具体颜色。
+	// 覆盖场景：手工输入条码回车、原生扫码路径（搜索→自动加购）、
+	// 直接在结果列表点模板卡片。
+	// ------------------------------------------------------------------
+	function attach_template_click_interceptor(selector) {
+		if (!selector || !selector.$component || !selector.$component[0]) return;
+		if (selector._template_click_bound) return; // 同一实例只绑一次
+		selector._template_click_bound = true;
+
+		const me = selector;
+		// capture 阶段先于原生 bubble 处理执行；stopPropagation 阻止原生加购
+		selector.$component[0].addEventListener(
+			"click",
+			function (e) {
+				const $item = $(e.target).closest(".item-wrapper");
+				if (!$item.length) return;
+				const item_code = $item.attr("data-item-code");
+				if (!item_code) return;
+				const item = (me.items || []).find((i) => i.item_code === item_code);
+				if (!item || !item.has_variants) return; // 非模板：交给原生处理
+
+				e.preventDefault();
+				e.stopPropagation();
+				frappe.call({
+					method: "solua_home.api.pos.scan_barcode_for_pos",
+					args: { barcode: item_code },
+					callback: (r) => {
+						const res = r.message;
+						if (res && res.type === "template") show_color_picker(res);
+					},
+				});
+			},
+			true
+		);
+	}
+
+	// ------------------------------------------------------------------
 	// 绑定：把 ItemSelector 的默认扫码监听替换成自定义实现
 	// ------------------------------------------------------------------
 	let poll_attempts = 0;
@@ -222,11 +260,28 @@ frappe.provide("solua_home.pos");
 		applied = true;
 
 		const original_bind_events = erpnext.PointOfSale.ItemSelector.prototype.bind_events;
+		const original_get_items = erpnext.PointOfSale.ItemSelector.prototype.get_items;
+
+		// POS 商品数据带 has_variants：换用 solua_home 包装器
+		// （附加模板标记后转发原生查询，前端据此拦截模板直加）
+		erpnext.PointOfSale.ItemSelector.prototype.get_items = function (args) {
+			const { start = 0, page_length = 40, search_term = "" } = args || {};
+			const doc = this.events.get_frm().doc;
+			const price_list = (doc && doc.selling_price_list) || this.price_list;
+			const { item_group, pos_profile } = this;
+			return frappe.call({
+				method: "solua_home.api.pos.get_items",
+				freeze: true,
+				args: { start, page_length, price_list, item_group, search_term, pos_profile },
+			});
+		};
 
 		// POS 每次刷新（如新建开单、重新进入）都会重建 ItemSelector 并重新执行
 		// bind_events，所以把替换逻辑挂在原型方法上，保证始终生效。
 		erpnext.PointOfSale.ItemSelector.prototype.bind_events = function () {
 			original_bind_events.call(this);
+
+			attach_template_click_interceptor(this);
 
 			if (!window.onScan) return;
 			window.onScan.detachFrom(document);
@@ -260,6 +315,7 @@ frappe.provide("solua_home.pos");
 			window.onScan.attachTo(document, {
 				onScan: (sScancode) => handle_barcode_scan.call(window.cur_pos.item_selector, sScancode),
 			});
+			attach_template_click_interceptor(window.cur_pos.item_selector);
 		}
 	}
 
