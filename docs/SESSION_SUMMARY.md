@@ -456,6 +456,7 @@
 - 验证：verify 正确/错误密码 ✅｜POS 发票(is_pos=1,10%)草稿静默保存 ✅｜提交被拦「未经审批」✅｜带密码提交成功 approved=1 ✅
 - 踩坑：脚本测试 POS 发票提交需带 payments 全额付款（Partial Payment 检查在折扣门前），真实 POS 付款对话框已自动满足
 - **Bug 修复**：用户实测报 `frappe.utils.flt is not a function`（has_unapproved_discount 卡死、弹窗不出现）——Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在；改为全局 `flt(...)`（与 erpnext 自带 POS 代码一致），提交 `e523d29` 已推送 GitHub，三处 md5 一致
+- **反复「改了没生效」的真正根因（重要，写进备忘录）**：服务器代码已是新版，但用户浏览器仍跑旧 pos_custom.js——Frappe `pageview.js`（`frappe/views/pageview.js`）在**生产模式**（`developer_mode != 1`）下把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<page名>"]`，之后每次打开页面**直接用缓存、不再请求服务器**，硬刷新 Ctrl+Shift+R 也清不掉 localStorage。point-of-sale 页无 HTML 模板（无 jinja）→ `_dynamic_page` 从未置位 → 必被缓存。**根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage` → `solua_home.override.desk_page.getpage`，返回文档置 `_dynamic_page=1`，pageview.js 见标记即跳过 localStorage 缓存（每页多一次小请求，本项目可接受）。已端到端验证：handler.py:67 请求时 `override_whitelisted_method` 解析 ✅；直接调用返回 `_dynamic_page: 1` + 最新脚本（无 `frappe.utils.flt`）✅。提交 `fca4e5d`（待推）
 
 ---
 
