@@ -458,6 +458,12 @@
 - **Bug 修复**：用户实测报 `frappe.utils.flt is not a function`（has_unapproved_discount 卡死、弹窗不出现）——Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在；改为全局 `flt(...)`（与 erpnext 自带 POS 代码一致），提交 `e523d29` 已推送 GitHub，三处 md5 一致
 - **反复「改了没生效」的真正根因（重要，写进备忘录）**：服务器代码已是新版，但用户浏览器仍跑旧 pos_custom.js——Frappe `pageview.js`（`frappe/views/pageview.js`）在**生产模式**（`developer_mode != 1`）下把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<page名>"]`，之后每次打开页面**直接用缓存、不再请求服务器**，硬刷新 Ctrl+Shift+R 也清不掉 localStorage。point-of-sale 页无 HTML 模板（无 jinja）→ `_dynamic_page` 从未置位 → 必被缓存。**根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage` → `solua_home.override.desk_page.getpage`，返回文档置 `_dynamic_page=1`，pageview.js 见标记即跳过 localStorage 缓存（每页多一次小请求，本项目可接受）。已端到端验证：handler.py:67 请求时 `override_whitelisted_method` 解析 ✅；直接调用返回 `_dynamic_page: 1` + 最新脚本（无 `frappe.utils.flt`）✅。**踩坑**：override 函数必须带 `@frappe.whitelist()` 装饰器——handler 的 `is_whitelisted` 校验的是**替换后**的函数（whitelisted 集合在模块 import 时由装饰器登记），第一版漏了装饰器导致页面 403「方法未申明 @frappe.whitelist()」；补上装饰器（`allow_guest=True` 与原方法一致）+ 重启后恢复正常，按 handler 三步（override 解析 → get_attr → is_whitelisted）验证全部通过。提交 `350dc53` + 修复提交（待推）
 
+**收银完成静默打印 + 自动开新单（2026-08-16，用户要求超市收银体验）**：
+- 问题：POS Profile `print_receipt_on_order_complete=1` 时，收银完成后默认走 `frappe.utils.print` 在**新标签页**打开带正式信头（Company Letterhead - Grey）的 printview——太正式、流程慢
+- 修复（pos_custom.js）：① `pos_silent_print`——隐藏 iframe 加载 printview（`no_letterhead=1`，小票无正式信头），`iframe.contentWindow.print()` 阻塞到打印对话框关闭；② 包装 `PastOrderSummary.load_summary_of`——after_submission 时临时关掉默认 new-tab 打印、正常渲染收据摘要，静默打印完成（对话框关闭）后自动调 `events.new_order()` 开新单（超市收银模式）；③ 手动打印按钮也改走静默打印（不再弹新标签页）
+- 开关：仍用 POS Profile「打印收据」(print_receipt_on_order_complete)——开=自动打印+自动开新单，关=手动流程；手动打印始终是静默方式
+- 提交 `d74a1fc` 已推送 GitHub；printview 本身不响应 trigger_print（`frappe.utils.print` 的 trigger_print=1 只存在于 utils.js），打印由 iframe 自己调 window.print()
+
 ---
 
 ## 二、服务器环境信息
