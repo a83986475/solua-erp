@@ -19,8 +19,14 @@ import frappe
 from frappe.desk import desk_page
 
 
+@frappe.whitelist(allow_guest=True)
 def getpage(name: str):
-	"""包装 frappe.desk.desk_page.getpage：强制不缓存 Page 文档。"""
+	"""包装 frappe.desk.desk_page.getpage：强制不缓存 Page 文档。
+
+	必须带 @frappe.whitelist()：override 解析后 handler 会对**替换后**的
+	函数做 is_whitelisted 校验（whitelisted 集合在模块 import 时由装饰器
+	登记），不带装饰器会报「方法未申明 @frappe.whitelist()」403。
+	"""
 	doc = desk_page.get(name)
 	doc._dynamic_page = 1
 	frappe.response.docs.append(doc)
