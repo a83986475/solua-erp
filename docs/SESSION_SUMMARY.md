@@ -456,13 +456,13 @@
 - 验证：verify 正确/错误密码 ✅｜POS 发票(is_pos=1,10%)草稿静默保存 ✅｜提交被拦「未经审批」✅｜带密码提交成功 approved=1 ✅
 - 踩坑：脚本测试 POS 发票提交需带 payments 全额付款（Partial Payment 检查在折扣门前），真实 POS 付款对话框已自动满足
 - **Bug 修复**：用户实测报 `frappe.utils.flt is not a function`（has_unapproved_discount 卡死、弹窗不出现）——Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在；改为全局 `flt(...)`（与 erpnext 自带 POS 代码一致），提交 `e523d29` 已推送 GitHub，三处 md5 一致
-- **「加密密钥无效」弹窗的真正根因（重要，写进备忘录）**：折扣收银时反复弹「加密密钥无效！请检查 site_config.json」但提交其实成功。用临时日志补丁抓到调用者栈（savedocs → submit → validate → `_try_decrypt('solua2026')` → `decrypt('solua2026')` InvalidToken）——**根因是 Frappe `decrypt()` 的副作用**：`decrypt` 的 `except InvalidToken` 分支执行 `frappe.throw(...)`，而 `frappe.throw` 内部 `msgprint` 会把「加密密钥无效」写进 `frappe.local.message_log` **然后才抛异常**；我们的 `_try_decrypt` 虽 try/except 接住了异常（提交照常成功），但 message_log 里的消息已随 API 响应返回，前端 `frappe.call` 把 `_server_messages` 当服务端消息弹出 → 用户看到「加密密钥无效」。**修复**：`_try_decrypt` 只对 Fernet 密文（固定以 `gAAAA` 开头）调用 decrypt，明文密码（如对话框输入 `solua2026`）直接原样返回，不再误触发解密 → 消息零污染。验证：明文返回且 message_log 空 ✅、加密值正常解密 ✅、完整折扣提交成功且无警告 ✅。临时日志补丁已从 frappe/utils/password.py 移除（原文件恢复），提交待推
-- **反复「改了没生效」的真正根因（重要，写进备忘录）**：服务器代码已是新版，但用户浏览器仍跑旧 pos_custom.js——Frappe `pageview.js`（`frappe/views/pageview.js`）在**生产模式**（`developer_mode != 1`）下把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<page名>"]`，之后每次打开页面**直接用缓存、不再请求服务器**，硬刷新 Ctrl+Shift+R 也清不掉 localStorage。point-of-sale 页无 HTML 模板（无 jinja）→ `_dynamic_page` 从未置位 → 必被缓存。**根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage` → `solua_home.override.desk_page.getpage`，返回文档置 `_dynamic_page=1`，pageview.js 见标记即跳过 localStorage 缓存（每页多一次小请求，本项目可接受）。已端到端验证：handler.py:67 请求时 `override_whitelisted_method` 解析 ✅；直接调用返回 `_dynamic_page: 1` + 最新脚本（无 `frappe.utils.flt`）✅。**踩坑**：override 函数必须带 `@frappe.whitelist()` 装饰器——handler 的 `is_whitelisted` 校验的是**替换后**的函数（whitelisted 集合在模块 import 时由装饰器登记），第一版漏了装饰器导致页面 403「方法未申明 @frappe.whitelist()」；补上装饰器（`allow_guest=True` 与原方法一致）+ 重启后恢复正常，按 handler 三步（override 解析 → get_attr → is_whitelisted）验证全部通过。提交 `350dc53` + 修复提交（待推）
+- **「加密密钥无效」弹窗的真正根因（重要，写进备忘录）**：折扣收银时反复弹「加密密钥无效！请检查 site_config.json」但提交其实成功。用临时日志补丁抓到调用者栈（savedocs → submit → validate → `_try_decrypt('solua2026')` → `decrypt('solua2026')` InvalidToken）——**根因是 Frappe `decrypt()` 的副作用**：`decrypt` 的 `except InvalidToken` 分支执行 `frappe.throw(...)`，而 `frappe.throw` 内部 `msgprint` 会把「加密密钥无效」写进 `frappe.local.message_log` **然后才抛异常**；我们的 `_try_decrypt` 虽 try/except 接住了异常（提交照常成功），但 message_log 里的消息已随 API 响应返回，前端 `frappe.call` 把 `_server_messages` 当服务端消息弹出 → 用户看到「加密密钥无效」。**修复**：`_try_decrypt` 只对 Fernet 密文（固定以 `gAAAA` 开头）调用 decrypt，明文密码（如对话框输入 `solua2026`）直接原样返回，不再误触发解密 → 消息零污染。验证：明文返回且 message_log 空 ✅、加密值正常解密 ✅、完整折扣提交成功且无警告 ✅。临时日志补丁已从 frappe/utils/password.py 移除（原文件恢复），提交 `3914027` 已推送 GitHub，本地/服务器 md5 一致
+- **反复「改了没生效」的真正根因（重要，写进备忘录）**：服务器代码已是新版，但用户浏览器仍跑旧 pos_custom.js——Frappe `pageview.js`（`frappe/views/pageview.js`）在**生产模式**（`developer_mode != 1`）下把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<page名>"]`，之后每次打开页面**直接用缓存、不再请求服务器**，硬刷新 Ctrl+Shift+R 也清不掉 localStorage。point-of-sale 页无 HTML 模板（无 jinja）→ `_dynamic_page` 从未置位 → 必被缓存。**根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage` → `solua_home.override.desk_page.getpage`，返回文档置 `_dynamic_page=1`，pageview.js 见标记即跳过 localStorage 缓存（每页多一次小请求，本项目可接受）。已端到端验证：handler.py:67 请求时 `override_whitelisted_method` 解析 ✅；直接调用返回 `_dynamic_page: 1` + 最新脚本（无 `frappe.utils.flt`）✅。**踩坑**：override 函数必须带 `@frappe.whitelist()` 装饰器——handler 的 `is_whitelisted` 校验的是**替换后**的函数（whitelisted 集合在模块 import 时由装饰器登记），第一版漏了装饰器导致页面 403「方法未申明 @frappe.whitelist()」；补上装饰器（`allow_guest=True` 与原方法一致）+ 重启后恢复正常，按 handler 三步（override 解析 → get_attr → is_whitelisted）验证全部通过。提交 `350dc53`（override）+ `219b3ed`（whitelist 补丁）已推送 GitHub
 
 **收银完成静默打印 + 自动开新单（2026-08-16，用户要求超市收银体验）**：
 - 问题：POS Profile `print_receipt_on_order_complete=1` 时，收银完成后默认走 `frappe.utils.print` 在**新标签页**打开带正式信头（Company Letterhead - Grey）的 printview——太正式、流程慢
 - 修复（pos_custom.js）：① `pos_silent_print`——隐藏 iframe 加载 printview（`no_letterhead=1`，小票无正式信头），`iframe.contentWindow.print()` 阻塞到打印对话框关闭；② 包装 `PastOrderSummary.load_summary_of`——after_submission 时临时关掉默认 new-tab 打印、正常渲染收据摘要，静默打印完成（对话框关闭）后自动调 `events.new_order()` 开新单（超市收银模式）；③ 手动打印按钮也改走静默打印（不再弹新标签页）
-- 开关：仍用 POS Profile「打印收据」(print_receipt_on_order_complete)——开=自动打印+自动开新单，关=手动流程；手动打印始终是静默方式
+- 开关：仍用 POS Profile「打印收据」(print_receipt_on_order_complete)——开=自动打印+自动开新单，关=手动流程；手动打印始终是静默方式（注：此开关后续已拆分为独立控制，见下条「自动开新单独立开关」）
 - 提交 `d74a1fc` 已推送 GitHub；printview 本身不响应 trigger_print（`frappe.utils.print` 的 trigger_print=1 只存在于 utils.js），打印由 iframe 自己调 window.print()
 
 **自动开新单独立开关（2026-08-16，与自动打印分开控制）**：
@@ -470,6 +470,14 @@
 - 新增 POS Profile 自定义字段 `custom_auto_new_order`（Check，默认 1，标签「收银后自动开新单」，insert_after `print_receipt_on_order_complete`），install.py 的 `add_pos_profile_settings()` 创建并给存量 Profile 补默认 1；`after_install` 已挂接，bench migrate 即生效
 - pos_custom.js：① 透明包装 `PastOrderSummary` 构造函数（`Reflect.construct` + 原型链保留），从 settings（`get_pos_profile_data` 返回完整 Profile 文档，自定义字段自动包含）读出 `inst.auto_new_order_on_complete`；② `load_summary_of` 改双开关逻辑——打印开+开新单开=静默打印完自动开新单；打印开+开新单关=只打印停留摘要页；打印关+开新单开=不打印、短暂显示 1.2s 后自动开新单；打印关+开新单关=原生手动流程
 - 验证：bench migrate 建字段 ✅、`get_pos_profile_data` 返回 `custom_auto_new_order: 1` ✅、服务器 JS node --check ✅；收银方式1 - SH 已置 1（保持原行为）
+
+**小票功能与设计进展（2026-08-16，用户询问小票是什么/在哪设计）**：
+- 当前小票 = POS Profile（收银方式1 - SH）→「打印格式」选的内置 `POS Invoice` 格式；已实际渲染成 PDF 预览给用户看过
+- ⚠️ 发现的问题：内置格式是**标准单据宽度**，不是窄条热敏纸——预览里**金额列被截断**（"1,5" 只显示一半），打到 58/80mm 热敏纸上会很难看 → 上线前需做一张专用小票格式
+- 设计入口：① **Print Designer**（推荐，可视化拖拽，同价格标签工具）——画布设 80mm 宽，拖入店名/单号/日期/收银员/商品行/合计/折扣/总额/付款/找零；② **内置打印格式编辑器**（设置→打印→打印格式，改 HTML/Jinja + CSS，精确控制宽度字号，纯代码）
+- 建议版式：店名 → 单号/日期时间/收银员 → 分隔线 → 商品（名称/数量/单价/金额）→ 合计/折扣/总额 → 现金/刷卡/找零 → 感谢语
+- **免确认静默打印方案**（用户问“什么插件”）：① 方案 A：Chrome `--kiosk-printing` 启动参数——`window.print()` 直接打到默认打印机、完全不弹对话框（零安装，热敏机设为系统默认打印机即可，免费）；② 方案 B：**QZ Tray**（行业标准）——收银台装桌面程序+浏览器扩展，网页 JS 发原始 ESC/POS 指令，更快更稳、支持钱箱自动弹开/直接打条码，商业使用需授权（个人免费）
+- **待确认**：用户热敏小票机纸宽（58mm/80mm），确认后在 Print Designer 搭「小票 80mm/58mm」版式，两个方案通用
 
 ---
 
@@ -852,3 +860,21 @@ frappe.db.commit()
 - 复制子模块目录时 `.git` 文件（`gitdir: ../../.git/modules/sites/erpnext`）也会被复制，相对路径失效 → `fatal: not a git repository`
 - 该目录被 IDE 占用时无法重命名/删除（`Device or resource busy`），需先关闭 IDE 再用回收站脚本清理
 - 结论：**保留 solua-home 里的正式子模块，删除根目录孤儿拷贝**（内容已 md5 验证一致）
+
+### Frappe `decrypt()` 的 `frappe.throw` 副作用（重要！2026-08-16 折扣收银反复弹「加密密钥无效」）
+- **症状**：用 try/except 接住了 `decrypt()` 异常，但前端仍弹「加密密钥无效！请检查 site_config.json」，且功能其实正常（提交成功）
+- **根因**：`decrypt()` 的 `except InvalidToken` 分支执行 `frappe.throw(...)`；`frappe.throw` 内部会先 `msgprint` 把消息写进 `frappe.local.message_log` **然后才抛异常**。调用方 try/except 接住异常后，message_log 里的消息已随 API 响应返回，前端 `frappe.call` 把 `_server_messages` 当服务端提示弹出
+- **诊断方法**：临时给 `decrypt()` 打日志补丁（记录输入值 + `traceback.format_exc()` + 调用者栈）抓复现；定位到 `savedocs → submit → validate → _try_decrypt('solua2026')`
+- **修复**：调用 `decrypt()` 前先判断值是否为 Fernet 密文（**固定以 `gAAAA` 开头**），非密文直接原样返回，绝不误触发 decrypt → message_log 零污染
+- **推广**：任何封装 decrypt/encrypt 的工具函数都应先判密文格式，避免把明文/脏值喂给 decrypt 触发 throw 副作用
+
+### 前端 pageview localStorage 缓存（重要！2026-08-16 反复“改了没生效”）
+- **症状**：服务器代码已是新版，用户浏览器仍跑旧 page_js（pos_custom.js），Ctrl+Shift+R 也清不掉
+- **根因**：`frappe/views/pageview.js` 在**生产模式**（`developer_mode != 1`）把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<页面名>"]`，之后每次打开**直接用缓存不再请求服务器**；页面无 HTML 模板（无 jinja）时 `_dynamic_page` 从未置位 → 必被缓存
+- **根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage`（`solua_home/override/desk_page.py`），返回文档置 `_dynamic_page=1` → pageview.js 见标记跳过 localStorage 缓存（每页多一次小请求）
+- **踩坑（403）**：override 函数必须带 `@frappe.whitelist()` 装饰器——handler 的 `is_whitelisted` 校验的是**替换后**的函数（whitelisted 集合在模块 import 时由装饰器登记）；漏装饰器会报 403「方法未申明 @frappe.whitelist()」，页面都打不开
+
+### 前端 `flt` 是全局函数，不是 `frappe.utils.flt`（2026-08-16）
+- **症状**：`frappe.utils.flt is not a function` TypeError，自定义 JS 卡死
+- **原因**：Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在
+- 修复：直接写 `flt(...)`（与 erpnext 自带 POS 代码一致）；同理 `cint` 也建议用全局函数或自行转换，避免踩同类坑
