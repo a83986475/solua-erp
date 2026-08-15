@@ -422,6 +422,8 @@
 
 **后续小修**：CR-001 模板 `custom_label_barcode` 里的 SVG 残留（疑似测试时把渲染图写进字段）已清掉，恢复为纯数字 `6901234567892`；全量复查确认所有物料该字段均为纯条码值，无其他残留。
 
+**新增 CR-002 测试产品族**（共享条码测试用）：模板 CR-002（Cortina Roman 2.0m，共享条码 `6901234567893`）+ 4 色变体（Branco/Preto/Azul/Cinza，Standard Selling 1500 MZN）——扫共享条码弹 4 色选色框，扫变体码直选。踩坑：① 模板不能设 standard_rate（ERPNext after_insert 会给模板自动建价并报错，只给变体显式建价）；② 变体名不能含 `/`（被自定义 validate_item 拦截，CR-001 同款用连字符格式）。
+
 ---
 
 ## 二、服务器环境信息
