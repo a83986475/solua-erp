@@ -2852,6 +2852,7 @@
    "update_stock": 1,
    "ignore_pricing_rule": 0,
    "print_receipt_on_order_complete": 1,
+   "custom_auto_new_order": 1,
    "hide_images": 0,
    "hide_unavailable_items": 0,
    "auto_add_item_to_cart": 0,
