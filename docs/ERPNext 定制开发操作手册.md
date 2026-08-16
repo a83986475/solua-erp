@@ -412,22 +412,30 @@ cd ~/frappe-bench && bash start.sh
 
 > 本机只保留 **bench 版**（`~/frappe-bench`，dev.localhost:8000）。曾装过的 Docker 版（frappe_docker，v16.23.1）已**全部删除**：容器、镜像、数据卷、源码目录 `~/frappe_docker`，且残留的 84 个悬空卷也已 `docker volume prune -f` 清空。
 
-**Docker 自启状态**（实测确认，无需再动）：
+**Docker 自启状态**（两次重启 WSL 实测确认，已彻底禁用）：
 
 | 单元 | 自启 | 说明 |
 |------|------|------|
 | `docker.service` | disabled | 已禁用 |
 | `docker.socket` | disabled | 已禁用（否则 socket 激活会在有客户端连接时自动拉起 dockerd） |
 | `containerd.service` | disabled | 已禁用 |
+| `erpnext-compose.service` | **已删除** | ⚠️ 真正自启源头，见下方坑 |
 
-禁用命令（需要 root，用 `wsl -u root -e` 执行）：
+> 🚨 **坑：禁用 docker 三单元后 dockerd 仍会自启——是别的单元把它拽起来的**
+>
+> frappe_docker 时代遗留的 `/etc/systemd/system/erpnext-compose.service`（`Requires=docker.service` + `WantedBy=multi-user.target`）在每次开机时把 docker 一起拉起，它自己因 `~/frappe_docker` 已删而启动失败（failed），但依赖已生效。
+>
+> 排查命令：`journalctl -b -u docker.service`（看谁启动的）+ `systemctl list-unit-files --state=enabled | grep -i docker`（找依赖 docker 的单元）。
+>
+> 根治（需要 root）：
+>
+> ```bash
+> wsl -u root -e systemctl stop docker docker.socket containerd erpnext-compose.service
+> wsl -u root -e systemctl disable erpnext-compose.service
+> wsl -u root -e rm -f /etc/systemd/system/erpnext-compose.service
+> ```
 
-```bash
-wsl -u root -e systemctl disable --now docker containerd
-wsl -u root -e systemctl disable --now docker.socket
-```
-
-**验证**：`wsl -e bash -lc "systemctl is-enabled docker docker.socket containerd"` 应全部输出 `disabled`；`docker ps` 报 `Cannot connect to the Docker daemon` 即为正常（无自启）。
+**验证**：重启 WSL（`wsl --shutdown` 后重新进入）后执行 `wsl -e bash -lc "systemctl is-enabled docker docker.socket containerd"` 应全部输出 `disabled`、`systemctl is-active docker docker.socket` 输出 `inactive`、无 dockerd 进程、无 `/var/run/docker.sock`；`docker ps` 报 `Cannot connect to the Docker daemon` 即为正常（无自启）。
 
 **日后要用 Docker 时手动启动**：
 
