@@ -485,6 +485,18 @@
 - 本地 .freebuff/ 清理：34 个诊断脚本 + 根目录 check_mo.py/.tmp_setup_cr001.py（.html/.png/.pdf 预览产物保留）
 - 确认：`frappe/utils/password.py` 已恢复原版（无补丁残留）、`/tmp/decrypt_fail.log` 已不存在
 
+**POS 三条主流程回归实测（2026-08-16，删调试日志后确认功能不受影响）**：
+- 后端全链路实测 **20/20 通过**：① 选色——共享条码 `6901234567893`→模板 CR-002+4 色（AZ/BR/CZ/PR）、变体码 `CR-001-BR`→直接定位、不存在条码→not_found、get_items 搜索命中变体+带 has_variants 字段；② 折扣审批——正确/错误密码、POS 草稿静默保存、无密码提交被拦、带密码提交成功+approved=1、message_log 无「加密密钥无效」警告；③ 打印——两个开关=1、POS Invoice 格式渲染成功（7522 字符）、POS 页面文档含新版 JS 且无调试日志残留
+- **关键测试细节（踩坑）**：模拟带折扣的 Sales Invoice 时 `rate` 必须为**折后价**（1500×0.9=1350）——ERPNext `taxes_and_totals.py` 的 `calculate_item_rate` 在 rate 与折扣矛盾时**以 rate 为准清掉折扣**（`item.rate > price_list_rate` → margin；否则 `discount_percentage=0`）。真实 POS 前端会把 rate 联动重算为折后价再提交，所以用户实测没问题、纯脚本模拟会踩坑。模拟提交需设 `doc._action="submit"` 走提交拦截分支（frappe 内部 submit() 也会自设，但显式设置更稳）
+- 测试发票已清理（临时单删除，用户历史单 00022-00025 保留），测试脚本无残留
+
+**POS 开店对话框自动预填唯一 POS Profile（2026-08-16，用户问“pos 设置还得选，不能默认吗”）**：
+- 现象：POS 打开 → 无未交班 Opening Entry → 弹「开店」对话框，POS Profile 字段必填且无默认 → 每次都要手动选
+- 根因：`pos_controller.js` 的 `create_opening_voucher()` 对话框里 POS Profile 是 `reqd: 1` 且没有 default（后端 `pos_profile_query` 按 用户绑定 applicable_for_users + 公司 + disabled 过滤）
+- 修复（pos_custom.js）：包装 `Controller.prototype.create_opening_voucher`，弹窗显示后（`frappe.ui.open_dialogs` 全局注册表）找「含 pos_profile + balance_details 字段」的对话框；若当前用户可用 POS Profile **恰好 1 个**则 `set_value` 自动填入（触发 onchange 自动带出付款方式表 Cash/Credit Card），多个时保持手动选择不打扰
+- 验证：pos1/pos2/Administrator 三账号数据层查询均只返回「收银方式1 - SH」→ 都会自动预填；本地/服务器 md5 一致（`3e132b4b`）、页面文档含新代码、JS 语法 OK
+- 提交 `6bca96c` 已推送 GitHub
+
 ---
 
 ## 二、服务器环境信息
