@@ -17,6 +17,7 @@
 1. [环境架构总览](#1-环境架构总览)
 2. [版本要求速查（重要！）](#2-版本要求速查重要)
 3. [WSL2 开发环境搭建](#3-wsl2-开发环境搭建)
+   - [3.12 本地 v17 vs 生产 v16 差异注意点](#312-本地-v17-vs-生产-v16-差异注意点2026-08-16-已确认)
 4. [日常开发工作流](#4-日常开发工作流)
 5. [创建自定义 App](#5-创建自定义-app)
 6. [定制开发模式](#6-定制开发模式)
@@ -67,6 +68,12 @@
 
 > ⚠️ **实测经验**：ERPNext v16 的 `version-16` 分支（2026年7月）已更新依赖要求，和早期的 v16 不同。
 
+> 🚨 **版本现状（2026-08-16 已确认，勿再混淆）**：
+> - **生产 erp.solua.one = Frappe 16.27.0 + ERPNext 16.28.0（v16 家族）**——所有已上线功能、定制、踩坑记录均以此版本为基准
+> - **本地 WSL 开发环境 = ERPNext 17.0.0-dev（develop 分支）**——与生产版本**不一致**！
+> - 本地 v17 上测试通过 ≠ 生产 v16 行为一致，**一切以生产实测为准**；差异注意点见 **3.12**
+> - 下表依赖要求是 **v16 安装** 所需（对齐生产时用）；本地 v17 若已装好可跳过安装章节
+
 | 组件 | 版本要求 | 安装方式 | 验证命令 |
 |------|---------|---------|---------|
 | **Python** | **>= 3.14** | `deadnakes PPA` | `python3.14 --version` |
@@ -101,6 +108,8 @@
 ---
 
 ## 3. WSL2 开发环境搭建
+
+> 🚨 **现状（2026-08-16 确认）**：本地 WSL 的 bench 实际运行的是 **ERPNext 17.0.0-dev（develop 分支）**，并不是本节 v16 流程装出来的。本节保留为「对齐生产 v16」的参考流程：本地已跑 v17、只作探索的话可直接跳到 **3.12** 看差异注意点。
 
 ### 3.1 安装 WSL2
 
@@ -277,7 +286,7 @@ pipx install frappe-bench
 bench --version   # 应显示 5.x.x
 ```
 
-### 3.9 初始化 Bench 并安装 ERPNext v16
+### 3.9 初始化 Bench 并安装 ERPNext v16（对齐生产用；本机现状为 v17，见 3.12）
 
 ```bash
 # 初始化 bench（用 frappe v16 + Python 3.14）
@@ -366,16 +375,42 @@ cp /mnt/c/Users/Yang/solua-home/sites/erpnext/start.sh ~/frappe-bench/
 
 # 以后每次开发只需
 cd ~/frappe-bench && bash start.sh
-```
-
-`start.sh` 会自动完成三件事：
+````start.sh` 会自动完成三件事：
 1. 启动 MariaDB
 2. 启动 Redis
 3. 启动 bench 开发服务器
 
 `start-dev.sh` 在此基础上增加了状态检查、目录切换等更完善的提示。
 
+### 3.12 本地 v17 vs 生产 v16 差异注意点（2026-08-16 已确认）
+
+**版本事实**（实测命令：`pip show frappe` / `grep __version__ apps/erpnext/erpnext/__init__.py`）：
+
+| 环境 | Frappe | ERPNext | 定位 |
+|------|--------|---------|------|
+| **生产** erp.solua.one | 16.27.0 | 16.28.0 | 所有上线功能/定制/踩坑以此为基准 |
+| **本地 WSL** | v17 配套 | 17.0.0-dev（develop 分支） | 仅开发探索；行为可能与生产不同 |
+
+**生产 v16 实测到的行为**（本地 v17 是否一致**未验证**，勿照搬测试结论）：
+
+| # | v16 实测行为 | 影响 |
+|---|------------|------|
+| 1 | `flt` / `cint` 是**全局函数**（`window.flt`），`frappe.utils.flt` 不存在（前端自定义 JS 里直接用 `flt(...)`，与 erpnext 自带代码一致） | 自定义 JS 写 `frappe.utils.flt` 会报 `is not a function` |
+| 2 | 生产模式下 Page 文档（**含 page_js 自定义脚本**）会被缓存进浏览器 localStorage，Ctrl+Shift+R 也清不掉 → 已用 `override/desk_page.py` 置 `_dynamic_page=1` 根治 | 改 pos_custom.js 后不生效，通常不是缓存问题（已根治） |
+| 3 | master 单据（如 `Sales Taxes and Charges Template`）导入时 docstatus 可能异常为 1（is_submittable=0 却标已提交），锁死后续修改（报 UpdateAfterSubmitError） | 修改前先归 0；install.py 的 `configure_pos_tax()` 已内置处理 |
+| 4 | 子表（如 `POS Profile User`）对低权限角色默认**无读权限**，前端 `frappe.db.get_list` 抛 Insufficient Permission、promise 静默断裂 | 前端优先复用 whitelisted 查询方法（如 `pos_profile_query`），不要直查无权限子表 |
+| 5 | `frappe.throw` 内部会先 `msgprint` 写 message_log 再抛异常——try/except 接住异常后消息仍会随 API 响应弹到前端 | 封装 decrypt 等函数前先判输入格式，避免误触发 throw 副作用 |
+| 6 | POS 相关：`search_by_term` 扫模板条码直接返回模板并自动加购、开店对话框 POS Profile 必填无默认、付款单银行科目强制填参考号等 | 收银员最小权限下的行为需在 v16 实测 |
+
+**工作准则**：
+1. **自定义功能以生产 v16 实测为准**；本地 v17 仅用于语法检查、代码探索
+2. 在本地 v17 开发的改动，上生产前必须在 v16 重新实测（部署流程见第 8 章）
+3. 若要彻底消除版本差异：按 3.9 重装 v16（`bench init --frappe-branch version-16` + `bench get-app erpnext --branch version-16`）对齐生产，或明确本地仅作探索、不承诺行为一致
+
 ---
+
+
+
 
 ## 4. 日常开发工作流
 
