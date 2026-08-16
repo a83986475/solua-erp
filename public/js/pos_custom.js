@@ -446,7 +446,9 @@ frappe.provide("solua_home.pos");
 		const OriginalPastOrderSummary = erpnext.PointOfSale.PastOrderSummary;
 		function PosPastOrderSummary(...args) {
 			const inst = Reflect.construct(OriginalPastOrderSummary, args, PosPastOrderSummary);
-			const settings = (args && args[1]) || {};
+			// 原生构造函数签名是单对象 { wrapper, settings, events }——settings 在 args[0].settings
+			const opts = (args && args[0]) || {};
+			const settings = opts.settings || {};
 			inst.auto_new_order_on_complete =
 				settings.custom_auto_new_order === undefined
 					? 1
