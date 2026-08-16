@@ -524,6 +524,14 @@
 - 删除：`docker compose -f pwd.yml down -v`（容器+网络+项目数据卷 db-data/sites/logs/redis-queue-data）→ `docker image rm` 三镜像 → `rm -rf ~/frappe_docker`
 - 验证：无 frappe 容器/镜像/数据卷残留，bench 版 dev.localhost 正常（ping 200）不受影响
 
+**本地 dev.localhost 补齐公司级配置（含 IVA 税模板，2026-08-16，供本地测含税 POS）**：
+- 盘点惊喜：本地公司 `solua home` 的 **abbr 就是 SH**（科目/仓库命名与生产一致），且 **VAT - SH 科目已存在**，CR-001 变体 + Standard Selling 价格（150 ZAR）也都在——只差税模板与 POS Profile 挂接
+- 踩坑：税模板 autoname 会追加公司缩写——title「IVA」才生成「IVA - SH」（与生产同名）；title「IVA - SH」会生成「IVA - SH - SH」（误建已删）
+- 补齐：① 建 `IVA - SH` 模板（16% On Net Total、科目 VAT - SH、价内税 included_in_print_rate=1）；② 建叶子银行科目 `Bank - SH`（本地原来只有 Bank 组没有叶子科目），给 `Credit Card` MOP 配默认科目（否则 POS Profile 保存报「Please set default Cash or Bank account」）；③ POS Profile `test`：customer=walkin、taxes_and_charges=IVA - SH、付款方式 Cash+Credit Card
+- 验证：税数学 150 → 净 129.31 + IVA 20.69 = 150 ✅；`configure_pos_tax()` 幂等复跑不破坏（docstatus=0、included=1）✅
+- 与生产差异（不影响测税）：本地 country=South Africa / currency=ZAR（生产 Mozambique/MZN）；本地 POS Profile 名 `test`（生产「收银方式1 - SH」）
+- 用法：dev.localhost 登录 → POS 开店选 `test` → 扫/搜 CR-001 变体（150 ZAR 含税）→ 结账看税额拆分
+
 ---
 
 ## 二、服务器环境信息
