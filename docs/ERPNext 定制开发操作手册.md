@@ -1454,7 +1454,7 @@ if not frappe.db.exists("Role", "POS Cashier"):
     frappe.get_doc({"doctype": "Role", "role_name": "POS Cashier",
                     "desk_access": 0, "is_custom": 1}).insert(ignore_permissions=True)
 
-# 2. 配权限（v17 写入 Custom DocPerm；add_permission 每 ptype 建一行，再 UPDATE 配齐）
+# 2. 配权限（v16 写入 Custom DocPerm；add_permission 每 ptype 建一行，再 UPDATE 配齐）
 for dt in ["POS Opening Entry", "POS Closing Entry"]:
     add_permission(dt, "POS Cashier", permlevel=0, ptype="read")
     frappe.db.sql(

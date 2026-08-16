@@ -426,7 +426,7 @@
 
 **校验规则放开**（api/stock.py）：物料名称规则从拦 `<>"'/` 收窄为只拦危险字符 `<>"'`——`/`、`&`、`()` 等常见字符放行（用户要求：真实物料名常含 `/`，如「140×200 / Algodão」，不应拦建档）。保留编码长度 ≥3 校验。实测：斜杠/&/括号通过 ✅，尖括号/双引号/编码过短仍拦截 ✅。
 
-**POS 模板直加修复**（用户实测 CR-002 发现）：扫共享条码只出模板、选不了、报「未设置物料价格」。根因：v17 POS 原生扫码/搜索路径 `search_by_term` 命中模板条码直接返回模板，`auto_add_item` 自动加购（模板无价→报错），自定义 onScan 选色框没拦截这条路径。修复：① `api/pos.py get_items` 给商品附加 `has_variants` 标记；② `pos_custom.js` 换用 solua_home 包装器 + capture 阶段拦截模板卡片的点击/自动加购，改为弹颜色选择框。覆盖手工输码回车、原生扫码、点模板卡片三条路径。后端验证：模板 has_variants=1、变体=0 且带价。
+**POS 模板直加修复**（用户实测 CR-002 发现）：扫共享条码只出模板、选不了、报「未设置物料价格」。根因：v16 POS 原生扫码/搜索路径 `search_by_term` 命中模板条码直接返回模板，`auto_add_item` 自动加购（模板无价→报错），自定义 onScan 选色框没拦截这条路径。修复：① `api/pos.py get_items` 给商品附加 `has_variants` 标记；② `pos_custom.js` 换用 solua_home 包装器 + capture 阶段拦截模板卡片的点击/自动加购，改为弹颜色选择框。覆盖手工输码回车、原生扫码、点模板卡片三条路径。后端验证：模板 has_variants=1、变体=0 且带价。
 
 **二次修复**（用户仍报「只出现模板」）：查配置发现 `收银方式1 - SH` 的 **auto_add_item_to_cart=0**——原生搜索命中模板后只**展示**模板卡片，不会自动点击也不会弹框（硬件扫码才走自定义 onScan）。补 `filter_items` 覆写：搜索命中**唯一模板**时自动调后端弹颜色选择框；防误弹守卫（搜索框内容已变则跳过）。page_js 是服务端内联进页面 HTML、每请求从磁盘读，改完刷新页面即可生效（无需重启）。
 
@@ -455,7 +455,7 @@
 - 桌面发票/订单保持原流程（字段填密码）不变——用户明确「那是另一回事」
 - 验证：verify 正确/错误密码 ✅｜POS 发票(is_pos=1,10%)草稿静默保存 ✅｜提交被拦「未经审批」✅｜带密码提交成功 approved=1 ✅
 - 踩坑：脚本测试 POS 发票提交需带 payments 全额付款（Partial Payment 检查在折扣门前），真实 POS 付款对话框已自动满足
-- **Bug 修复**：用户实测报 `frappe.utils.flt is not a function`（has_unapproved_discount 卡死、弹窗不出现）——Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在；改为全局 `flt(...)`（与 erpnext 自带 POS 代码一致），提交 `e523d29` 已推送 GitHub，三处 md5 一致
+- **Bug 修复**：用户实测报 `frappe.utils.flt is not a function`（has_unapproved_discount 卡死、弹窗不出现）——Frappe v16 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在；改为全局 `flt(...)`（与 erpnext 自带 POS 代码一致），提交 `e523d29` 已推送 GitHub，三处 md5 一致
 - **「加密密钥无效」弹窗的真正根因（重要，写进备忘录）**：折扣收银时反复弹「加密密钥无效！请检查 site_config.json」但提交其实成功。用临时日志补丁抓到调用者栈（savedocs → submit → validate → `_try_decrypt('solua2026')` → `decrypt('solua2026')` InvalidToken）——**根因是 Frappe `decrypt()` 的副作用**：`decrypt` 的 `except InvalidToken` 分支执行 `frappe.throw(...)`，而 `frappe.throw` 内部 `msgprint` 会把「加密密钥无效」写进 `frappe.local.message_log` **然后才抛异常**；我们的 `_try_decrypt` 虽 try/except 接住了异常（提交照常成功），但 message_log 里的消息已随 API 响应返回，前端 `frappe.call` 把 `_server_messages` 当服务端消息弹出 → 用户看到「加密密钥无效」。**修复**：`_try_decrypt` 只对 Fernet 密文（固定以 `gAAAA` 开头）调用 decrypt，明文密码（如对话框输入 `solua2026`）直接原样返回，不再误触发解密 → 消息零污染。验证：明文返回且 message_log 空 ✅、加密值正常解密 ✅、完整折扣提交成功且无警告 ✅。临时日志补丁已从 frappe/utils/password.py 移除（原文件恢复），提交 `3914027` 已推送 GitHub，本地/服务器 md5 一致
 - **反复「改了没生效」的真正根因（重要，写进备忘录）**：服务器代码已是新版，但用户浏览器仍跑旧 pos_custom.js——Frappe `pageview.js`（`frappe/views/pageview.js`）在**生产模式**（`developer_mode != 1`）下把整个 Page 文档（**含 page_js 自定义脚本**）缓存进 `localStorage["_page:<page名>"]`，之后每次打开页面**直接用缓存、不再请求服务器**，硬刷新 Ctrl+Shift+R 也清不掉 localStorage。point-of-sale 页无 HTML 模板（无 jinja）→ `_dynamic_page` 从未置位 → 必被缓存。**根治**：`override_whitelisted_methods` 包装 `frappe.desk.desk_page.getpage` → `solua_home.override.desk_page.getpage`，返回文档置 `_dynamic_page=1`，pageview.js 见标记即跳过 localStorage 缓存（每页多一次小请求，本项目可接受）。已端到端验证：handler.py:67 请求时 `override_whitelisted_method` 解析 ✅；直接调用返回 `_dynamic_page: 1` + 最新脚本（无 `frappe.utils.flt`）✅。**踩坑**：override 函数必须带 `@frappe.whitelist()` 装饰器——handler 的 `is_whitelisted` 校验的是**替换后**的函数（whitelisted 集合在模块 import 时由装饰器登记），第一版漏了装饰器导致页面 403「方法未申明 @frappe.whitelist()」；补上装饰器（`allow_guest=True` 与原方法一致）+ 重启后恢复正常，按 handler 三步（override 解析 → get_attr → is_whitelisted）验证全部通过。提交 `350dc53`（override）+ `219b3ed`（whitelist 补丁）已推送 GitHub
 
@@ -903,5 +903,5 @@ frappe.db.commit()
 
 ### 前端 `flt` 是全局函数，不是 `frappe.utils.flt`（2026-08-16）
 - **症状**：`frappe.utils.flt is not a function` TypeError，自定义 JS 卡死
-- **原因**：Frappe v17 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在
+- **原因**：Frappe v16 的 `flt` 是**全局函数**（`window.flt`，定义在 `frappe/public/js/frappe/form/controls/float.js`），`frappe.utils.flt` 不存在
 - 修复：直接写 `flt(...)`（与 erpnext 自带 POS 代码一致）；同理 `cint` 也建议用全局函数或自行转换，避免踩同类坑
