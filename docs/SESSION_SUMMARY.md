@@ -506,6 +506,18 @@
 - 验证：销售发票实测 1500→净 1293.10+税 206.90+总额 1500 ✅；configure_pos_tax 幂等重跑不改变状态 ✅；三处 md5 一致 ✅
 - 说明：快照无税模板段（历史缺口，重放靠 install.py 兜底）；付款单「业务编号」= Cheque/Reference No 所在节（Transaction ID 的翻译），仅银行类科目收付款时强制必填，现金类（Cash/E-MOLA）不用填
 
+**本地 WSL 升级：my_custom_app → solua_home（2026-08-16，用户选方案 A 第 2 步）**：
+- 源：从 Windows 工作区 `my_custom_app_example/solua_home` 复制到 `~/frappe-bench/apps/solua_home`（内容与生产/GitHub md5 一致）
+- 踩坑①（import 失败）：扁平布局的 app 用 PEP 660 editable 装不上（finder 只映射 api/override/printing 子包、不映射顶层）——照抄 my_custom_app 的旧式机制：site-packages 里建**符号链接** `solua_home -> apps/solua_home`（+ egg-link 路径），`import solua_home` 即通
+- 注册：sites/apps.txt + apps.json 手动加 solua_home（install-app 前置检查要求）
+- 安装：`bench --site dev.localhost install-app solua_home`（redis 警告是噪音，安装本身成功）→ `bench migrate`（after_migrate 钩子全跑）→ `uninstall-app my_custom_app --yes`
+- 踩坑②（服务起不来）：honcho 在任何进程退出时停掉全部——redis 端口被手动实例占用→bench 自带 redis bind 失败→全停；watch(yarn) 用系统 Node 18.19.1 不满足 frappe 的 Node≥24→报错退出→全停。解决：释放端口 + `export PATH=$HOME/.nvm/versions/node/v24.18.0/bin:$PATH` 再 `bench start`
+- 踩坑③（pkill 自杀）：`pkill -f 'pattern'` 会匹配到执行命令的 bash 自身（命令行含同样字符串）→ 进程被杀、命令无输出；用字符类 `[0]` 规避
+- 补 developer_mode=1（dev 站点应有）+ assets 软链 `sites/assets/solua_home -> apps/solua_home/public`（否则 /assets/solua_home/... 404）
+- 验证：ping 200、端口 11000/13000/8000 全开、installed_apps 含 solua_home、Custom Field/189 条翻译/override 导入全 OK、资产 200
+- 已知差异：本地 dev 站点是默认 demo 公司（`solua home`），**没有生产那套 IVA - SH 税模板/科目**（configure_pos_tax 只配置已存在的模板，不负责创建）——本地测 POS 含税需自行按生产建公司配置，或直接用生产做功能实测
+- 旧 apps/my_custom_app 目录未删（已注销），如需彻底清理可删除
+
 ---
 
 ## 二、服务器环境信息
@@ -570,8 +582,8 @@ ssh qq 'mysql -h 127.0.0.1 -u _62af7cb1044ac230 -pUwwJaHWYXIL21g5O _62af7cb1044a
 | **Git 用户名** | yangyang7920 |
 | **Git 邮箱** | a83986475@gmail.com |
 | **开发站点** | `dev.localhost:8000` |
-| **自定义 App** | `my_custom_app 0.0.1`（⚠️ 旧名，未升级为 solua_home） |
-| **启动脚本** | `bash ~/frappe-bench/start.sh` |
+| **自定义 App** | `solua_home 0.0.1`（2026-08-16 已从 my_custom_app 升级，见会话记录） |
+| **启动脚本** | `bash ~/frappe-bench/start.sh`（或 `bench start`，需 nvm Node 24 的 PATH） |
 
 ### 自定义 App `solua_home` 结构（最新）
 
