@@ -532,6 +532,11 @@
 - 与生产差异（不影响测税）：本地 country=South Africa / currency=ZAR（生产 Mozambique/MZN）；本地 POS Profile 名 `test`（生产「收银方式1 - SH」）
 - 用法：dev.localhost 登录 → POS 开店选 `test` → 扫/搜 CR-001 变体（150 ZAR 含税）→ 结账看税额拆分
 
+**修复本地 start.sh 的 Node 24 加载（2026-08-16，避免 bench watch 报错）**：
+- 根因：start.sh 的 `export PATH=.../node/v24/bin` 指向不存在的目录（nvm 实际目录是 `v24.18.0`，没有 `v24` 软链）→ node 回退到系统 18.19.1 → `bench watch`(yarn) 报 engine 不兼容退出 → honcho 连带停掉整个栈
+- 修复：改为 source nvm.sh 后 `nvm use default`（default 别名=24，实测 → v24.18.0）；去掉失效的 v24 硬编码路径
+- 已同步 WSL `~/frappe-bench/start.sh` 与工作区 `start.sh` 两个副本；验证 `nvm use default` 后 `node --version` = v24.18.0
+
 ---
 
 ## 二、服务器环境信息
