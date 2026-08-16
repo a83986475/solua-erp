@@ -510,6 +510,17 @@
 
 ## 二、服务器环境信息
 
+> 🚨🚨 **版本基准（2026-08-16 实测确认，最高优先级，勿再混淆）**
+>
+> | 环境 | Frappe | ERPNext | 分支 | 说明 |
+> |------|--------|---------|------|------|
+> | **生产** erp.solua.one | **16.27.0** | **16.28.0** | version-16 | **所有上线功能/定制/踩坑记录以此为准** |
+> | **本地 WSL** `~/frappe-bench` | **16.27.0** | **16.28.0** | version-16 | 与生产**完全一致**，可作测试环境（注意：仍装着旧 `my_custom_app`，未升级 solua_home） |
+> | **Windows 侧工作区** `C:\Users\Yang\solua-home\sites\erpnext` | — | **17.0.0-dev** | develop | **只是 git 子模块副本，不是运行环境**，勿据此判断版本 |
+>
+> 验证命令：服务器/本地 `pip show frappe`、`grep __version__ apps/erpnext/erpnext/__init__.py`；本地 `wsl -e bash -lc "cd ~/frappe-bench && bench --site all list-apps"`。
+> ⚠️ 历史教训：本档案早期把「服务器 ERPNext 版本」误写成 17.0.0-dev（实为 Windows 副本版本），已更正为 16.28.0。
+
 | 项目 | 值 |
 |------|-----|
 | **SSH 连接** | `ssh qq`（用户 `ubuntu`） |
@@ -519,7 +530,7 @@
 | **操作系统** | Ubuntu 24.04.4 LTS |
 | **Bench 版本** | 5.31.0 |
 | **Frappe 版本** | 16.27.0 |
-| **ERPNext 版本** | 17.0.0-dev（`develop` 分支） |
+| **ERPNext 版本** | 16.28.0（`version-16` 分支） |
 | **站点** | `erp.solua.one`（生产）、`erpnext.localhost`（测试） |
 | **当前语言** | `zh`（中文） |
 | **Node.js** | v24.18.0（nvm 管理，system node 仍为 v20） |
@@ -554,10 +565,12 @@ ssh qq 'mysql -h 127.0.0.1 -u _62af7cb1044ac230 -pUwwJaHWYXIL21g5O _62af7cb1044a
 | **Python** | 3.14.x |
 | **Node.js** | 24.x（nvm 管理） |
 | **Bench** | 5.31.0（pipx 安装） |
+| **Frappe** | 16.27.0（`version-16` 分支） |
+| **ERPNext** | 16.28.0（`version-16` 分支） |
 | **Git 用户名** | yangyang7920 |
 | **Git 邮箱** | a83986475@gmail.com |
 | **开发站点** | `dev.localhost:8000` |
-| **自定义 App** | `solua_home 0.0.1` |
+| **自定义 App** | `my_custom_app 0.0.1`（⚠️ 旧名，未升级为 solua_home） |
 | **启动脚本** | `bash ~/frappe-bench/start.sh` |
 
 ### 自定义 App `solua_home` 结构（最新）
