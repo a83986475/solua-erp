@@ -609,7 +609,70 @@ frappe.provide("solua_home.pos");
 		$("<style>").attr("type", "text/css").text(css).appendTo("head");
 	}
 
+	// ------------------------------------------------------------------
+	// 开店对话框自动预填唯一 POS Profile
+	// ------------------------------------------------------------------
+	function prefill_pos_profile() {
+		// 等对话框真正显示（frappe.ui.open_dialogs 已 push）
+		setTimeout(() => {
+			const dialog = frappe.ui.open_dialogs.find(
+				(d) => d.fields_dict && d.fields_dict.pos_profile && d.fields_dict.balance_details
+			);
+			if (!dialog) return;
+			if (dialog.get_value("pos_profile")) return; // 已有值（用户手动选择过）
+
+			const company =
+				dialog.get_value("company") || frappe.defaults.get_default("company");
+			if (!company) return;
+
+			// 与后端 pos_profile_query 一致：优先用户绑定的 profile，未绑定则该公司全部
+			frappe.db
+				.get_list("POS Profile User", {
+					filters: { user: frappe.session.user },
+					fields: ["parent"],
+				})
+				.then((rows) => {
+					const bound = rows.map((r) => r.parent);
+					const filters = { company, disabled: 0 };
+					if (bound.length) filters.name = ["in", bound];
+					frappe.db
+						.get_list("POS Profile", {
+							filters,
+							fields: ["name"],
+							limit_page_length: 5,
+						})
+						.then((profiles) => {
+							if (profiles.length === 1) {
+								dialog.set_value("pos_profile", profiles[0].name);
+								// set_value 触发字段 onchange → 自动带出付款方式表
+							}
+						});
+				});
+		}, 300);
+	}
+
+	let opening_poll = 0;
+	function wrap_opening_dialog() {
+		if (
+			!window.erpnext ||
+			!window.erpnext.PointOfSale ||
+			!window.erpnext.PointOfSale.Controller
+		) {
+			if (opening_poll++ < 60) setTimeout(wrap_opening_dialog, 300);
+			return;
+		}
+		const proto = erpnext.PointOfSale.Controller.prototype;
+		if (proto._opening_prefill_bound) return;
+		proto._opening_prefill_bound = true;
+		const original = proto.create_opening_voucher;
+		proto.create_opening_voucher = function () {
+			original.call(this);
+			prefill_pos_profile();
+		};
+	}
+
 	// 启动
+	wrap_opening_dialog();
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", () => apply_custom_barcode_handler());
 	} else {
