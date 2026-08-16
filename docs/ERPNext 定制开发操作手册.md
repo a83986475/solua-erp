@@ -18,6 +18,7 @@
 2. [版本要求速查（重要！）](#2-版本要求速查重要)
 3. [WSL2 开发环境搭建](#3-wsl2-开发环境搭建)
    - [3.12 本地 v17 vs 生产 v16 差异注意点](#312-本地-v17-vs-生产-v16-差异注意点2026-08-16-已确认)
+   - [3.13 Docker 版 ERP 已移除，自启已禁用](#313-docker-版-erp-已移除自启已禁用2026-08-16)
 4. [日常开发工作流](#4-日常开发工作流)
 5. [创建自定义 App](#5-创建自定义-app)
 6. [定制开发模式](#6-定制开发模式)
@@ -406,6 +407,35 @@ cd ~/frappe-bench && bash start.sh
 1. **自定义功能以生产 v16 实测为准**；本地 v17 仅用于语法检查、代码探索
 2. 在本地 v17 开发的改动，上生产前必须在 v16 重新实测（部署流程见第 8 章）
 3. 若要彻底消除版本差异：按 3.9 重装 v16（`bench init --frappe-branch version-16` + `bench get-app erpnext --branch version-16`）对齐生产，或明确本地仅作探索、不承诺行为一致
+
+### 3.13 Docker 版 ERP 已移除，自启已禁用（2026-08-16）
+
+> 本机只保留 **bench 版**（`~/frappe-bench`，dev.localhost:8000）。曾装过的 Docker 版（frappe_docker，v16.23.1）已**全部删除**：容器、镜像、数据卷、源码目录 `~/frappe_docker`，且残留的 84 个悬空卷也已 `docker volume prune -f` 清空。
+
+**Docker 自启状态**（实测确认，无需再动）：
+
+| 单元 | 自启 | 说明 |
+|------|------|------|
+| `docker.service` | disabled | 已禁用 |
+| `docker.socket` | disabled | 已禁用（否则 socket 激活会在有客户端连接时自动拉起 dockerd） |
+| `containerd.service` | disabled | 已禁用 |
+
+禁用命令（需要 root，用 `wsl -u root -e` 执行）：
+
+```bash
+wsl -u root -e systemctl disable --now docker containerd
+wsl -u root -e systemctl disable --now docker.socket
+```
+
+**验证**：`wsl -e bash -lc "systemctl is-enabled docker docker.socket containerd"` 应全部输出 `disabled`；`docker ps` 报 `Cannot connect to the Docker daemon` 即为正常（无自启）。
+
+**日后要用 Docker 时手动启动**：
+
+```bash
+wsl -u root -e systemctl start docker
+```
+
+> 💡 Docker 与 bench 版互不依赖（bench 用 MariaDB/Redis），停用 Docker 不影响 dev.localhost。
 
 ---
 
