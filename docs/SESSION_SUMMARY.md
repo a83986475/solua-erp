@@ -524,6 +524,13 @@
 - 删除：`docker compose -f pwd.yml down -v`（容器+网络+项目数据卷 db-data/sites/logs/redis-queue-data）→ `docker image rm` 三镜像 → `rm -rf ~/frappe_docker`
 - 验证：无 frappe 容器/镜像/数据卷残留，bench 版 dev.localhost 正常（ping 200）不受影响
 
+**Docker 残留清理 + 自启禁用（2026-08-16，Docker 版删除的收尾）**：
+- 悬空卷：删除栈时残留 **84 个匿名悬空卷**（全 0 引用，15.84MB）→ `docker volume prune -f` 全部清除，`docker volume ls` = 0
+- 自启机制：`/etc/wsl.conf` 有 `[boot] systemd=true`，且 **docker.service / containerd.service 为 enabled** → 每次 WSL 启动自动拉起 dockerd
+- 禁用（用户自己以 root 执行）：`wsl -u root -e systemctl disable --now docker containerd` → 两服务 disabled+inactive；但输出提示 `docker.socket` 仍在 → 追加 `wsl -u root -e systemctl disable --now docker.socket`
+- 最终验证：三个单元（docker/docker.socket/containerd）全部 disabled + inactive，dockerd 无进程、socket 无监听、`docker ps` 报「Cannot connect」→ **不再自启** ✅
+- 备注：`/var/run/docker.sock` 残留一个空文件（无监听），在 tmpfs（/run）里，**WSL 重启自动消失**，无影响；日后要用 Docker 时手动 `wsl -u root -e systemctl start docker`
+
 **本地 dev.localhost 补齐公司级配置（含 IVA 税模板，2026-08-16，供本地测含税 POS）**：
 - 盘点惊喜：本地公司 `solua home` 的 **abbr 就是 SH**（科目/仓库命名与生产一致），且 **VAT - SH 科目已存在**，CR-001 变体 + Standard Selling 价格（150 ZAR）也都在——只差税模板与 POS Profile 挂接
 - 踩坑：税模板 autoname 会追加公司缩写——title「IVA」才生成「IVA - SH」（与生产同名）；title「IVA - SH」会生成「IVA - SH - SH」（误建已删）
