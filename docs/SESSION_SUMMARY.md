@@ -537,9 +537,13 @@
 - 修复：改为 source nvm.sh 后 `nvm use default`（default 别名=24，实测 → v24.18.0）；去掉失效的 v24 硬编码路径
 - 已同步 WSL `~/frappe-bench/start.sh` 与工作区 `start.sh` 两个副本；验证 `nvm use default` 后 `node --version` = v24.18.0
 
----
-
-## 二、服务器环境信息
+**本地 WSL 回归验证：POS 选色 / 折扣审批 / 翻译显示（2026-08-16，18/18 全过）**：
+- 验证方式：在 dev.localhost 直接调 solua_home 后端接口 + 真实建/提交/清理 Sales Invoice（脚本模拟，浏览器交互部分需人工过一遍）
+- **① POS 选色**：扫共享条码 `6901234567890` → 模板 CR-001 + 6 颜色 ✅；扫变体编码 `CR-001-BR` → 直接定位 ✅；不存在条码 → not_found ✅；`get_items` 搜索命中 6 变体 + 带 has_variants 字段 ✅（本地是旧 6 色测试集，非生产 16 色池）
+- **② 折扣审批**：`verify_discount_approval_password` 正确/错误密码 ✅；POS 草稿保存静默 ✅；无密码提交被拦（「未经审批」）✅；错误密码被拒 ✅；正确密码 → `custom_discount_approved=1` 且密码字段清空 ✅
+- **③ 翻译显示**：zh 翻译 189 条 ✅；样例 Save→保存 / Modified By→修改人 ✅；POS 相关串（Grand Total→总计 / Submit→提交 / Discount）✅
+- 前提准备：本地 Company `solua home` 的审批密码原本为空（门未激活），已设为 `solua2026`（与生产一致）；本地阈值=0（任何折扣需审批）
+- 测试单据已清理，无残留；临时脚本已清理
 
 > 🚨🚨 **版本基准（2026-08-16 实测确认，最高优先级，勿再混淆）**
 >
