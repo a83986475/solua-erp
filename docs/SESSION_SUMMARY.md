@@ -497,6 +497,14 @@
 - 验证：pos1/pos2/Administrator 三账号数据层查询均只返回「收银方式1 - SH」→ 都会自动预填；本地/服务器 md5 一致（`3e132b4b`）、页面文档含新代码、JS 语法 OK
 - 提交 `6bca96c` 已推送 GitHub
 
+**POS 增值税配置（模式 A：标签价含税，2026-08-16）**：
+- 现象：POS 发票净额=总额（如 960=960），不含 VAT；而手动建销售发票选「IVA - SH」会加 16% → 顾客多付、价签与实际收款不一致
+- 根因：POS Profile（收银方式1 - SH）`taxes_and_charges` 为空；物料/公司也无默认税模板；模板 `IVA - SH` 与 `Mozambique Tax - SH` 重复（都是 16%、科目 VAT - SH）
+- 模式 A（用户选定）：物料 standard_rate = 标签价 = 顾客实付价（含 IVA），税模板 `IVA - SH` 税额行置 `included_in_print_rate=1`（价内税）→ 系统自动拆分：1500 → 净 1293.10 + IVA 206.90，账上照记税、顾客不多付
+- 实施：① 取消测试发票 `ACC-SINV-2026-00028`（今天用户测的、未收款、taxes 16% 非价内，取消后留档标 Cancelled）；② 修模板异常 docstatus（master 模板 is_submittable=0 但导入时 docstatus=1，锁死后续修改报 UpdateAfterSubmitError，归 0）；③ IVA - SH 行 `included_in_print_rate=1`；④ 停用重复的 `Mozambique Tax - SH`；⑤ POS Profile 挂 `IVA - SH`；⑥ install.py 新增 `configure_pos_tax()`（幂等，随 migrate 重放）+ v4 快照 pos_profiles 补 `taxes_and_charges: "IVA - SH"`
+- 验证：销售发票实测 1500→净 1293.10+税 206.90+总额 1500 ✅；configure_pos_tax 幂等重跑不改变状态 ✅；三处 md5 一致 ✅
+- 说明：快照无税模板段（历史缺口，重放靠 install.py 兜底）；付款单「业务编号」= Cheque/Reference No 所在节（Transaction ID 的翻译），仅银行类科目收付款时强制必填，现金类（Cash/E-MOLA）不用填
+
 ---
 
 ## 二、服务器环境信息

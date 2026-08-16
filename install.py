@@ -13,6 +13,7 @@ def after_install():
     add_discount_approval_field()
     add_company_discount_settings()
     add_pos_profile_settings()
+    configure_pos_tax()
     sync_standard_print_formats()
     frappe.db.commit()
 
@@ -419,6 +420,56 @@ def add_pos_profile_settings():
     frappe.db.sql(
         "UPDATE `tabPOS Profile` SET custom_auto_new_order = 1 WHERE custom_auto_new_order IS NULL"
     )
+    frappe.db.commit()
+
+
+def configure_pos_tax():
+    """POS 增值税配置（模式 A：标签价含税，价内税拆分）
+
+    2026-08-16：POS Profile 原本未挂税模板，POS 发票净额=总额（不含税）。
+    模式 A = 零售标准：物料 standard_rate 即顾客实付价（含 IVA），
+    模板 IVA - SH 的税额行 marked included_in_print_rate=1，系统自动拆分
+    净额/税额（1500 → 1293.10 净 + 206.90 IVA），账上照记税但不多收顾客钱。
+
+    幂等：可重复执行。模板已存在于库中（不负责创建，创建需配套科目表），
+    只修正其税行标记、停用重复模板、给 POS Profile 挂模板。
+    """
+    template_name = "IVA - SH"
+    if frappe.db.exists("Sales Taxes and Charges Template", template_name):
+        # 模板是 master（is_submittable=0），但导入时 docstatus 异常为 1，
+        # 会锁住后续修改（UpdateAfterSubmitError），归 0 恢复可编辑
+        ds = frappe.db.get_value("Sales Taxes and Charges Template", template_name, "docstatus")
+        if ds == 1:
+            frappe.db.set_value("Sales Taxes and Charges Template", template_name, "docstatus", 0)
+
+        tpl = frappe.get_doc("Sales Taxes and Charges Template", template_name)
+        changed = False
+        for row in tpl.taxes:
+            if not row.included_in_print_rate:
+                row.included_in_print_rate = 1
+                changed = True
+        if changed:
+            tpl.save(ignore_permissions=True)
+
+    # 停用重复模板（与 IVA - SH 同为 16%，避免误选）
+    if frappe.db.exists("Sales Taxes and Charges Template", "Mozambique Tax - SH"):
+        ds = frappe.db.get_value("Sales Taxes and Charges Template", "Mozambique Tax - SH", "docstatus")
+        if ds == 1:
+            frappe.db.set_value("Sales Taxes and Charges Template", "Mozambique Tax - SH", "docstatus", 0)
+        frappe.db.set_value("Sales Taxes and Charges Template", "Mozambique Tax - SH", "disabled", 1)
+
+    # POS Profile 挂税模板
+    profile = frappe.db.get_value(
+        "POS Profile",
+        {"company": "Solua Home, Lda"},
+        ["name", "taxes_and_charges"],
+        as_dict=True,
+    )
+    if profile and profile.taxes_and_charges != template_name:
+        doc = frappe.get_doc("POS Profile", profile.name)
+        doc.taxes_and_charges = template_name
+        doc.save(ignore_permissions=True)
+
     frappe.db.commit()
 
 
