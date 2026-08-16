@@ -518,6 +518,12 @@
 - 已知差异：本地 dev 站点是默认 demo 公司（`solua home`），**没有生产那套 IVA - SH 税模板/科目**（configure_pos_tax 只配置已存在的模板，不负责创建）——本地测 POS 含税需自行按生产建公司配置，或直接用生产做功能实测
 - 旧 apps/my_custom_app 目录未删（已注销），如需彻底清理可删除
 
+**删除 WSL Docker 版 ERP（2026-08-16，用户要求只保留 bench 版）**：
+- 盘点：`~/frappe_docker`（compose `pwd.yml`）frappe/erpnext:v16.23.1 栈，11 容器（7 运行中），镜像共 4.2GB
+- 关键：该栈 **create-site 容器退出码 1（建站失败）**，sites/ 里无任何站点 → 无实际数据，删除零损失
+- 删除：`docker compose -f pwd.yml down -v`（容器+网络+项目数据卷 db-data/sites/logs/redis-queue-data）→ `docker image rm` 三镜像 → `rm -rf ~/frappe_docker`
+- 验证：无 frappe 容器/镜像/数据卷残留，bench 版 dev.localhost 正常（ping 200）不受影响
+
 ---
 
 ## 二、服务器环境信息
