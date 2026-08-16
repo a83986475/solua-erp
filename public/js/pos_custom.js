@@ -627,29 +627,32 @@ frappe.provide("solua_home.pos");
 				dialog.get_value("company") || frappe.defaults.get_default("company");
 			if (!company) return;
 
-			// 与后端 pos_profile_query 一致：优先用户绑定的 profile，未绑定则该公司全部
-			frappe.db
-				.get_list("POS Profile User", {
-					filters: { user: frappe.session.user },
-					fields: ["parent"],
-				})
-				.then((rows) => {
-					const bound = rows.map((r) => r.parent);
-					const filters = { company, disabled: 0 };
-					if (bound.length) filters.name = ["in", bound];
-					frappe.db
-						.get_list("POS Profile", {
-							filters,
-							fields: ["name"],
-							limit_page_length: 5,
-						})
-						.then((profiles) => {
-							if (profiles.length === 1) {
-								dialog.set_value("pos_profile", profiles[0].name);
-								// set_value 触发字段 onchange → 自动带出付款方式表
-							}
-						});
-				});
+			// 与 POS Profile Link 下拉同源：调用 whitelisted pos_profile_query
+			// （收银员角色对子表 POS Profile User 无读权限，frappe.db.get_list 会
+			// 抛 Insufficient Permission 导致预填静默失败，2026-08-16 修复）
+			frappe.call({
+				method:
+					"erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query",
+				args: {
+					doctype: "POS Profile",
+					txt: "",
+					searchfield: "name",
+					start: 0,
+					page_len: 5,
+					filters: { company },
+				},
+				callback: (r) => {
+					const profiles = r.message || [];
+					if (profiles.length === 1) {
+						// 返回格式 [[name], ...]（Link 查询方法的标准格式）
+						const name = Array.isArray(profiles[0])
+							? profiles[0][0]
+							: profiles[0];
+						dialog.set_value("pos_profile", name);
+						// set_value 触发字段 onchange → 自动带出付款方式表
+					}
+				},
+			});
 		}, 300);
 	}
 

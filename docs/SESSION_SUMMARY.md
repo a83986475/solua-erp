@@ -496,6 +496,7 @@
 - 修复（pos_custom.js）：包装 `Controller.prototype.create_opening_voucher`，弹窗显示后（`frappe.ui.open_dialogs` 全局注册表）找「含 pos_profile + balance_details 字段」的对话框；若当前用户可用 POS Profile **恰好 1 个**则 `set_value` 自动填入（触发 onchange 自动带出付款方式表 Cash/Credit Card），多个时保持手动选择不打扰
 - 验证：pos1/pos2/Administrator 三账号数据层查询均只返回「收银方式1 - SH」→ 都会自动预填；本地/服务器 md5 一致（`3e132b4b`）、页面文档含新代码、JS 语法 OK
 - 提交 `6bca96c` 已推送 GitHub
+- **BUG 修复（2026-08-16 用户实测发现未预填）**：收银员角色对子表 `POS Profile User` **无读权限**，预填里的 `frappe.db.get_list("POS Profile User")` 抛 `Insufficient Permission`，promise 链静默断裂 → 什么都不填。修复：改为直接调用 POS Profile Link 下拉**同源**的 whitelisted 方法 `pos_profile_query`（`erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query`，返回 `[[name], ...]`），不再碰子表；pos1/Administrator 身份验证均返回唯一「收银方式1 - SH」→ 预填生效。教训：**收银员最小权限下，前端不要用 `frappe.db.get_list` 查无读权限的 Doctype，优先复用 whitelisted 查询方法**
 
 **POS 增值税配置（模式 A：标签价含税，2026-08-16）**：
 - 现象：POS 发票净额=总额（如 960=960），不含 VAT；而手动建销售发票选「IVA - SH」会加 16% → 顾客多付、价签与实际收款不一致
