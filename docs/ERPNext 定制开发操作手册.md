@@ -1292,7 +1292,7 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 1. 新建 Item：`item_code = CR-002`，**勾选 has_variants=1**
 2. 在 **attributes** 子表加两行：`Cor = Branco`、`Cor = Preto`（从属性下拉选择，无需手输）
 3. 保存后点 **「创建变体」**（Create Variants）→ 自动生成 `CR-002-BR`、`CR-002-PR`
-4. 给 Variant 设价：模板 Item 的 **standard_rate** 填标准价 → 保存后 `auto_create_item_price` 钩子自动为每个 Variant 生成 Item Price（Standard Selling）
+4. 给 Variant 设价（**详见下方「定价规则」**）：价格 = 标签价（含 IVA）；**模板 standard_rate 不要填**；建完变体后到 Selling → **Item Price（Standard Selling）** 批量加价（⋮ → Add Multiple Items）
 5. 重复步骤 4 前，先在模板 attributes 中把所有颜色加齐，一次性创建全部 Variant
 
 ##### 场景 B：颜色字典里没有的新颜色（示例：新增 Verde 绿）
@@ -1313,6 +1313,21 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 | **停产一款窗帘** | 模板 attributes 全删 + 所有 Variant 禁用 |
 
 > ⚠️ **删除 vs 禁用**：已有库存或单据引用的 Variant 无法删除，会报错；一律用**禁用**下架。
+
+##### 定价规则（标签价含税，2026-08-16 起生效）
+
+> **一句话**：`standard_rate` 与 Item Price 价格 = **标签打印价 = 顾客实付价（已含 IVA 16%）**，不要再填净价。
+
+| 项 | 说明 |
+|----|------|
+| **填什么** | 标签上要印的最终价（含税）。例：标签印 1500 → 填 1500 |
+| **系统怎么算** | POS 结账自动按价内税拆分：1500 → 净额 1293.10 + IVA 206.90；顾客实付仍 1500，账上税照记（税模板 `IVA - SH`，价内税 included_in_print_rate=1） |
+| **价格存哪（一处）** | **Item Price（Standard Selling）**：POS 取价和价格标签「现价」都读它（label_helpers.get_selling_price）。**改价只改这一处，两处自动一致**，无需再改 Item.standard_rate |
+| **新建 Variant 批量加价** | **模板 standard_rate 不要填**（会触发自动建价并报错）；向导/原生创建变体都不带价（继承模板价，模板没价=没价），建完后批量加价：Selling → **Item Price → ⋮ → Add Multiple Items**（按物料列表统一设价） |
+| **改价流程** | 改 Item Price（Standard Selling）的 price_list_rate → 重打标签，POS 同步生效 |
+| **税费配置（已就位）** | `IVA - SH` 税行 = 价内税；POS Profile「收银方式1 - SH」已挂 `IVA - SH`；重复模板 `Mozambique Tax - SH` 已停用 |
+
+> ⚠️ **两种模式不要混用**：模式 A（本规则，价内税，顾客付标签价）与模式 B（净价+加税，顾客多付 16%）不可并存。所有物料统一按模式 A 建档。
 
 ##### 注意事项
 
