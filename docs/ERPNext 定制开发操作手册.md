@@ -25,12 +25,13 @@
    - [6.5 多规格（Item Variant）方案](#65-多规格item-variant方案)
 7. [全面汉化方案](#7-全面汉化方案)
 8. [部署到服务器](#8-部署到服务器)
-9. [常用命令速查](#9-常用命令速查)
-10. [安装问题排查](#10-安装问题排查)
-11. [服务器运维问题排查](#11-服务器运维问题排查)
-12. [WSL2 开发环境问题排查](#12-wsl2开发环境问题排查)
-13. [自定义 App 开发问题排查](#13-自定义-app-开发问题排查)
-14. [开发问题排查](#14-开发问题排查)
+9. [上线前核对清单（上线 SOP）](#9-上线前核对清单上线-sop)
+10. [常用命令速查](#10-常用命令速查)
+11. [安装问题排查](#11-安装问题排查)
+12. [服务器运维问题排查](#12-服务器运维问题排查)
+13. [WSL2 开发环境问题排查](#13-wsl2开发环境问题排查)
+14. [自定义 App 开发问题排查](#14-自定义-app-开发问题排查)
+15. [开发问题排查](#15-开发问题排查)
 
 ---
 
@@ -1288,7 +1289,7 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 
 > ⚠️ **重要**：前端 `page_js` 在生产环境（supervisor/nginx）需要**构建资源**才会生效：
 > ```bash
-> # 在服务器 bench 目录执行（确保用 Node 24，见 11.6 节）
+> # 在服务器 bench 目录执行（确保用 Node 24，见 12.6 节）
 > PATH=/home/frappe/.nvm/versions/node/v24.18.0/bin:$PATH bench build
 > sudo supervisorctl restart all
 > ```
@@ -1796,9 +1797,58 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 
 ---
 
-## 9. 常用命令速查
+## 9. 上线前核对清单（上线 SOP）
 
-### 9.1 环境管理
+> 来源：2026-08-16 生产实测核对（erp.solua.one），2026-08-17 更新（仓库统一落库、CR-002 资料补全、物料资料向导上线）。上线前逐项核对，每完成一项打勾。
+
+### 9.1 核对清单
+
+**🔴 上线必做**
+
+| # | 事项 | 实测状态（2026-08-17） | 上线前动作 |
+|---|------|----------------------|-----------|
+| 1 | 公司 tax_id（NUIT） | 空 | 填莫桑比克 NUIT 税号（发票打印需要，号码由公司提供） |
+| 2 | 库存 | 491 件**测试库存**（6 变体，CR-001-PR=0） | 真实物料 + 真实库存盘点（Stock Reconciliation 入库到 Finished Goods - SH，建议带成本价） |
+| 3 | Item 自定义字段 | ✅ CR-001/CR-002 系列已填（中文名/SPU/POS简称/最低库存，2026-08-17 向导补全） | 正式物料用「物料资料补全」向导批量维护；规格摘要可选 |
+| 4 | 正式仓库 | ✅ **Finished Goods - SH**（Item Defaults 13 条已统一，2026-08-16/17） | 已解决，勿再改回 Stores - SH |
+| 5 | 收银员账号 | ✅ pos1/pos2 已建、已启用、已绑定「收银方式1 - SH」 | 上线时重置密码交接 |
+
+**🟡 建议做**
+
+| # | 事项 | 实测状态 | 说明 |
+|---|------|---------|------|
+| 6 | 供应商 | 0 个 | 首次采购前建 |
+| 7 | 采购价表 | Standard Buying 仅 1 条测试价（800 MZN） | 正式采购按供应商补 |
+| 8 | 银行账户 | 0 条（Credit Card 已指向 Bank - SH 科目） | 不阻塞收银；银行对账/转账时需要时建 |
+| 9 | 成本价 valuation_rate | 全空 | 首批真实物料建档/入库时带上，否则利润报表算不出 |
+| 10 | 最低库存 | CR-002=10、CR-001=0 | 按产品线定水位（daily_tasks 低库存预警依赖此字段） |
+
+**🟢 可延后**
+- CR-002 系列测试物料（半成品档案）→ 上线前清理或重置
+- **小票版式未定**（58/80mm 热敏纸宽度未确认）——每天收银都要用，上线前必须定（设计入口：Print Designer 可视化拖拽，画布设 80mm 宽）
+- （仓库策略已统一，不再待办）
+
+### 9.2 已解决项备忘
+
+- **正式仓库 = Finished Goods - SH**：库存 100% 在 FG、POS Profile 本就指向 FG；Stores - SH 空仓保留（防未来多门店），Goods In Transit - SH 预留采购在途。Item Defaults 12 条 Stores→FG + Solua 原 FG = 13 条全部一致。⚠️ 教训：2026-08-16 首次执行漏 `frappe.db.commit()` 被回滚，08-17 补 commit 才真正落库——**服务端脚本改数据后必须显式 commit，验证用独立进程**。
+- **物料资料补全/校验向导**（2026-08-17 上线）：物料列表 →「物料资料补全」→ 选模板自动预填（中文名=模板中文名、SPU=模板SPU、POS简称=颜色、最低库存默认 10）→ 行内改 → 保存；「校验全部物料完整性」出全量报告（必填：中文名/SPU/变体POS简称/条码/默认仓库/售价[模板除外]；警告：规格摘要/最低库存/成本价）。API：`solua_home.api.item_data`（get_item_data / bulk_update_item_data / validate_item_master）。⚠️ 注册在 hooks `doctype_list_js`——**Item 是 DocType，`page_js` 对 DocType 列表页不生效**（只对 Page 文档生效）。
+
+### 9.3 上线执行顺序（SOP）
+
+1. **填公司资料**：公司 → 填 tax_id（NUIT 号码由公司提供）
+2. **定小票版式**：确认热敏纸宽度（58/80mm）→ Print Designer 做「小票」格式 → POS Profile 挂接
+3. **真实物料建档**：按 6.5.10 窗帘建档流程（建模板 → 批量生成变体 → 物料资料补全向导填中文名/SPU/POS简称/最低库存 → Item Price 批量定价；**standard_rate = 标签价 = 顾客实付价（含 IVA）**）
+4. **真实库存盘点**：Stock Reconciliation 入库到 Finished Goods - SH（含成本价 valuation_rate）
+5. **收银员交接**：重置 pos1/pos2 密码，分配 PIN
+6. **清理测试数据**：CR-002 半成品测试档案、测试单据（对照 SHD 删除记录档）
+7. **全量校验**：物料列表 →「物料资料补全」→「校验全部物料完整性」→ 必填项全部通过
+8. **试营业实测**：POS 开店/收银/扫码选色/折扣审批/静默打印/交班全流程各跑一遍
+
+---
+
+## 10. 常用命令速查
+
+### 10.1 环境管理
 
 ```bash
 # 打开 WSL2
@@ -1815,7 +1865,7 @@ bench start
 bench start --port 8001
 ```
 
-### 9.2 Bench 命令
+### 10.2 Bench 命令
 
 ```bash
 bench --version                          # 查看版本
@@ -1832,7 +1882,7 @@ bench restart                            # 重启
 bench update                             # 更新所有 app
 ```
 
-### 9.3 调试命令
+### 10.3 调试命令
 
 ```bash
 bench --site dev.localhost run-tests            # 运行测试
@@ -1841,7 +1891,7 @@ bench console                                    # Python shell
 bench --site dev.localhost export-fixtures       # 导出 fixtures
 ```
 
-### 9.4 站点管理
+### 10.4 站点管理
 
 ```bash
 bench new-site site-name                    # 创建新站点
@@ -1854,9 +1904,9 @@ bench --site site-name restore 备份文件路径   # 恢复
 
 ---
 
-## 10. 安装问题排查
+## 11. 安装问题排查
 
-### 10.1 pip3 install 报 `externally-managed-environment`
+### 11.1 pip3 install 报 `externally-managed-environment`
 
 **错误信息**：`This environment is externally managed`
 
@@ -1871,7 +1921,7 @@ source ~/.bashrc
 pipx install frappe-bench
 ```
 
-### 10.2 bench init 报 `No such file or directory: 'uv'`
+### 11.2 bench init 报 `No such file or directory: 'uv'`
 
 **错误信息**：`FileNotFoundError: [Errno 2] No such file or directory: 'uv'`
 
@@ -1884,7 +1934,7 @@ source ~/.bashrc
 uv --version   # 验证
 ```
 
-### 10.3 bench init 报 `pkg-config is not installed`
+### 11.3 bench init 报 `pkg-config is not installed`
 
 **错误信息**：`pkg-config is not installed. Please install it before proceeding.`
 
@@ -1895,7 +1945,7 @@ uv --version   # 验证
 sudo apt install -y pkg-config
 ```
 
-### 10.4 bench init 报 `Python>=3.14,<3.15` 不满足
+### 11.4 bench init 报 `Python>=3.14,<3.15` 不满足
 
 **错误信息**：`Because the current Python version (3.12.3) does not satisfy Python>=3.14`
 
@@ -1909,7 +1959,7 @@ sudo apt install -y python3.14 python3.14-dev python3.14-venv
 bench init frappe-bench --frappe-branch version-16 --python python3.14
 ```
 
-### 10.5 bench build 报 `Expected node >=24`
+### 11.5 bench build 报 `Expected node >=24`
 
 **错误信息**：`The engine "node" is incompatible with this module. Expected version ">=24"`
 
@@ -1922,7 +1972,7 @@ nvm alias default 24
 node --version   # 验证为 v24.x.x
 ```
 
-### 10.6 使用 root 用户操作导致的权限问题
+### 11.6 使用 root 用户操作导致的权限问题
 
 **问题**：用 `sudo bench init` 后，文件所有者变为 root，普通用户无法编辑。
 
@@ -1935,7 +1985,7 @@ exit
 sudo chown -R $(whoami):$(whoami) ~/frappe-bench
 ```
 
-### 10.7 安装过程中断后重试
+### 11.7 安装过程中断后重试
 
 bench init 支持断点续传。如果中途失败：
 
@@ -1953,9 +2003,9 @@ bench init frappe-bench --frappe-branch version-16 --python python3.14
 
 ---
 
-## 11. 服务器运维问题排查
+## 12. 服务器运维问题排查
 
-### 11.1 supervisor 没有加载 frappe 进程组
+### 12.1 supervisor 没有加载 frappe 进程组
 
 **问题现象**：`bench restart` 报 `restarting supervisor group 'frappe:' failed`，`supervisorctl status` 为空或报 `no such group`。
 
@@ -1987,7 +2037,7 @@ sudo supervisorctl status
 # frappe-bench-frappe-schedule   RUNNING
 ```
 
-### 11.2 nginx 配置检查
+### 12.2 nginx 配置检查
 
 ```bash
 # 检查 nginx 配置是否正确
@@ -1997,7 +2047,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 11.3 站点维护模式
+### 12.3 站点维护模式
 
 ```bash
 # 检查站点状态
@@ -2007,7 +2057,7 @@ bench --site your-site doctor
 bench --site your-site set-maintenance-mode off
 ```
 
-### 11.4 服务器备份与恢复
+### 12.4 服务器备份与恢复
 
 ```bash
 # 备份单个站点
@@ -2022,7 +2072,7 @@ bench --site all backup
 bench --site your-site restore /path/to/backup/file.sql.gz
 ```
 
-### 11.5 服务器中文翻译不生效
+### 12.5 服务器中文翻译不生效
 
 **问题现象**：系统设置切换到中文后，页面仍显示英文。
 
@@ -2056,7 +2106,7 @@ bench --site your-site execute frappe.translate.get_all_translations --args "('z
 > - `.po` 源文件在 `apps/erpnext/erpnext/locale/zh.po`（非 `LC_MESSAGES` 目录）
 > - 必须先删除旧 `.mo` 文件再编译，否则可能仍使用缓存
 
-### 11.6 服务器 Node 版本切换
+### 12.6 服务器 Node 版本切换
 
 **问题**：`bench build` 总是使用系统 Node v20，忽略 nvm 安装的 Node 24。
 
@@ -2090,9 +2140,9 @@ echo 'export PATH=/home/frappe/.nvm/versions/node/v24.18.0/bin:$PATH' >> ~/.bash
 
 ---
 
-## 12. 开发问题排查
+## 13. 开发问题排查
 
-### 12.1 WSL2 中 supervisor 警告（正常现象）
+### 13.1 WSL2 中 supervisor 警告（正常现象）
 
 **问题现象**：在 WSL2 开发环境中执行 `bench build` 或 `bench restart` 时，看到：
 ```
@@ -2103,7 +2153,7 @@ WARN: restarting supervisor group `frappe:` failed. Use `bench restart` to retry
 
 **处理**：忽略即可。开发时用 `bench start` 启动服务，这个警告不影响任何功能。
 
-### 12.2 bench build 报 "Assets for Release ... don't exist"
+### 13.2 bench build 报 "Assets for Release ... don't exist"
 
 **问题现象**：
 ```
@@ -2117,9 +2167,9 @@ Assets for Release v16.27.0 don't exist
 
 ---
 
-## 13. 自定义 App 开发问题排查
+## 14. 自定义 App 开发问题排查
 
-### 13.1 手动创建 App 后 `install-app` 报 `No module named 'X'`
+### 14.1 手动创建 App 后 `install-app` 报 `No module named 'X'`
 
 **问题现象**：`bench --site dev.localhost install-app solua_home` 报 `No module named 'solua_home'`
 
@@ -2149,7 +2199,7 @@ apps/solua_home/          ← 这就是 solua_home 模块
 > ❌ **常见错误**：如果误建成了两层 `apps/solua_home/solua_home/hooks.py`，Frappe 会找不到模块。
 > `hooks.py` 必须直接在 `apps/solua_home/` 根目录下！
 
-### 13.2 `setup.py` 和 `install.py` 的冲突
+### 14.2 `setup.py` 和 `install.py` 的冲突
 
 **问题**：Frappe App 有两个用途不同的 `setup.py`：
 1. Python 打包配置（`from setuptools import setup, find_packages`）—— 在 App 根目录
@@ -2162,7 +2212,7 @@ after_install = "solua_home.install.after_install"   # 指向 install.py
 after_migrate = "solua_home.install.after_migrate"  # 指向 install.py
 ```
 
-### 13.3 Translation 字段名变更
+### 14.3 Translation 字段名变更
 
 **问题**：`frappe.get_doc({"doctype": "Translation", "source": ..., "target": ...})` 报 `MandatoryError`
 
@@ -2186,7 +2236,7 @@ frappe.db.exists("Translation", {
 })
 ```
 
-### 13.4 `notification_config` 导致 migrate 失败
+### 14.4 `notification_config` 导致 migrate 失败
 
 **问题**：migrate 时报 `ValueError: dictionary update sequence element`
 
@@ -2198,7 +2248,7 @@ frappe.db.exists("Translation", {
 notification_config = "solua_home.config.notifications.get_notification_config"
 ```
 
-### 13.5 `sites/apps.json` 注册
+### 14.5 `sites/apps.json` 注册
 
 **问题**：手动创建的 App 无法被 bench 识别
 
@@ -2223,7 +2273,7 @@ print('✅ 已注册到 apps.json')
 "
 ```
 
-### 13.6 Redis 端口冲突：`Address already in use`
+### 14.6 Redis 端口冲突：`Address already in use`
 
 **问题现象**：启动 `bench start` 时报 `Failed listening on port 11000/13000, aborting`
 
@@ -2248,7 +2298,7 @@ sudo service redis-server start
 bench start
 ```
 
-### 13.7 `bench start` 闪退：Scheduler 退出导致全部进程关闭
+### 14.7 `bench start` 闪退：Scheduler 退出导致全部进程关闭
 
 **问题现象**：`bench start` 启动约 1 秒后所有进程自动关闭
 ```
@@ -2278,7 +2328,7 @@ bench --site dev.localhost schedule
 cp Procfile.bak Procfile
 ```
 
-### 13.8 `start.sh` PATH 中 Windows 路径导致语法错误
+### 14.8 `start.sh` PATH 中 Windows 路径导致语法错误
 
 **问题现象**：运行 `start.sh` 报 `syntax error near unexpected token ('`
 
@@ -2289,7 +2339,7 @@ cp Procfile.bak Procfile
 export PATH=/home/yang/.local/bin:/home/yang/.nvm/versions/node/v24/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ```
 
-### 13.9 新开 WSL 终端后 `node` 找不到
+### 14.9 新开 WSL 终端后 `node` 找不到
 
 **问题现象**：新开 WSL 终端后 `bench start` 报 `node: not found`
 
@@ -2301,9 +2351,9 @@ export NVM_DIR=/home/yang/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-## 14. 开发问题排查
+## 15. 开发问题排查
 
-### 14.1 端口被占用
+### 15.1 端口被占用
 
 ```bash
 # 查看端口占用
@@ -2313,7 +2363,7 @@ sudo lsof -i :8000
 bench start --port 8001
 ```
 
-### 14.2 数据库连接失败
+### 15.2 数据库连接失败
 
 ```bash
 # 检查 MariaDB 是否在运行
@@ -2326,7 +2376,7 @@ sudo service mariadb start
 sudo mysql -u root -p
 ```
 
-### 14.3 缓存问题
+### 15.3 缓存问题
 
 ```bash
 # 开发时发现修改没生效，先清缓存
@@ -2336,7 +2386,7 @@ bench --site dev.localhost clear-cache
 bench build
 ```
 
-### 14.4 Python 调试
+### 15.4 Python 调试
 
 ```python
 # 在代码中添加
@@ -2352,7 +2402,7 @@ frappe.msgprint("这是一条提示消息")
 frappe.throw("必填字段不能为空")
 ```
 
-### 14.5 JavaScript 调试
+### 15.5 JavaScript 调试
 
 ```javascript
 // 在浏览器控制台
