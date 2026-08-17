@@ -759,7 +759,7 @@ ps aux | grep socketio
 | 1 | 公司 tax_id（NUIT） | `tax_id=None` | **真缺口**：需用户提供莫桑比克 NUIT 号码填入 |
 | 2 | 库存 | Bin 6 条共 491 件（CR-001-BR 94 / CR-002-AZ 98 / BR 99 / CZ 100 / PR 100 / **CR-001-PR 0**） | 全是**测试数据**，上线前按真实库存重盘；CR-001-PR 为 0 |
 | 3 | Item 自定义字段 | 12 个物料：CR-001 系列 7 个已填（中文名/SPU/POS简称），**CR-002 系列 5 个全空**，规格摘要 12 个全空 | CR-002 是测试物料；正式物料建档走向导自动填；规格摘要可选项 |
-| 4 | Item Defaults | **已有 13 条**（12 物料 + Solua 组） | 清单“0 条”过时；但**默认仓库全是 Stores - SH，与 POS 的 Finished Goods - SH 不一致** → 需先定正式仓库并统一 |
+| 4 | Item Defaults | ✅ **已统一（2026-08-16）**：13 条全部改为 **Finished Goods - SH**（正式仓库选定，与 POS Profile 一致） | **已解决**：Item Defaults 与 POS 不再打架（详见本清单下方“仓库统一记录”） |
 | 5 | 正式收银员账号 | **pos1/pos2 已建、已启用、已绑定「收银方式1 - SH」**（applicable_for_users 含 pos1/pos2/Administrator） | ✅ **已就绪**：上线时只需重置密码交接 |
 
 **🟡 建议做**：
@@ -775,9 +775,30 @@ ps aux | grep socketio
 **🟢 可延后/清单未提但更要紧**：
 - CR-002 系列是“半成品”测试物料（中文名/SPU/POS简称空、却有 400 件库存），上线前清理或重置
 - **小票版式未定**（58/80mm 热敏纸宽度未确认）——每天收银都要用
-- **仓库策略**（Stores vs Finished Goods 不一致）比清单大部分项都急
+- ~~**仓库策略**（Stores vs Finished Goods 不一致）~~ ✅ **已解决（2026-08-16）**：正式仓库定为 **Finished Goods - SH**，Item Defaults 13 条全部统一（详见下方记录）
 
-**结论**：真正必须做的只有 ① tax_id（等用户提供号码）② 正式仓库统一 ③ 上线前用真实物料/真实库存重盘；收银员、Item Defaults、自定义字段大多已就绪。
+**结论**：真正必须做的只有 ① tax_id（等用户提供号码）② ~~正式仓库统一~~ ✅ 已解决 ③ 上线前用真实物料/真实库存重盘；收银员、Item Defaults、自定义字段大多已就绪。
+
+#### 📦 正式仓库统一记录（2026-08-16，清单第 4 条）
+
+**选定：Finished Goods - SH 为正式仓库**（决策依据）：
+
+| 事实 | 数值 |
+|------|------|
+| 库存分布 | **100% 在 Finished Goods - SH**（Bin 6 条共 491 件，SLE 31 条全在 FG） |
+| Stores - SH | **空仓**：0 Bin、0 SLE，唯一引用是 12 条 Item Defaults |
+| POS Profile 收银方式1 - SH | warehouse 本来就 = **Finished Goods - SH**（无需改） |
+| 仓库清单 | All Warehouses - SH（组）/ Finished Goods - SH / Stores - SH / Goods In Transit - SH（预留采购在途） |
+
+**执行的改动**：
+- Item Defaults：12 条 `Stores - SH → Finished Goods - SH`（CR-001/CR-002 模板 + 10 变体；Solua 组原本就是 FG）→ 13 条全部 = Finished Goods - SH，Stores 残留 0
+- POS Profile：无需改动（已一致）
+- 唯一历史引用：已取消发票 `ACC-SINV-2026-00028`（CR-002-AZ | Stores - SH | Cancelled）——历史单据不改
+
+**后续注意**：
+- 新物料/新变体经模板（CR-001/CR-002 现已指向 FG）自动继承正确默认仓库
+- Stores - SH 保留未停用（万一未来开第二家门店/多仓可用）；若确定永不用，可手动停用该仓库
+- Goods In Transit - SH 供未来采购在途流程使用
 
 ---
 
