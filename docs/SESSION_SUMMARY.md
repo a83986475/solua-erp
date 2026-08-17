@@ -593,6 +593,7 @@
 | **Node.js** | v24.18.0（nvm 管理，system node 仍为 v20） |
 | **数据库** | MariaDB，db_name: `_62af7cb1044ac230` |
 | **Supervisor** | 已配置 `/etc/supervisor/conf.d/frappe-bench.conf`，所有进程 RUNNING |
+| **Docker（生产机）** | ✅ **29.6.1，服务 active**（2026-08-17 实测）——**ERP 未使用**（纯 bench 原生），容器闲置；将来 n8n 等可直接 docker run，无需新装 |
 | **solua_home** | 0.0.1，已安装到 erp.solua.one 站点 |
 | **GitHub 仓库** | https://github.com/a83986475/solua-erp.git |
 
