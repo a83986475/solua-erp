@@ -7,6 +7,10 @@
 
 frappe.provide("solua_home.item_variant_wizard");
 
+// 防重复加载：同一页面（列表+表单 meta）重复求值时只执行一次
+if (window.__solua_home_item_variant_wizard_loaded) return;
+window.__solua_home_item_variant_wizard_loaded = true;
+
 $(function () {
 	"use strict";
 

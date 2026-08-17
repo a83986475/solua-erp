@@ -127,5 +127,13 @@ app_include_js = [
 page_js = {
     "point-of-sale": "public/js/pos_custom.js",
     "print-designer": "public/js/print_designer_zh.js",
-    "item": "public/js/item_variant_wizard.js",
+}
+
+# Custom JS for doctype list views（Item 列表页的向导按钮）
+# 注：不能用 page_js（只对 Page 文档生效），Item 是 DocType，必须用 doctype_list_js
+doctype_list_js = {
+    "Item": [
+        "public/js/item_variant_wizard.js",
+        "public/js/item_data_wizard.js",
+    ],
 }

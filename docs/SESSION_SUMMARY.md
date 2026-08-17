@@ -565,6 +565,19 @@
 > 验证命令：服务器/本地 `pip show frappe`、`grep __version__ apps/erpnext/erpnext/__init__.py`；本地 `wsl -e bash -lc "cd ~/frappe-bench && bench --site all list-apps"`。
 > ⚠️ 历史教训：本档案早期把「服务器 ERPNext 版本」误写成 17.0.0-dev（实为 Windows 副本版本），已更正为 16.28.0。
 
+**⚠️ 仓库统一首次执行被回滚（2026-08-17 发现并修复）**：
+- 现象：上一条「仓库统一」记录完成后，独立进程复查发现 Item Defaults 仍是 Stores - SH（12 条）——改动根本没落库
+- 根因：脚本里 `doc.save()` 后**没有显式 `frappe.db.commit()`**，进程退出时事务回滚（`save()` 的 commit 参数默认 False；同进程内再查会看到自己的脏写，造成「已验证」假象）
+- 教训（重要）：**服务端脚本改数据后必须显式 `frappe.db.commit()`，且验证要用独立进程**（同进程 SELECT 会读到未提交的自己写入）
+- 修复：重新执行 + `frappe.db.commit()` → 独立进程验证 13 条全部 = Finished Goods - SH，Stores 残留 0
+
+**物料资料补全/校验向导（2026-08-17，清单第 3 条配套工具）**：
+- 新增 `api/item_data.py` 三个 whitelisted 方法：`get_item_data`（按模板/物料组/搜索加载，带模板规则提示+状态）、`bulk_update_item_data`（批量改中文名/SPU/规格摘要/POS简称/最低库存，None=跳过、0 合法写入、结尾 commit）、`validate_item_master`（全量校验：必填=中文名/SPU/变体POS简称/条码/默认仓库/售价[模板除外]，警告=规格摘要/最低库存/成本价，返回字段汇总+明细）
+- 新增 `public/js/item_data_wizard.js`：物料列表「物料资料补全」按钮 → 选模板（如 CR-002）→ 自动按模板规则预填（中文名=模板中文名、SPU=模板SPU、POS简称=颜色、最低库存默认 10）→ 行内可改 → 保存；另有「校验全部物料完整性」按钮出报告
+- **重要发现：`page_js` 钩子对 DocType 不生效**——Item 是 DocType，列表页加载的是 `doctype_list_js`（进 doctype meta 的 `__list_js`）；`page_js` 只对 Page 文档生效（point-of-sale/print-designer 那种）。所以**之前的「批量生成变体」按钮其实从未在界面上出现过**（档案里“端到端实测”是 API 级测试）。修复：hooks.py 把两个向导都注册到 `doctype_list_js = {"Item": [...]}`，两个 JS 加 `window.__solua_home_*_loaded` 防重复求值守卫；验证 Item meta `__list_js` 已含两个文件
+- **CR-002 系列已补全**（用向导后端路径模拟提交）：模板+4 变体共 5 条——中文名「罗马帘 2.0m」、SPU `6901234567893`（与 CR-001 同约定：SPU=共享条码）、POS简称=颜色（Azul/Branco/Cinza/Preto）、最低库存 10（占位值，可按产品线调）；独立进程验证已持久化
+- **全量校验结果（12 物料）**：必填项（中文名/SPU/POS简称/条码/默认仓库/售价）全部就位；剩余警告——规格摘要 12/12 空（可选）、成本价 12/12 空（清单第 9 条）、CR-001 系列最低库存 0（7 条，需按产品线定值）
+
 | 项目 | 值 |
 |------|-----|
 | **SSH 连接** | `ssh qq`（用户 `ubuntu`） |
@@ -758,7 +771,7 @@ ps aux | grep socketio
 |---|------|---------|------|
 | 1 | 公司 tax_id（NUIT） | `tax_id=None` | **真缺口**：需用户提供莫桑比克 NUIT 号码填入 |
 | 2 | 库存 | Bin 6 条共 491 件（CR-001-BR 94 / CR-002-AZ 98 / BR 99 / CZ 100 / PR 100 / **CR-001-PR 0**） | 全是**测试数据**，上线前按真实库存重盘；CR-001-PR 为 0 |
-| 3 | Item 自定义字段 | 12 个物料：CR-001 系列 7 个已填（中文名/SPU/POS简称），**CR-002 系列 5 个全空**，规格摘要 12 个全空 | CR-002 是测试物料；正式物料建档走向导自动填；规格摘要可选项 |
+| 3 | Item 自定义字段 | ✅ **已补全（2026-08-17）**：CR-002 系列 5 条已填（中文名/SPU/POS简称/最低库存 10）；CR-001 系列本就齐全；规格摘要全空（可选） | **基本就绪**：用「物料资料补全」向导批量维护；规格摘要/最低库存按产品线补 |
 | 4 | Item Defaults | ✅ **已统一（2026-08-16）**：13 条全部改为 **Finished Goods - SH**（正式仓库选定，与 POS Profile 一致） | **已解决**：Item Defaults 与 POS 不再打架（详见本清单下方“仓库统一记录”） |
 | 5 | 正式收银员账号 | **pos1/pos2 已建、已启用、已绑定「收银方式1 - SH」**（applicable_for_users 含 pos1/pos2/Administrator） | ✅ **已就绪**：上线时只需重置密码交接 |
 
