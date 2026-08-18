@@ -676,8 +676,90 @@ frappe.provide("solua_home.pos");
 		};
 	}
 
+	// ─── 交班按钮 ───────────────────────────────────────────────
+	function inject_closing_button() {
+		if (document.getElementById("pos-closing-btn")) return;
+		const btn = document.createElement("div");
+		btn.id = "pos-closing-btn";
+		btn.title = "交班 (Ctrl+Shift+C)";
+		btn.innerHTML = "📋";
+		btn.style.cssText = "position:fixed;bottom:80px;left:24px;z-index:9990;width:48px;height:48px;border-radius:50%;background:#e67e22;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(230,126,34,0.4);transition:transform 0.2s;";
+		btn.onmouseenter = () => btn.style.transform = "scale(1.1)";
+		btn.onmouseleave = () => btn.style.transform = "scale(1)";
+		btn.onclick = () => open_closing_dialog();
+		document.body.appendChild(btn);
+	}
+
+	function open_closing_dialog() {
+		frappe.call({
+			method: "solua_home.api.closing.get_today_closing",
+			callback: function (r) {
+				var data = r.message || {};
+				show_closing_dialog(data);
+			},
+		});
+	}
+
+	function show_closing_dialog(data) {
+		var payments_html = "";
+		(data.payments || []).forEach(function (p) {
+			payments_html += '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>' + p.mode + '</span><span style="font-weight:600;">' + frappe.utils.flt(p.amount).toLocaleString() + '</span></div>';
+		});
+
+		var status_text = data.has_closing ? (data.closing_status === "Submitted" ? "✅ 已交班" : "📝 草稿中") : "❌ 未交班";
+
+		var d = frappe.confirm(
+			'<div style="text-align:left;">' +
+			'<p><b>收银员：</b>' + (data.user || "") + '</p>' +
+			'<p><b>日期：</b>' + (data.today || "") + '</p>' +
+			'<p><b>状态：</b>' + status_text + '</p>' +
+			'<hr>' +
+			'<p><b>POS 发票数：</b>' + (data.invoice_count || 0) + ' 笔</p>' +
+			'<p><b>销售总额：</b>' + frappe.utils.flt(data.total_amount || 0).toLocaleString() + ' MZN</p>' +
+			'<p><b>期初金额：</b>' + frappe.utils.flt(data.opening_amount || 0).toLocaleString() + ' MZN</p>' +
+			'<hr>' +
+			'<p><b>各支付方式收款：</b></p>' +
+			'<div style="background:#f8f9fa;padding:8px;border-radius:6px;">' + (payments_html || '<span style="color:#999;">暂无收款记录</span>') + '</div>' +
+			'</div>',
+			function () {
+				// 确认交班
+				if (data.has_closing && data.closing_status === "Submitted") {
+					frappe.show_alert({ message: "今日已交班，无需重复操作", indicator: "orange" });
+					return;
+				}
+				frappe.call({
+					method: "solua_home.api.closing.create_closing_entry",
+					callback: function (r) {
+						var result = r.message || {};
+						if (result.status === "already_submitted") {
+							frappe.show_alert({ message: "已提交过交班单", indicator: "orange" });
+						} else if (result.status === "draft_exists") {
+							frappe.show_alert({ message: "已有草稿交班单，请去后台提交", indicator: "blue" });
+							frappe.set_route("Form", "POS Closing Entry", result.name);
+						} else {
+							frappe.show_alert({ message: result.message || "交班单已创建", indicator: "green" });
+							frappe.set_route("Form", "POS Closing Entry", result.name);
+						}
+					},
+				});
+			},
+			function () {}, // 取消
+			"确认交班",
+			"取消"
+		);
+	}
+
+	// Ctrl+Shift+C 快捷键
+	$(document).on("keydown", function (e) {
+		if (e.ctrlKey && e.shiftKey && e.key === "C") {
+			e.preventDefault();
+			open_closing_dialog();
+		}
+	});
+
 	// 启动
 	wrap_opening_dialog();
+	inject_closing_button();
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", () => apply_custom_barcode_handler());
 	} else {
