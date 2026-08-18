@@ -122,6 +122,7 @@ app_include_css = [
 app_include_js = [
     "/assets/solua_home/js/solua_home_global.js",
     "/assets/solua_home/js/label_print.js",
+    "/assets/solua_home/js/promotion_wizard.js",
 ]
 
 # Custom JS for standard pages
