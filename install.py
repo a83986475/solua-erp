@@ -15,6 +15,7 @@ def after_install():
     add_pos_profile_settings()
     configure_pos_tax()
     sync_standard_print_formats()
+    add_member_system_fields()
     frappe.db.commit()
 
 
@@ -684,5 +685,75 @@ def configure_item_variant_settings():
             settings.save(ignore_permissions=True)
     except Exception as e:
         frappe.log_error(f"Item Variant Settings 配置失败: {e}", "solua_home.variant_settings")
+
+    frappe.db.commit()
+
+
+def add_member_system_fields():
+    """会员系统自定义字段 + 会员方案初始化"""
+    customer_fields = [
+        {
+            "dt": "Customer",
+            "fieldname": "custom_member_card_no",
+            "label": "会员卡号",
+            "fieldtype": "Data",
+            "insert_after": "customer_name",
+            "unique": 1,
+            "description": "唯一会员卡号，用于 POS 扫码识别",
+        },
+        {
+            "dt": "Customer",
+            "fieldname": "custom_stored_value",
+            "label": "储值余额",
+            "fieldtype": "Currency",
+            "insert_after": "custom_member_card_no",
+            "default": "0",
+            "description": "会员储值卡余额",
+        },
+        {
+            "dt": "Customer",
+            "fieldname": "custom_member_since",
+            "label": "入会日期",
+            "fieldtype": "Date",
+            "insert_after": "custom_stored_value",
+        },
+        {
+            "dt": "Customer",
+            "fieldname": "custom_total_points",
+            "label": "累计积分",
+            "fieldtype": "Int",
+            "insert_after": "custom_member_since",
+            "read_only": 1,
+        },
+    ]
+    for field in customer_fields:
+        try:
+            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+                doc = frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"})
+                doc.insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(f"会员字段创建失败 [{field.get('fieldname')}]: {e}", "solua_home.member_fields")
+
+    # Sales Invoice 充值标记
+    inv_field = {
+        "dt": "Sales Invoice",
+        "fieldname": "custom_is_topup",
+        "label": "储值充值",
+        "fieldtype": "Check",
+        "insert_after": "is_pos",
+    }
+    try:
+        if not frappe.db.exists("Custom Field", {"dt": inv_field["dt"], "fieldname": inv_field["fieldname"]}):
+            doc = frappe.get_doc({"doctype": "Custom Field", **inv_field, "owner": "Administrator"})
+            doc.insert(ignore_permissions=True)
+    except Exception as e:
+        frappe.log_error(f"充值标记字段创建失败: {e}", "solua_home.member_fields")
+
+    # 初始化默认会员方案
+    try:
+        from solua_home.api.member import ensure_loyalty_program
+        ensure_loyalty_program()
+    except Exception as e:
+        frappe.log_error(f"会员方案初始化失败: {e}", "solua_home.member_fields")
 
     frappe.db.commit()
