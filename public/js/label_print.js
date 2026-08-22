@@ -1,5 +1,5 @@
 /**
- * Label Printing for solua_home (Enhanced v2)
+ * Label Printing for solua_home (Enhanced v3 - SVG Icons)
  *
  * 功能：扫码/搜索物料 → 选模板 → 设数量 → 批量打印标签
  * 新增：物料图片预览、库存数量显示、打印历史记录
@@ -21,9 +21,25 @@ frappe.provide("solua_home.label_print");
 (function () {
     "use strict";
 
-    let dialog_open = false;
-    let $dialog = null;
-    let _current_tab = "search"; // "search" | "history"
+    // ─── SVG 图标常量（替换所有 emoji）──────────────────────────
+    var ICONS = {
+        tag: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+        search: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        searchLg: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        box: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        clipboard: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+        printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+        refresh: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
+        warning: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        zoom: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    };
+
+    var stockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>';
+
+    var dialog_open = false;
+    var $dialog = null;
+    var _current_tab = "search";
 
     // ─── 全局快捷键 ───────────────────────────────────────────────
 
@@ -40,7 +56,6 @@ frappe.provide("solua_home.label_print");
         if (e.key === "F2") { e.preventDefault(); focus_search(); return false; }
         if (e.ctrlKey && e.key === "p") { e.preventDefault(); do_print(); return false; }
 
-        // Ctrl+H → 切换到历史 Tab
         if (e.ctrlKey && e.key === "h" && !_is_input_focused()) {
             e.preventDefault();
             _switch_tab("history");
@@ -84,7 +99,6 @@ frappe.provide("solua_home.label_print");
         if (!dialog_open) return;
         dialog_open = false;
         if ($dialog) $dialog.hide();
-        // 关闭图片预览
         _close_image_preview();
     }
 
@@ -110,12 +124,12 @@ frappe.provide("solua_home.label_print");
             <!-- 标题栏 -->
             <div style="padding:14px 20px;background:#007bff;color:#fff;display:flex;justify-content:space-between;align-items:center;">
                 <div>
-                    <h3 style="margin:0;font-size:18px;">🏷️ 标签打印</h3>
+                    <h3 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">${ICONS.tag} 标签打印</h3>
                     <div style="font-size:11px;opacity:0.8;margin-top:2px;">
                         Ctrl+L 开关 · F2 搜索 · Ctrl+P 打印 · Ctrl+H 历史 · Esc 关闭
                     </div>
                 </div>
-                <button id="lp-close-btn" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;padding:4px 8px;">✕</button>
+                <button id="lp-close-btn" style="background:none;border:none;color:#fff;cursor:pointer;padding:4px 8px;display:flex;">${ICONS.close}</button>
             </div>
 
             <!-- Tab 栏 -->
@@ -123,13 +137,13 @@ frappe.provide("solua_home.label_print");
                 <button class="lp-tab active" data-tab="search" style="
                     padding:10px 20px;border:none;background:transparent;cursor:pointer;
                     font-size:14px;font-weight:500;color:#007bff;border-bottom:2px solid #007bff;
-                    margin-bottom:-2px;
-                ">🔍 搜索物料</button>
+                    margin-bottom:-2px;display:flex;align-items:center;gap:6px;
+                ">${ICONS.search} 搜索物料</button>
                 <button class="lp-tab" data-tab="history" style="
                     padding:10px 20px;border:none;background:transparent;cursor:pointer;
                     font-size:14px;font-weight:500;color:#666;border-bottom:2px solid transparent;
-                    margin-bottom:-2px;
-                ">📋 打印历史 <kbd style="font-size:10px;opacity:0.6">Ctrl+H</kbd></button>
+                    margin-bottom:-2px;display:flex;align-items:center;gap:6px;
+                ">${ICONS.clipboard} 打印历史 <kbd style="font-size:10px;opacity:0.6">Ctrl+H</kbd></button>
             </div>
 
             <!-- 搜索 Tab -->
@@ -140,13 +154,13 @@ frappe.provide("solua_home.label_print");
                         <input id="lp-search-input" type="text" placeholder="扫码或输入物料编码/名称..."
                             style="flex:1;padding:10px 14px;font-size:16px;border:2px solid #dee2e6;border-radius:8px;outline:none;"
                             autocomplete="off" />
-                        <button id="lp-search-btn" style="padding:10px 20px;background:#28a745;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">🔍 搜索</button>
+                        <button id="lp-search-btn" style="padding:10px 20px;background:#28a745;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:6px;">${ICONS.search} 搜索</button>
                     </div>
                 </div>
                 <!-- 结果区 -->
                 <div style="flex:1;overflow-y:auto;padding:12px 20px;min-height:150px;">
                     <div id="lp-hint" style="text-align:center;color:#999;padding:40px 20px;">
-                        <div style="font-size:48px;margin-bottom:12px;">🏷️</div>
+                        <div style="margin-bottom:12px;">${ICONS.searchLg}</div>
                         <div>扫描条码或输入关键词搜索物料</div>
                         <div style="margin-top:8px;font-size:12px;color:#bbb;">支持：条码、编码、名称、中文名、简称</div>
                     </div>
@@ -155,7 +169,7 @@ frappe.provide("solua_home.label_print");
                         <div id="lp-items"></div>
                     </div>
                     <div id="lp-selected-summary" style="display:none;margin-top:12px;padding:10px;background:#e8f5e9;border-radius:8px;border:1px solid #c8e6c9;">
-                        <div style="font-weight:600;margin-bottom:4px;">📋 已选 <span id="lp-selected-count">0</span> 种，共 <span id="lp-total-qty">0</span> 张</div>
+                        <div style="font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;">${ICONS.clipboard} 已选 <span id="lp-selected-count">0</span> 种，共 <span id="lp-total-qty">0</span> 张</div>
                         <div id="lp-selected-list" style="font-size:12px;color:#555;"></div>
                     </div>
                 </div>
@@ -168,11 +182,11 @@ frappe.provide("solua_home.label_print");
                     <div id="lp-history-list"></div>
                 </div>
                 <div style="padding:10px 20px;border-top:1px solid #e9ecef;text-align:center;">
-                    <button id="lp-history-refresh" style="padding:6px 16px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">🔄 刷新</button>
+                    <button id="lp-history-refresh" style="padding:6px 16px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:4px;">${ICONS.refresh} 刷新</button>
                 </div>
             </div>
 
-            <!-- 底部操作栏（仅搜索 Tab 显示） -->
+            <!-- 底部操作栏 -->
             <div id="lp-footer" style="
                 padding:12px 20px;border-top:1px solid #e9ecef;
                 display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;
@@ -180,14 +194,14 @@ frappe.provide("solua_home.label_print");
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-size:13px;font-weight:500;">格式：</label>
                     <select id="lp-format" style="padding:5px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;min-width:140px;"></select>
-                    <button id="lp-new-format-btn" style="padding:4px 8px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;" title="新建打印格式">＋ 新建</button>
+                    <button id="lp-new-format-btn" style="padding:4px 8px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;" title="新建打印格式">+ 新建</button>
                     <label style="font-size:13px;font-weight:500;margin-left:8px;">数量：</label>
                     <input id="lp-qty" type="number" value="1" min="1" max="999" style="width:55px;padding:5px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;text-align:center;" />
                 </div>
                 <div style="display:flex;gap:8px;">
                     <button id="lp-select-all-btn" style="padding:7px 14px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">全选</button>
                     <button id="lp-clear-btn" style="padding:7px 14px;background:#ffc107;color:#333;border:none;border-radius:6px;cursor:pointer;font-size:13px;">清空</button>
-                    <button id="lp-print-btn" style="padding:7px 20px;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;">🖨️ 打印 <kbd style="font-size:10px;opacity:0.7">Ctrl+P</kbd></button>
+                    <button id="lp-print-btn" style="padding:7px 20px;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">${ICONS.printer} 打印 <kbd style="font-size:10px;opacity:0.7">Ctrl+P</kbd></button>
                 </div>
             </div>
         </div>
@@ -196,25 +210,19 @@ frappe.provide("solua_home.label_print");
 
         $("body").append($dialog);
 
-        // ─── 事件绑定 ─────────────────────────────────────────────
         $dialog.find("#lp-close-btn").on("click", close_dialog);
         $dialog.on("click", function (e) { if (e.target === $dialog[0]) close_dialog(); });
 
-        // Tab 切换
         $dialog.find(".lp-tab").on("click", function () {
             _switch_tab($(this).data("tab"));
         });
 
-        // 搜索
         $dialog.find("#lp-search-input").on("keydown", function (e) {
             if (e.key === "Enter") { e.preventDefault(); do_search(); }
         });
         $dialog.find("#lp-search-btn").on("click", do_search);
-
-        // 数量
         $dialog.find("#lp-qty").on("change", update_selected_summary);
 
-        // 格式下拉：选择「新建格式」时跳转
         $dialog.find("#lp-format").on("change", function () {
             if ($(this).val() === "__new__") {
                 window.open("/app/print-format/new?doc_type=Item", "_blank");
@@ -225,17 +233,13 @@ frappe.provide("solua_home.label_print");
             }
         });
 
-        // ＋新建按钮：直接跳转
         $dialog.find("#lp-new-format-btn").on("click", function () {
             window.open("/app/print-format/new?doc_type=Item", "_blank");
         });
 
-        // 操作按钮
         $dialog.find("#lp-print-btn").on("click", do_print);
         $dialog.find("#lp-clear-btn").on("click", clear_search);
         $dialog.find("#lp-select-all-btn").on("click", toggle_select_all);
-
-        // 历史刷新
         $dialog.find("#lp-history-refresh").on("click", _load_history);
     }
 
@@ -267,8 +271,8 @@ frappe.provide("solua_home.label_print");
 
     // ─── 搜索 ─────────────────────────────────────────────────────
 
-    let _current_results = [];
-    let _cursor_index = -1;
+    var _current_results = [];
+    var _cursor_index = -1;
 
     function do_search() {
         var query = ($dialog.find("#lp-search-input").val() || "").trim();
@@ -278,8 +282,7 @@ frappe.provide("solua_home.label_print");
             method: "solua_home.api.label_print.search_items_for_label",
             args: { query: query, limit: 50 },
             callback: function (r) {
-                var results = r.message || [];
-                _current_results = results;
+                _current_results = r.message || [];
                 try {
                     _render_results();
                 } catch (e) {
@@ -297,7 +300,6 @@ frappe.provide("solua_home.label_print");
         });
     }
 
-    // 安全的数字格式化（不依赖 frappe.utils.flt）
     function safe_flt(v) { return parseFloat(v) || 0; }
 
     function _render_results() {
@@ -306,7 +308,7 @@ frappe.provide("solua_home.label_print");
         var $items = $dialog.find("#lp-items");
 
         if (_current_results.length === 0) {
-            $hint.html('<div style="font-size:48px;margin-bottom:12px;">🔍</div><div>未找到匹配物料</div>').show();
+            $hint.html('<div style="margin-bottom:12px;">' + ICONS.searchLg + '</div><div>未找到匹配物料</div>').show();
             $results.hide();
             return;
         }
@@ -317,22 +319,18 @@ frappe.provide("solua_home.label_print");
 
         var html = "";
         _current_results.forEach(function (item, idx) {
-            // 图片：大图 + 点击预览
             var img_html;
             if (item.image) {
-                img_html = `<div class="lp-img-wrap" data-src="${item.image}" style="
-                    width:52px;height:52px;border-radius:8px;overflow:hidden;
-                    cursor:pointer;flex-shrink:0;position:relative;
-                    border:1px solid #e0e0e0;
-                ">
-                    <img src="${item.image}" style="width:100%;height:100%;object-fit:cover;" />
-                    <div style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,0.5);color:#fff;font-size:9px;padding:1px 3px;border-radius:3px 0 0 0;">🔍</div>
-                </div>`;
+                img_html = '<div class="lp-img-wrap" data-src="' + item.image + '" style="' +
+                    'width:52px;height:52px;border-radius:8px;overflow:hidden;' +
+                    'cursor:pointer;flex-shrink:0;position:relative;border:1px solid #e0e0e0;">' +
+                    '<img src="' + item.image + '" style="width:100%;height:100%;object-fit:cover;" />' +
+                    '<div style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,0.5);padding:2px 3px;border-radius:3px 0 0 0;display:flex;">' + ICONS.zoom + '</div>' +
+                    '</div>';
             } else {
-                img_html = `<div style="width:52px;height:52px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:22px;flex-shrink:0;border:1px solid #e0e0e0;">📦</div>`;
+                img_html = '<div style="width:52px;height:52px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e0e0e0;">' + ICONS.box + '</div>';
             }
 
-            // 条码标签
             var bc_text = "";
             if (item.barcodes && item.barcodes.length > 0) {
                 bc_text = item.barcodes.slice(0, 3).map(function (b) {
@@ -341,7 +339,6 @@ frappe.provide("solua_home.label_print");
                 if (item.barcodes.length > 3) bc_text += '<span style="font-size:10px;color:#999;">+' + (item.barcodes.length - 3) + '</span>';
             }
 
-            // 类型标签
             var variant_tag = "";
             if (item.is_template) {
                 variant_tag = '<span style="background:#fff3cd;color:#856404;padding:1px 5px;border-radius:3px;font-size:10px;margin-left:4px;">模板</span>';
@@ -349,49 +346,34 @@ frappe.provide("solua_home.label_print");
                 variant_tag = '<span style="background:#d4edda;color:#155724;padding:1px 5px;border-radius:3px;font-size:10px;margin-left:4px;">变体</span>';
             }
 
-            // 库存指示器
             var stock = item.stock_qty || 0;
             var stock_html;
             if (stock > 0) {
-                stock_html = '<span style="color:#28a745;font-weight:600;font-size:13px;">📦 ' + stock + '</span>';
+                stock_html = '<span style="color:#28a745;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:3px;">' + stockSvg + ' ' + stock + '</span>';
             } else {
-                stock_html = '<span style="color:#dc3545;font-size:12px;">⚠️ 无库存</span>';
+                stock_html = '<span style="color:#dc3545;font-size:12px;display:inline-flex;align-items:center;gap:3px;">' + ICONS.warning + ' 无库存</span>';
             }
 
-            html += `
-            <div class="lp-item" data-index="${idx}" style="
-                display:flex;align-items:center;gap:10px;
-                padding:8px 10px;border:1px solid #e9ecef;border-radius:8px;
-                margin-bottom:5px;cursor:pointer;transition:all 0.15s;
-            ">
-                <input type="checkbox" class="lp-check" data-index="${idx}" style="width:16px;height:16px;cursor:pointer;" />
-                ${img_html}
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;">
-                        <span style="font-weight:600;font-size:13px;">
-                            ${item.custom_chinese_name || item.custom_pos_short_name || item.item_name}
-                        </span>
-                        ${variant_tag}
-                    </div>
-                    <div style="font-size:11px;color:#888;margin-top:1px;">
-                        ${item.item_code} · ${item.item_group || ''}
-                    </div>
-                    <div style="margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                        ${bc_text}
-                    </div>
-                </div>
-                <div style="text-align:right;white-space:nowrap;min-width:80px;">
-                    <div style="font-weight:600;color:#007bff;font-size:14px;">
-                        ${safe_flt(item.standard_rate) ? safe_flt(item.standard_rate).toLocaleString() : '—'}
-                    </div>
-                    <div style="margin-top:2px;">${stock_html}</div>
-                </div>
-            </div>`;
+            html += '<div class="lp-item" data-index="' + idx + '" style="' +
+                'display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:5px;cursor:pointer;transition:all 0.15s;">' +
+                '<input type="checkbox" class="lp-check" data-index="' + idx + '" style="width:16px;height:16px;cursor:pointer;" />' +
+                img_html +
+                '<div style="flex:1;min-width:0;">' +
+                '<div style="display:flex;align-items:center;">' +
+                '<span style="font-weight:600;font-size:13px;">' + (item.custom_chinese_name || item.custom_pos_short_name || item.item_name) + '</span>' +
+                variant_tag +
+                '</div>' +
+                '<div style="font-size:11px;color:#888;margin-top:1px;">' + item.item_code + ' · ' + (item.item_group || '') + '</div>' +
+                '<div style="margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' + bc_text + '</div>' +
+                '</div>' +
+                '<div style="text-align:right;white-space:nowrap;min-width:80px;">' +
+                '<div style="font-weight:600;color:#007bff;font-size:14px;">' + (safe_flt(item.standard_rate) ? safe_flt(item.standard_rate).toLocaleString() : '—') + '</div>' +
+                '<div style="margin-top:2px;">' + stock_html + '</div>' +
+                '</div></div>';
         });
 
         $items.html(html);
 
-        // 绑定事件
         $items.find(".lp-item").on("click", function (e) {
             if (!$(e.target).hasClass("lp-check") && !$(e.target).closest(".lp-img-wrap").length) {
                 $(this).find(".lp-check").prop("checked", !$(this).find(".lp-check").prop("checked"));
@@ -401,7 +383,6 @@ frappe.provide("solua_home.label_print");
 
         $items.find(".lp-check").on("change", update_selected_summary);
 
-        // 图片点击预览
         $items.find(".lp-img-wrap").on("click", function (e) {
             e.stopPropagation();
             _open_image_preview($(this).data("src"));
@@ -410,24 +391,23 @@ frappe.provide("solua_home.label_print");
         _cursor_index = -1;
     }
 
-    // ─── 图片预览浮层 ─────────────────────────────────────────────
+    // ─── 图片预览 ─────────────────────────────────────────────────
 
     function _open_image_preview(src) {
         _close_image_preview();
-        var $overlay = $(`
-            <div id="lp-img-preview" style="
-                position:fixed;top:0;left:0;width:100%;height:100%;
-                background:rgba(0,0,0,0.7);z-index:10000;
-                display:flex;align-items:center;justify-content:center;cursor:pointer;
-            ">
-                <div style="background:#fff;border-radius:12px;padding:8px;max-width:80vw;max-height:80vh;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-                    <img src="${src}" style="max-width:75vw;max-height:75vh;object-fit:contain;border-radius:8px;" />
-                </div>
-                <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;">✕</div>
-            </div>
-        `);
+        var $overlay = $(
+            '<div id="lp-img-preview" style="' +
+            'position:fixed;top:0;left:0;width:100%;height:100%;' +
+            'background:rgba(0,0,0,0.7);z-index:10000;' +
+            'display:flex;align-items:center;justify-content:center;cursor:pointer;">' +
+            '<div style="background:#fff;border-radius:12px;padding:8px;max-width:80vw;max-height:80vh;box-shadow:0 8px 32px rgba(0,0,0,0.4);">' +
+            '<img src="' + src + '" style="max-width:75vw;max-height:75vh;object-fit:contain;border-radius:8px;" />' +
+            '</div>' +
+            '<div style="position:absolute;top:16px;right:20px;color:#fff;cursor:pointer;display:flex;">' + ICONS.close + '</div>' +
+            '</div>'
+        );
         $overlay.on("click", function (e) {
-            if (e.target === $overlay[0] || $(e.target).closest("#lp-img-preview > div").length === 0 || $(e.target).is(".fa")) {
+            if (e.target === $overlay[0] || $(e.target).closest("#lp-img-preview > div").length === 0) {
                 _close_image_preview();
             }
         });
@@ -460,23 +440,18 @@ frappe.provide("solua_home.label_print");
                 var html = "";
                 records.forEach(function (rec) {
                     var time = rec.creation ? frappe.datetime.str_to_user(rec.creation) : "";
-                    html += `
-                    <div style="padding:10px 12px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:13px;font-weight:500;color:#333;">${rec.summary || rec.content || '(无内容)'}</div>
-                            <div style="font-size:11px;color:#999;margin-top:2px;">
-                                ${time} · ${rec.user || ''}
-                            </div>
-                        </div>
-                        <button class="lp-reprint-btn" data-item="${rec.item_code || ''}" style="
-                            padding:4px 10px;background:#e3f2fd;color:#007bff;border:1px solid #bbdefb;
-                            border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;margin-left:8px;
-                        ">🔄 重打</button>
-                    </div>`;
+                    html += '<div style="padding:10px 12px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                        '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:500;color:#333;">' + (rec.summary || rec.content || '(无内容)') + '</div>' +
+                        '<div style="font-size:11px;color:#999;margin-top:2px;">' + time + ' · ' + (rec.user || '') + '</div>' +
+                        '</div>' +
+                        '<button class="lp-reprint-btn" data-item="' + (rec.item_code || '') + '" style="' +
+                        'padding:4px 10px;background:#e3f2fd;color:#007bff;border:1px solid #bbdefb;' +
+                        'border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;margin-left:8px;display:inline-flex;align-items:center;gap:3px;">' + ICONS.refresh + ' 重打</button>' +
+                        '</div>';
                 });
                 $list.html(html);
 
-                // 绑定重打按钮
                 $list.find(".lp-reprint-btn").on("click", function () {
                     var itemCode = $(this).data("item");
                     if (itemCode) {
@@ -558,7 +533,6 @@ frappe.provide("solua_home.label_print");
             callback: function (r) {
                 if (r.message && r.message.html) {
                     _open_print_window(r.message.html, r.message.label_count);
-                    // 记录打印历史
                     _record_history(item_codes, format_name, quantities, total_labels);
                 } else {
                     frappe.show_alert({ message: "标签生成失败", indicator: "red" });
@@ -654,13 +628,12 @@ frappe.provide("solua_home.label_print");
                         $sel.append('<option value="' + f.name + '">' + f.name + '</option>');
                     });
                 }
-                // 末尾加「新建格式」选项
-                $sel.append('<option value="__new__" style="color:#007bff;font-weight:600;">＋ 新建格式...</option>');
+                $sel.append('<option value="__new__" style="color:#007bff;font-weight:600;">+ 新建格式...</option>');
             },
         });
     }
 
-    // ─── 浮动按钮 ─────────────────────────────────────────────────
+    // ─── 浮动按钮（SVG 图标）────────────────────────────────────
 
     function inject_floating_button() {
         if (window.location.pathname.includes("/point-of-sale")) return;
@@ -670,8 +643,8 @@ frappe.provide("solua_home.label_print");
             'width:48px;height:48px;border-radius:50%;' +
             'background:#007bff;color:#fff;cursor:pointer;' +
             'display:flex;align-items:center;justify-content:center;' +
-            'font-size:20px;box-shadow:0 4px 12px rgba(0,123,255,0.4);' +
-            'transition:transform 0.2s,box-shadow 0.2s;">🏷️</div>');
+            'box-shadow:0 4px 12px rgba(0,123,255,0.4);' +
+            'transition:transform 0.2s,box-shadow 0.2s;">' + ICONS.tag + '</div>');
 
         $btn.on("mouseenter", function () {
             $(this).css({ transform: "scale(1.1)", "box-shadow": "0 6px 20px rgba(0,123,255,0.5)" });
