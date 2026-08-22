@@ -128,6 +128,30 @@ def validate_sales_invoice(doc, method=None):
                 _("折扣 {0}% 未经审批：提交前需管理员输入审批密码").format(max_pct)
             )
 
+    # ── 成本价校验：任何行的实际售价不得低于成本价（硬拦截，管理员也不例外） ──
+    for item in doc.get("items", []):
+        selling_price = flt(item.get("rate")) or 0
+        if selling_price <= 0:
+            continue
+        # 获取成本价
+        cost = frappe.db.sql("""
+            SELECT SUM(b.valuation_rate * b.actual_qty) / NULLIF(SUM(b.actual_qty), 0) as cost
+            FROM tabBin b WHERE b.item_code = %(code)s AND b.actual_qty > 0
+        """, {"code": item.item_code}, as_dict=True)
+        cost_val = 0
+        if cost and cost[0].get("cost"):
+            cost_val = float(cost[0]["cost"])
+        else:
+            cost_val = float(frappe.db.get_value("Item", item.item_code, "valuation_rate") or 0)
+
+        if cost_val > 0 and selling_price < cost_val:
+            item_name = item.item_name or item.item_code
+            frappe.throw(
+                _("物料 {0} 售价 {1} 低于成本价 {2}，不允许销售！（硬性限制，管理员也不例外）").format(
+                    item_name, selling_price, cost_val
+                )
+            )
+
 
 @frappe.whitelist()
 def verify_discount_approval_password(password, company=None):
@@ -227,3 +251,48 @@ def after_customer_created(doc, method=None):
         })
         contact.insert(ignore_permissions=True)
         frappe.msgprint(_("已为客户 {0} 自动创建联系人").format(doc.customer_name))
+
+
+# ─── 成本价校验 ─────────────────────────────────────────────────
+
+@frappe.whitelist()
+def check_price_above_cost(item_code, price):
+    """校验价格是否高于成本价（改价/折扣通用）
+
+    返回:
+        {"ok": True, "cost": 0} — 价格高于或等于成本，允许
+        {"ok": False, "cost": 100, "message": "..."} — 低于成本，拒绝
+    """
+    if not item_code or price is None:
+        return {"ok": True, "cost": 0}
+
+    price = float(price)
+
+    # 获取成本价（valuation_rate）
+    # 优先从 Bin 表取加权平均成本，其次从 Item 取
+    cost = frappe.db.sql("""
+        SELECT SUM(b.valuation_rate * b.actual_qty) / NULLIF(SUM(b.actual_qty), 0)
+        FROM tabBin b
+        WHERE b.item_code = %(item_code)s AND b.actual_qty > 0
+    """, {"item_code": item_code}, as_dict=True)
+
+    if cost and cost[0] and cost[0][list(cost[0].keys())[0]]:
+        cost_val = float(cost[0][list(cost[0].keys())[0]])
+    else:
+        # Bin 无库存或无成本，从 Item.valuation_rate 取
+        cost_val = frappe.db.get_value("Item", item_code, "valuation_rate") or 0
+        cost_val = float(cost_val)
+
+    if cost_val <= 0:
+        # 未设成本价，不拦截（允许正常销售）
+        return {"ok": True, "cost": 0}
+
+    if price < cost_val:
+        item_name = frappe.db.get_value("Item", item_code, "item_name") or item_code
+        return {
+            "ok": False,
+            "cost": cost_val,
+            "message": f"价格 {price:.2f} 低于成本价 {cost_val:.2f}（{item_name}），不允许！",
+        }
+
+    return {"ok": True, "cost": cost_val}

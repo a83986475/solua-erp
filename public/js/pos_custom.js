@@ -744,16 +744,29 @@ frappe.provide("solua_home.pos");
 							return;
 						}
 
+					// 先验密码，再验成本价
 					frappe.call({
 						method: "solua_home.api.sales.verify_discount_approval_password",
 						args: { password: values.approval_password, company: frappe.boot.sysdefaults.company },
 						callback: function(r2) {
-							if (r2.message && r2.message.ok) {
-								d.hide();
-								apply_price_override(item, new_price);
-							} else {
+							if (!(r2.message && r2.message.ok)) {
 								frappe.show_alert({ message: "审批密码错误", indicator: "red" });
+								return;
 							}
+							// 密码正确，检查是否低于成本价
+							frappe.call({
+								method: "solua_home.api.sales.check_price_above_cost",
+								args: { item_code: item.item_code, price: new_price },
+								callback: function(r3) {
+									if (r3.message && !r3.message.ok) {
+										frappe.show_alert({ message: r3.message.message, indicator: "red" });
+										frappe.utils.play_sound("error");
+									} else {
+										d.hide();
+										apply_price_override(item, new_price);
+									}
+								}
+							});
 						}
 					});
 					}
