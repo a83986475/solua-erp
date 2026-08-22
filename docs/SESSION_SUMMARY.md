@@ -1,6 +1,6 @@
 # 会话总结：ERPNext v16 开发环境搭建 + 服务器定制开发
 
-> 生成时间: 2026-07-17 | 最后更新: 2026-08-06 | 供下个对话引用
+> 生成时间: 2026-07-17 | 最后更新: 2026-08-18 | 供下个对话引用
 
 ---
 
@@ -597,6 +597,26 @@
 | **solua_home** | 0.0.1，已安装到 erp.solua.one 站点 |
 | **GitHub 仓库** | https://github.com/a83986475/solua-erp.git |
 
+### 第十八会话：标签打印功能（2026-08-18，本次）
+
+**一句话总结**：新增「标签打印」功能——全站 Ctrl+L 打开扫码/搜索界面，选模板→设数量→批量打印；后端搜索 API 支持条码精确匹配（模板自动展开变体）+ 模糊搜索 + Print Format 渲染。
+
+| 任务 | 状态 |
+|------|------|
+| **后端 API**（api/label_print.py） | ✅ `search_items_for_label`（条码精确+模糊搜索+模板展开变体）、`get_label_print_formats`、`generate_label_html`（Frappe Print Format 渲染+回退模板） |
+| **前端 JS**（public/js/label_print.js） | ✅ 全站 Ctrl+L 弹出标签打印对话框：搜索框（扫码自动触发）→ 物料列表（勾选+预览）→ 模板选择 → 数量设定 → 打印（新窗口+自动触发 browser print） |
+| **快捷键** | ✅ Ctrl+L 打开/关闭、F2 聚焦搜索、Ctrl+P 打印、Esc 关闭、↑↓ 导航、Space 切换选中、+/- 调数量、Ctrl+A 全选 |
+| **hooks.py 注册** | ✅ `app_include_js` 注册（全站可用，POS 页面自动隐藏浮动按钮） |
+| **API 测试** | ✅ 条码搜索 6901234567892→6 变体、变体码 CR-001-BR→精确匹配、名称搜索→10 项、2 个 Print Format 可用、HTML 生成 2491 chars |
+| **部署** | ✅ 三处同步（GitHub/服务器/WSL）md5 一致、web 重启、clear-cache |
+| **v2 增强：库存数量** | ✅ 搜索结果实时显示各物料库存（LEFT JOIN tabBin），CR-001-BR stock=94 正确显示 |
+| **v2 增强：图片预览** | ✅ 搜索结果左侧 52×52 缩略图 + 右下角🔍标记，点击弹出全屏预览浮层 |
+| **v2 增强：打印历史** | ✅ 新增「打印历史」Tab（Ctrl+H），记录到 Comment 表，显示时间/用户/物料摘要，支持「🔄 重打」快捷回搜 |
+
+**Bug 修复**：`_get_barcodes` 中 `frappe.get_all` 返回 dict 列表但代码用属性访问 `b.barcode`，改为 `b["barcode"]`。
+
+**v2 用法**：Ctrl+L 打开 → 搜索结果显示图片/库存/条码 → 勾选 → Ctrl+P 打印 → 自动记录历史 → Ctrl+H 查看历史 → 点「重打」回搜。
+
 ### SSH 免密执行命令模式
 
 ```bash
@@ -852,6 +872,13 @@ ps aux | grep socketio
 ---
 
 ## 八、常用命令速查
+
+### 零售参数设置
+```
+访问地址：/app/retail-settings
+JS 调用：solua_home.retail_settings.open()
+权限：仅 Administrator 可修改
+```
 
 ### 本地开发
 ```bash
