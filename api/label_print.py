@@ -25,7 +25,7 @@ def search_items_for_label(query=None, limit=20):
         return []
 
     q = query.strip()
-    limit = min(int(limit or 20), 50)
+    limit = min(int(limit or 50), 100)
 
     # 1) 精确条码匹配（优先级最高）
     barcode_match = _find_by_barcode(q)
@@ -300,7 +300,7 @@ def get_print_history(limit=20):
     Returns:
         list: 最近的打印记录（从 Comment 表筛选）
     """
-    limit = min(int(limit or 20), 50)
+    limit = min(int(limit or 50), 100)
 
     # 从 Comment 表获取标签打印记录
     records = frappe.db.sql("""

@@ -180,6 +180,7 @@ frappe.provide("solua_home.label_print");
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-size:13px;font-weight:500;">格式：</label>
                     <select id="lp-format" style="padding:5px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;min-width:140px;"></select>
+                    <button id="lp-new-format-btn" style="padding:4px 8px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;" title="新建打印格式">＋ 新建</button>
                     <label style="font-size:13px;font-weight:500;margin-left:8px;">数量：</label>
                     <input id="lp-qty" type="number" value="1" min="1" max="999" style="width:55px;padding:5px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;text-align:center;" />
                 </div>
@@ -212,6 +213,22 @@ frappe.provide("solua_home.label_print");
 
         // 数量
         $dialog.find("#lp-qty").on("change", update_selected_summary);
+
+        // 格式下拉：选择「新建格式」时跳转
+        $dialog.find("#lp-format").on("change", function () {
+            if ($(this).val() === "__new__") {
+                window.open("/app/print-format/new?doc_type=Item", "_blank");
+                var prev = $(this).data("prev") || "";
+                $(this).val(prev);
+            } else {
+                $(this).data("prev", $(this).val());
+            }
+        });
+
+        // ＋新建按钮：直接跳转
+        $dialog.find("#lp-new-format-btn").on("click", function () {
+            window.open("/app/print-format/new?doc_type=Item", "_blank");
+        });
 
         // 操作按钮
         $dialog.find("#lp-print-btn").on("click", do_print);
@@ -259,16 +276,29 @@ frappe.provide("solua_home.label_print");
 
         frappe.call({
             method: "solua_home.api.label_print.search_items_for_label",
-            args: { query: query, limit: 20 },
+            args: { query: query, limit: 50 },
             callback: function (r) {
-                _current_results = r.message || [];
-                _render_results();
+                var results = r.message || [];
+                _current_results = results;
+                try {
+                    _render_results();
+                } catch (e) {
+                    console.error("[label_print] render error:", e);
+                    $dialog.find("#lp-items").html(
+                        '<div style="color:red;padding:20px;">渲染出错: ' + e.message + '</div>'
+                    );
+                    $dialog.find("#lp-hint").hide();
+                    $dialog.find("#lp-results").show();
+                }
             },
             error: function (r) {
                 frappe.msgprint("搜索失败：" + (r._message || "未知错误"));
             },
         });
     }
+
+    // 安全的数字格式化（不依赖 frappe.utils.flt）
+    function safe_flt(v) { return parseFloat(v) || 0; }
 
     function _render_results() {
         var $hint = $dialog.find("#lp-hint");
@@ -283,7 +313,7 @@ frappe.provide("solua_home.label_print");
 
         $hint.hide();
         $results.show();
-        $dialog.find("#lp-results-count").text("找到 " + _current_results.length + " 个物料");
+        $dialog.find("#lp-results-count").text("找到 " + _current_results.length + " 个物料（勾选后打印）");
 
         var html = "";
         _current_results.forEach(function (item, idx) {
@@ -352,7 +382,7 @@ frappe.provide("solua_home.label_print");
                 </div>
                 <div style="text-align:right;white-space:nowrap;min-width:80px;">
                     <div style="font-weight:600;color:#007bff;font-size:14px;">
-                        ${item.standard_rate ? frappe.utils.flt(item.standard_rate).toLocaleString() : '—'}
+                        ${safe_flt(item.standard_rate) ? safe_flt(item.standard_rate).toLocaleString() : '—'}
                     </div>
                     <div style="margin-top:2px;">${stock_html}</div>
                 </div>
@@ -624,6 +654,8 @@ frappe.provide("solua_home.label_print");
                         $sel.append('<option value="' + f.name + '">' + f.name + '</option>');
                     });
                 }
+                // 末尾加「新建格式」选项
+                $sel.append('<option value="__new__" style="color:#007bff;font-weight:600;">＋ 新建格式...</option>');
             },
         });
     }
