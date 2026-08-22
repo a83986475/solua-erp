@@ -183,14 +183,18 @@ frappe.provide("solua_home.pos");
 					return;
 				}
 
-				// 未找到
+				// 未找到 → 尝试打包条码
 				if (!res || res.type === "not_found") {
-					item_selector.search_field.set_focus();
-					frappe.show_alert({
-						message: __("未找到条码 {0} 对应的商品", [barcode]),
-						indicator: "orange",
+					handle_bundle_barcode(barcode, item_selector).then((found) => {
+						if (!found) {
+							item_selector.search_field.set_focus();
+							frappe.show_alert({
+								message: __("未找到条码 {0} 对应的商品", [barcode]),
+								indicator: "orange",
+							});
+							frappe.utils.play_sound("error");
+						}
 					});
-					frappe.utils.play_sound("error");
 					return;
 				}
 
@@ -676,6 +680,180 @@ frappe.provide("solua_home.pos");
 		};
 	}
 
+	// ─── 前台改价功能 ─────────────────────────────────────────
+	// 收银员在 POS 购物车里修改单品价格（需要审批密码控制）
+	// 挂在 ItemSelector 原型上，购物车渲染后自动注入改价按钮
+
+	function inject_price_override() {
+		if (!window.erpnext || !window.erpnext.PointOfSale || !window.erpnext.PointOfSale.Cart) return;
+		const Cart = erpnext.PointOfSale.Cart.prototype;
+		if (Cart._price_override_bound) return;
+		Cart._price_override_bound = true;
+
+		// 在购物车每行价格区域注入「✏️」改价按钮
+		const original_render_cart_item = Cart.render_cart_item || function() {};
+		Cart.render_cart_item = function(item) {
+			const html = original_render_cart_item.call(this, item);
+			// 在价格后面加改价按钮（通过 CSS 注入，不改原生 DOM 结构）
+			setTimeout(() => {
+				const $row = this.$cart_items && this.$cart_items.find(`[data-item-code="${item.item_code}"]`);
+				if ($row && !$row.find('.price-override-btn').length) {
+					const $price = $row.find('.pos-item-amount, .item-qty-rate .rate');
+					if ($price.length) {
+						$price.css('cursor', 'pointer').attr('title', '点击改价');
+						$price.on('click', function(e) {
+							e.stopPropagation();
+							show_price_override_dialog(item);
+						});
+					}
+				}
+			}, 200);
+			return html;
+		};
+	}
+
+	function show_price_override_dialog(item) {
+		// 检查是否允许改价（从 POS Profile 的零售参数获取）
+		frappe.call({
+			method: "solua_home.api.retail_settings.get_retail_settings",
+			callback: function(r) {
+				var settings = r.message || {};
+				if (!settings.allow_price_override) {
+					frappe.show_alert({ message: "前台改价功能未启用", indicator: "orange" });
+					return;
+				}
+				var needs_approval = settings.price_override_requires_approval;
+
+				var fields = [
+					{ fieldtype: "HTML", fieldname: "info", options:
+						`<div style="margin-bottom:8px;"><b>${item.item_name || item.item_code}</b></div>` +
+						`<div style="color:var(--text-muted);font-size:0.85rem;">原价：${item.rate || 0} MZN</div>`
+					},
+					{ fieldtype: "Currency", fieldname: "new_price", label: "新价格", reqd: 1, default: item.rate || 0 },
+				];
+
+				if (needs_approval) {
+					fields.push({ fieldtype: "Password", fieldname: "approval_password", label: "审批密码", reqd: 1 });
+				}
+
+				var d = new frappe.ui.Dialog({
+					title: "修改价格",
+					fields: fields,
+					primary_action_label: "确认",
+					primary_action: function(values) {
+						var new_price = flt(values.new_price);
+						var old_price = flt(item.rate || 0);
+
+						if (new_price <= 0) {
+							frappe.show_alert({ message: "价格必须大于 0", indicator: "red" });
+							return;
+						}
+
+						if (needs_approval) {
+							frappe.call({
+								method: "solua_home.api.sales.verify_discount_approval_password",
+								args: { password: values.approval_password, company: frappe.boot.sysdefaults.company },
+								callback: function(r2) {
+									if (r2.message && r2.message.ok) {
+										d.hide();
+										apply_price_override(item, new_price);
+									} else {
+										frappe.show_alert({ message: "审批密码错误", indicator: "red" });
+									}
+								}
+							});
+						} else {
+							d.hide();
+							apply_price_override(item, new_price);
+						}
+					}
+				});
+				d.show();
+			}
+		});
+	}
+
+	function apply_price_override(item, new_price) {
+		// 修改购物车中该商品的单价
+		const frm = window.cur_pos && window.cur_pos.frm;
+		if (!frm) return;
+
+		const items = frm.doc.items || [];
+		for (const it of items) {
+			if (it.item_code === item.item_code) {
+				it.rate = new_price;
+				it.amount = it.qty * new_price;
+				// 清除折扣（改价后折扣无意义）
+				it.discount_percentage = 0;
+				it.discount_amount = 0;
+				break;
+			}
+		}
+
+		// 刷新购物车显示
+		frm.trigger("update_cart");
+		frappe.show_alert({ message: `已改价为 ${new_price} MZN`, indicator: "green" });
+	}
+
+	// ─── 商品打包解析 ─────────────────────────────────────────
+	// 扫到打包条码时，自动识别并按打包数量加购
+	function handle_bundle_barcode(barcode, item_selector) {
+		return new Promise((resolve) => {
+			frappe.call({
+				method: "solua_home.api.product_bundle.resolve_barcode_for_pos",
+				args: { barcode: barcode },
+				callback: (r) => {
+					const res = r.message;
+					if (!res || res.type === "not_found") {
+						resolve(false);
+						return;
+					}
+					if (res.type === "bundle") {
+						// 打包条码 → 加购母物料，数量=打包数量
+						item_selector.set_search_value(res.parent_item);
+						let attempts = 0;
+						const timer = setInterval(() => {
+							attempts++;
+							const $exact = item_selector.$items_container.find(".item-wrapper").filter(function() {
+								return $(this).attr("data-item-code") === res.parent_item;
+							});
+							if ($exact.length) {
+								clearInterval(timer);
+								$exact.trigger("click");
+								// 设置数量为打包数量
+								setTimeout(() => {
+									const frm = window.cur_pos && window.cur_pos.frm;
+									if (frm) {
+										const items = frm.doc.items || [];
+										for (const it of items) {
+											if (it.item_code === res.parent_item) {
+												it.qty = res.quantity;
+												it.amount = it.qty * it.rate;
+												if (res.bundle_price) it.rate = res.bundle_price / res.quantity;
+												break;
+											}
+										}
+										frm.trigger("update_cart");
+									}
+								}, 500);
+								item_selector.set_search_value("");
+								frappe.show_alert({ message: `打包加购：${res.bundle_name} ×${res.quantity}`, indicator: "green" });
+								resolve(true);
+							} else if (attempts > 20) {
+								clearInterval(timer);
+								item_selector.set_search_value("");
+								resolve(false);
+							}
+						}, 300);
+					} else {
+						resolve(false);
+					}
+				},
+				error: () => resolve(false),
+			});
+		});
+	}
+
 	// ─── 交班按钮 ───────────────────────────────────────────────
 	function inject_closing_button() {
 		if (document.getElementById("pos-closing-btn")) return;
@@ -760,6 +938,7 @@ frappe.provide("solua_home.pos");
 	// 启动
 	wrap_opening_dialog();
 	inject_closing_button();
+	inject_price_override();
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", () => apply_custom_barcode_handler());
 	} else {

@@ -118,11 +118,13 @@ app_include_css = [
     "/assets/solua_home/css/hide_comments.css",
 ]
 
-# 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）
+# 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
     "/assets/solua_home/js/solua_home_global.js",
     "/assets/solua_home/js/label_print.js",
     "/assets/solua_home/js/promotion_wizard.js",
+    "/assets/solua_home/js/retail_settings_panel.js",
+    "/assets/solua_home/js/print_format_import_export.js",
 ]
 
 # Custom JS for standard pages
