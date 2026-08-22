@@ -8,8 +8,7 @@
  *   - 前台允许改价
  *   - 默认仓库
  *
- * 快捷键：Ctrl+Shift+R 打开/关闭
- * 入口：右下角 ⚙️ 浮动按钮
+ * 入口：/app/retail-settings 或调用 solua_home.retail_settings.open()
  */
 frappe.provide("solua_home.retail_settings");
 
@@ -19,15 +18,8 @@ frappe.provide("solua_home.retail_settings");
     let dialog_open = false;
     let $dialog = null;
 
-    // 全局快捷键
-    $(document).on("keydown", function (e) {
-        if (e.ctrlKey && e.shiftKey && e.key === "R") {
-            e.preventDefault();
-            e.stopPropagation();
-            dialog_open ? close_dialog() : open_dialog();
-            return false;
-        }
-    });
+    // 零售参数为低频设置，不注册全局快捷键（避免与浏览器 Ctrl+Shift+R 硬刷新冲突）
+    // 访问方式：/app/retail-settings 或从设置页面进入
 
     function open_dialog() {
         if (dialog_open) return;
@@ -59,7 +51,7 @@ frappe.provide("solua_home.retail_settings");
             <div style="padding:14px 20px;background:#6c757d;color:#fff;display:flex;justify-content:space-between;align-items:center;">
                 <div>
                     <h3 style="margin:0;font-size:18px;">⚙️ 零售参数设置</h3>
-                    <div style="font-size:11px;opacity:0.8;margin-top:2px;">Ctrl+Shift+R 开关 · 仅管理员可修改</div>
+                    <div style="font-size:11px;opacity:0.8;margin-top:2px;">仅管理员可修改</div>
                 </div>
                 <button id="rs-close-btn" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;padding:4px 8px;">✕</button>
             </div>
@@ -204,29 +196,6 @@ frappe.provide("solua_home.retail_settings");
         });
     }
 
-    // 浮动按钮
-    function inject_floating_button() {
-        if (window.location.pathname.includes("/point-of-sale")) return;
-        if ($("#rs-float-btn").length) return;
-
-        var $btn = $('<div id="rs-float-btn" title="零售参数 (Ctrl+Shift+R)" style="' +
-            'position:fixed;bottom:140px;right:24px;z-index:9990;' +
-            'width:48px;height:48px;border-radius:50%;' +
-            'background:#6c757d;color:#fff;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'font-size:20px;box-shadow:0 4px 12px rgba(108,117,125,0.4);' +
-            'transition:transform 0.2s;">⚙️</div>');
-
-        $btn.on("mouseenter", function () { $(this).css("transform", "scale(1.1)"); });
-        $btn.on("mouseleave", function () { $(this).css("transform", "scale(1)"); });
-        $btn.on("click", open_dialog);
-        $("body").append($btn);
-    }
-
     solua_home.retail_settings.open = open_dialog;
     solua_home.retail_settings.close = close_dialog;
-
-    $(document).ready(function () {
-        inject_floating_button();
-    });
 })();
