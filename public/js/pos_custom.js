@@ -722,19 +722,14 @@ frappe.provide("solua_home.pos");
 					frappe.show_alert({ message: "前台改价功能未启用", indicator: "orange" });
 					return;
 				}
-				var needs_approval = settings.price_override_requires_approval;
-
 				var fields = [
 					{ fieldtype: "HTML", fieldname: "info", options:
 						`<div style="margin-bottom:8px;"><b>${item.item_name || item.item_code}</b></div>` +
 						`<div style="color:var(--text-muted);font-size:0.85rem;">原价：${item.rate || 0} MZN</div>`
 					},
 					{ fieldtype: "Currency", fieldname: "new_price", label: "新价格", reqd: 1, default: item.rate || 0 },
+					{ fieldtype: "Password", fieldname: "approval_password", label: "管理员审批密码", reqd: 1 },
 				];
-
-				if (needs_approval) {
-					fields.push({ fieldtype: "Password", fieldname: "approval_password", label: "审批密码", reqd: 1 });
-				}
 
 				var d = new frappe.ui.Dialog({
 					title: "修改价格",
@@ -749,23 +744,18 @@ frappe.provide("solua_home.pos");
 							return;
 						}
 
-						if (needs_approval) {
-							frappe.call({
-								method: "solua_home.api.sales.verify_discount_approval_password",
-								args: { password: values.approval_password, company: frappe.boot.sysdefaults.company },
-								callback: function(r2) {
-									if (r2.message && r2.message.ok) {
-										d.hide();
-										apply_price_override(item, new_price);
-									} else {
-										frappe.show_alert({ message: "审批密码错误", indicator: "red" });
-									}
-								}
-							});
-						} else {
-							d.hide();
-							apply_price_override(item, new_price);
+					frappe.call({
+						method: "solua_home.api.sales.verify_discount_approval_password",
+						args: { password: values.approval_password, company: frappe.boot.sysdefaults.company },
+						callback: function(r2) {
+							if (r2.message && r2.message.ok) {
+								d.hide();
+								apply_price_override(item, new_price);
+							} else {
+								frappe.show_alert({ message: "审批密码错误", indicator: "red" });
+							}
 						}
+					});
 					}
 				});
 				d.show();
