@@ -1,0 +1,228 @@
+Abbreviation,缩写
+Account,会计科目
+Active,活跃
+Activity Cost,活动成本
+Activity Type,活动类型
+Address,地址
+Allow Rename Attribute Value,允许重命名属性值
+Amount exceeds approval limit,金额超过审批限额
+Approval Date,审批日期
+Approved,已审批
+Approver,审批人
+Attendance,考勤
+Attribute Value,属性值
+Attributes,规格属性
+Available,可用数量
+Bank Account,银行账户
+Batch No,批号
+Bill of Materials,物料清单
+Bin,库存余额
+Budget,预算
+Budget Variance,预算差异
+Campaign,营销活动
+Cash Account,现金账户
+Chart of Accounts,会计科目表
+Chinese Name,中文名称
+Color,颜色
+Color Swatch,色卡图
+Company,公司
+Contact,联系人
+Copy Fields to Variant,复制字段到变体
+Cost Allocation,成本分配
+Cost Center,成本中心
+Created By,创建人
+Created On,创建日期
+Credit,贷方
+Credit Limit,信用额度
+Currency,货币
+Customer,客户
+Customer Group,客户分组
+Customer Name,客户名称
+Customer Support,客户支持
+Data saved successfully,数据保存成功
+Debit,借方
+Default,默认
+Delivery Date,交货日期
+Delivery Note,交货单
+Department,部门
+Description,描述
+Designation,职务
+Disabled,已停用
+Discount Amount,折扣金额
+Do Not Update Variants,不更新变体
+Email Address,电子邮件
+Email Template,邮件模板
+Employee,员工
+Enabled,已启用
+Exchange Rate,汇率
+Expense Claim,费用报销
+Fiscal Year,财年
+From Range,起始范围
+Fully Paid,已全额付款
+Gender,性别
+Grand Total,总计
+Has Variants,启用多规格
+Inactive,不活跃
+Increment,增量
+Insufficient stock,库存不足
+Is Active,是否启用
+Issue,问题
+Item,物料
+Item Attribute,物料属性
+Item Attribute Value,属性值
+Item Code,货号
+Item Group,物料分组
+Item Name,物料名称
+Item Variant Settings,物料变体设置
+Job Card,作业卡
+Journal Entry,日记账
+Last Transaction Date,上次交易日期
+Lead,潜在客户
+Leave Application,请假申请
+Letter Head,信纸抬头
+Loading...,加载中...
+Main Image,主图
+Material,材质
+Material Issue,物料出库
+Material Receipt,物料入库
+Material Request,物料需求单
+Material Transfer,物料转移
+Milestone,里程碑
+Mobile No,手机号码
+Modified By,修改人
+Modified On,修改日期
+Name,名称
+Net Total,净额
+No records found,未找到记录
+Numeric Values,数值属性
+Operation,工序
+Operation completed successfully,操作成功完成
+Opportunity,商机
+Outstanding Amount,未结金额
+Overdue,逾期
+Overdue Amount,逾期金额
+POS Short Name,POS收银简称
+Partially Paid,部分付款
+Payment,付款
+Payment Entry,付款单
+Payment Terms Template,付款条件模板
+Pending,待处理
+Pending Approval,待审批
+Phantom Item,虚拟物料
+Phone,电话
+Please check the input data,请检查输入数据
+Please select a valid option,请选择有效选项
+Print Format,打印格式
+Priority,优先级
+Production Order,生产订单
+Project,项目
+Project Type,项目类型
+Projected,预计数量
+Purchase Invoice,采购发票
+Purchase Order,采购订单
+Purchase Receipt,采购收货单
+Quotation,报价单
+Receive,收款
+Record cancelled,记录已取消
+Record submitted,记录已提交
+Reference,参考号
+Rejected,已拒绝
+Remarks,备注
+Request for Quotation,询价单
+Required,需求数量
+Reserved,预留数量
+Routing,工艺路线
+SLA,服务级别协议
+SPU Code,SPU编码
+Salary Slip,工资单
+Salary Structure,薪资结构
+Sales Invoice,销售发票
+Sales Order,销售订单
+Search...,搜索...
+Season,季节
+Serial No,序列号
+Shipment Tracking,物流追踪
+Shipping Rule,运费规则
+Size,尺码
+Skip Material Transfer,跳过物料转移
+Source,Target
+Spec Summary,规格摘要
+Status,状态
+Stock Entry,库存入库单
+Stock Reconciliation,库存盘点
+Sub Assembly,子装配件
+Supplier,供应商
+Supplier Name,供应商名称
+Supplier Quotation,供应商报价
+Task,任务
+Tax Template,税费模板
+Template Item,模板物料
+Terms and Conditions,条款与条件
+Territory,销售区域
+This field is required,此字段为必填
+Ticket,工单
+Timesheet,工时表
+To Range,结束范围
+Travel Request,出差申请
+Unpaid,未付款
+Valid Till,有效期至
+Variant,变体
+Variant Based On,变体依据
+Variant Item,变体物料
+Variant Of,所属模板
+Variants,多规格
+Warehouse,仓库
+Work Order,工单
+Workstation,工作站
+custom_approval_level,审批级别
+custom_contract_status,合同状态
+custom_contract_value,合同金额
+custom_delivery_terms,交付条款
+custom_department_head,部门主管
+custom_payment_terms,付款条款
+custom_project_budget,项目预算
+custom_renewal_date,续约日期
+custom_risk_level,风险级别
+{0} is not a template item,{0} 不是模板物料
+Please specify a template item,请指定模板物料
+
+Action,操作
+Are you sure you want to delete the page?,确定要删除这个页面吗？
+Atleast 1 element is required inside body,正文中至少需要 1 个元素
+Barcode (B),条码 (B)
+Components (C),组件 (C)
+Create,创建
+Create New,新建
+Create or Edit Print Format,创建或编辑打印格式
+Do you want to save copy of it ?,是否保存一份副本？
+Edit,编辑
+Edit Format,编辑格式
+Enter Label,输入标签
+Error Generating PDF...,生成 PDF 出错...
+Form,表单
+Full Page,整页
+Image (I),图片 (I)
+in footer,在页脚
+in header,在页眉
+in table, auto layout failed,在表格中，自动布局失败
+Language,语言
+Letter Head,信纸抬头
+Loading Print Format,正在加载打印格式
+Mouse Pointer (M),鼠标指针 (M)
+PDF,PDF
+Please enable pop-ups,请启用弹窗
+Please resolve overlapping elements ,请解决元素重叠问题
+Please select DocType first,请先选择单据类型
+Print,打印
+Print Format,打印格式
+Print Format Name,打印格式名称
+Print Format not saved,打印格式未保存
+Rectangle (R),矩形 (R)
+Refresh,刷新
+Search Doctypes,搜索单据类型
+Search Field by label, fieldname or fieldtype,按标签、字段名或字段类型搜索
+Select Document Type,选择单据类型
+Select Print Format,选择打印格式
+Set as Default,设为默认
+Table (A),表格 (A)
+Try the new Print Designer,试试新的打印设计器
