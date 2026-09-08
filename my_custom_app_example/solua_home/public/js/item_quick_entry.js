@@ -51,6 +51,11 @@ frappe.provide("solua_home.item_quick_entry");
                 title: __("新建物料"),
                 fields: fields,
                 primary_action_label: __("保存"),
+                secondary_action_label: __("继续编辑"),
+                secondary_action() {
+                    d.hide();
+                    frappe.new_doc(doctype);
+                },
                 primary_action(values) {
                     const doc = frappe.get_doc({
                         doctype: doctype,
