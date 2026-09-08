@@ -1,6 +1,6 @@
 # 会话总结：ERPNext v16 开发环境搭建 + 服务器定制开发
 
-> 生成时间: 2026-07-17 | 最后更新: 2026-08-23 | 供下个对话引用
+> 生成时间: 2026-07-17 | 最后更新: 2026-09-02 | 供下个对话引用
 
 ---
 
@@ -1082,3 +1082,88 @@ xPos 已覆盖 solua_home 95% 的功能，且额外支持离线收银、热敏�
 - 路径: C:\xpos\X POS.exe
 - 大小: 192MB
 - 功能: 离线收银 + 热敏打印机 + 钱箱 + 扫码枪 + 自动同步
+
+### 第二十会话：xPos 生产落地、同步/打包修复与全流程 UAT（2026-08-24 ~ 09-02，本次）
+
+**一句话总结**：xPos 正式接管生产 POS——打通生产部署（重启 gunicorn 加载 xPos 模块）、08-27 稳定性三补丁（同步状态汉化/开班映射/陈旧同步隔离）、08-31 窗帘商品主数据导入（12 款三套价格）、09-01 Electron 图片修复 + i18n 远程补丁、09-02 删除检查分页修复 + 同步账号权限重构 + R1→R4 全流程 UAT（现金/折扣审批/退货/班次汇总/关班），并打包 XPos-Windows-Setup。详细决策与验收规则见《ERPNext 定制开发操作手册》第 18 章。
+
+### 阶段一（08-24 → 08-25）：生产部署打通
+
+| 任务 | 状态 |
+|------|------|
+| xPos 部署到生产：apps/xpos 克隆、npm build（PWA Service Worker）、pip install xpos 1.0.9、bench install-app、25 个 DocType 创建、apps.txt 更新 | ✅ |
+| 本地 WSL 同步安装 xPos + MariaDB 11.4 端口 3307 配置 | ✅ |
+| 🔴 API 500「No module named 'xpos'」 | ✅ 根因：pip 装好但 gunicorn 未重启还在旧缓存 → 重启 web 进程后恢复 |
+| supervisorctl Permission denied / bench restart 权限问题 | ✅ 切换 frappe 用户 / sudo 解决 |
+| 葡语翻译 NIF → NUIT 修正 | ✅ |
+
+### 阶段二（08-27）：稳定性三补丁（asar）
+
+| 任务 | 状态 |
+|------|------|
+| 同步状态条汉化（App.vue tooltip，status_i18n_fix ×3 迭代） | ✅ → `xpos-status-i18n.asar` |
+| 🔴 开班映射修复：ipcHandlers.ts 新增 `db:link-pos-opening-shift`，开班成功回写本地 id → 服务器 erp_id + sync_id_map（关班/汇总/发票改用服务器名称） | ✅ → `xpos-shift-mapping.asar` |
+| 陈旧同步恢复：启动时把中断的 `syncing` 隔离为 `dead_letter` + pending 表 status 枚举加 dead_letter 迁移 | ✅ → `xpos-stale-sync-recovery.asar` |
+| push 循环修复（syncEngine.ts runPushCycle 超时保护） | ✅ |
+| 对话框 overlay 修复（DialogContent 去掉 backdrop-blur） | ✅ |
+| 审计：服务器开/关班、发票按班次、未映射本地开班（.xpos_server_audit.py）+ Electron 本地库（.xpos_local_audit.js）+ 用户角色/POS Profile（.codex-audit-xpos-users.py） | ✅ |
+
+### 阶段三（08-31）：窗帘商品主数据导入 + 同步账号
+
+| 任务 | 状态 |
+|------|------|
+| 12 款窗帘建档（SH151xxx，成本 Standard Buying / 批发 Wholesale / 零售 Standard Selling，11 张图，单位「条」，物料组「窗帘成品」） | ✅ 详见手册 18.5 |
+| 🔴 图片重复附件坑：先普通附件再设 Attach Image → 每个文件两条 File 关联记录 | ✅ 删 11 条冗余、保留 image 字段关联；今后直接以 image 字段关联（手册 18.6） |
+| 物料名校验收窄：只拦危险字符 `< > " '`，放行 `/`、`&`、`()` | ✅ |
+| 同步服务账号 xpos_sync@solua.one 建立（首轮授 System Manager） | ✅ |
+
+### 阶段四（09-01）：Electron 图片修复 + 启动兜底 + i18n 远程补丁
+
+| 任务 | 状态 |
+|------|------|
+| 🔴 Electron 商品图片不显示：utils/index.ts 的 get_base_url 改用 API base URL（electronBridge）+ 清理重复 import | ✅ → `.codex-app.electron-images-fixed.asar` |
+| 启动兜底：main.ts 启动失败在页面显示错误信息（不再白屏） | ✅ |
+| i18n 远程补丁：MenuBar（File/Finance/View/Help 菜单）、CommandSearch、PaymentDialog、ReturnDialog + locale.remote.ts 三语切换（en/zh/pt） | ✅ 手册 18.4 验收范围 |
+| 手册第 18 章编写（账号边界/权限审批/同步错误表/翻译验收/导入记录/验收清单） | ✅ 手册最后更新 09-01 |
+
+### 阶段五（09-02）：删除检查修复 + 同步权限重构 + 全流程 UAT
+
+| 任务 | 状态 |
+|------|------|
+| 🔴 删除检查修复：syncEngine.ts 分页拉全量（get_sync_data 每页 500 条封顶，原 get_list limit 0 走受限端点失败/不全） | ✅ → `.codex-app.deletion-check-fixed.asar` |
+| 🔴 同步 403 权限修复链：verify → inspect → repair（System User + System Manager）→ 专用角色 **XPos Sync Service**（全 DocType 全权限）→ **XPOS Sync**（Customer 补权）→ 清 User Permission 限制 → 最后直接授全部角色兜底 | ✅ 手册 18.1/18.3 对应（后续应按 18.1 收敛为最小专用角色） |
+| 只读冒烟 + 端点测试：SYNC_PULL_DOCTYPES 全量读权限、get_sync_data 返回 | ✅ |
+| UAT R1→R4 迭代：现金销售 139.2 / 10% 折扣审批销售 125.28 / 退货 -139.2（custom_return_approved + approver）/ 班次汇总（3 单 1 退，grand_total 125.28）/ 关班 1125.28；走真实路径（pos_manager@solua.one 本地经理审批 → xpos_sync 传输账号上传） | ✅ 脚本迭代 4 轮，逐轮清理 + final-uat-state 确认测试数据归零 |
+| 🔴 POS 退货退款金额修复：solua_home/override/sales_invoice.py 覆写 `set_missing_values` + `verify_payment_amount_is_negative`，把 ERPNext 重建的支付行金额归一化为 `-abs()` | ✅ |
+| invoices.py 服务端核对：enforce_stock_availability（Bin 锁 + 库存校验）、APPLY TAX WITHHOLDING opt-in 默认关、posting date 尊重 POS Profile 设置 | ✅ |
+| 打包 XPos-Windows-Setup.zip + Install-XPos.ps1（release/xpos-windows/）+ Till 安装 README 模板（release/_role-templates/） | ✅ |
+
+### 踩坑记录（新）
+
+1. **生产装新 App 必须重启 web 进程**：pip install 成功不代表 gunicorn 加载了模块，500「No module named 'xpos'」是旧进程缓存；重启前先确认进程用户（frappe）与权限。
+2. **开班本地 ID ≠ 服务器名称**：Electron 本地 SQLite 自增数字只是本地 id，服务器需要 `POS-OS-...` 真实单据名；开班成功必须回写 `erp_id` + `sync_id_map`，关班/汇总/发票全部使用服务器名称（手册 18.3）。
+3. **同步账号四分离**：Administrator / 收银员 / 本地 admin / 同步服务账号是四种身份；同步请求用专用服务账号 + 专用角色最小授权，不要把 Administrator 或收银员 API Key 放终端（手册 18.1）。
+4. **受限端点有分页上限**：get_sync_data 每页 500 条封顶，删除检查等全量读取必须分页，否则漏删误判。
+5. **POS 退货支付行会被 ERPNext 重建**：validate 时按 POS Profile 重建支付行，xPos 已供的退款金额可能被改成正数被退货校验拒绝；覆写类方法把 amount 归一化为 `-abs()`。
+6. **UAT 清理必须按依赖序取消+删除**：Stock Entry 取消需要物料存在，先重建测试物料才能取消入库单；测试发票 cancel → delete，开班先关班再删。
+
+### 遗留待办
+
+- ⚠️ 09-03/09-04 继续拆分 Hub/Till 角色安装包（`release/XPos-Hub-Setup.zip`、`XPos-Till-Setup.zip` 已有 09-04 产物），待下一会话记录
+- 热敏打印机实打测试
+- 12 款窗帘期初库存导入（本次只建主数据 + 价格）
+- SH151060（光感绒）图片补齐后更新
+- 同步账号按手册 18.1 收敛回最小专用角色（当前为全角色兜底态）
+
+### 侧边栏聊天记录：Hub / Till 安装包归档（2026-09-08）
+
+以下内容来自侧边栏聊天记录，按原意归档；本次归档未读取、复制或输出任何 API Key / Secret 明文。
+
+- Hub 凭据文件：`C:\Users\Yang\solua-home\sites\erpnext\XPOS-HUB-KEY.json`
+  - `format=1`，包含实际同步凭据，用于可移植的 Hub 安装包，不再依赖制作机 Windows 用户的 DPAPI 继承。
+  - 该文件含明文 API 凭据，禁止上传、提交 Git 或放入安装 ZIP；使用时复制到 U 盘根目录，运行 Hub 安装脚本，安装完成后拔出 U 盘。
+- Hub 安装包：`C:\Users\Yang\solua-home\sites\erpnext\release\XPos-Hub-Setup.zip`
+  - SHA256：`9186411AB183AA7E9FE07347773C8811DA3A56C96B479C1F631F5F85A83E4D49`
+- Till 安装包：`C:\Users\Yang\solua-home\sites\erpnext\release\XPos-Till-Setup.zip`
+  - SHA256：`FB318211021EE75F2558FC15231F2D133164310839AE70B29CADFD60B6AFEE4E`
+- 记录中的验证结果：两个 ZIP 各 78 个文件，内部校验清单全部通过；API Key / Secret 未打入 ZIP；两包中的 `app.asar` SHA256 均为 `A02A64BC32D4EFA52FFED7F0F6C05936D3908A34FFFF2BED6DD9EC167512C468`；Till 功能逻辑和说明未改。

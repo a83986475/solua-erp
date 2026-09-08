@@ -1,6 +1,6 @@
 # ERPNext 定制开发操作手册
 
-> 版本: v16 | 最后更新: 2026-08-06 | 基于真实安装经验编写
+> 版本: v16 | 最后更新: 2026-09-08 | 基于真实安装经验编写
 
 > 🔄 **2026-08-06 变更记录：App 重命名 my_custom_app → solua_home**
 > - **模块名**：`my_custom_app` → `solua_home`（Python 包名规范：小写+下划线，无空格）
@@ -9,6 +9,19 @@
 > - **影响面**：代码内 42 处引用、服务器 `apps/solua_home` 目录、`apps.txt`/`apps.json`/symlink、`tabInstalled Application`、`tabDefaultValue.installed_apps`（踩坑点：漏改会导致 `No module named 'my_custom_app'`）
 > - **状态**：本地示例副本 / GitHub `721e541` / 服务器三处一致，POS 扫码选色与 get_items 拦截已验证生效
 > - ⚠️ 本文档后续命令/路径中的 `solua_home` 即为当前模块名（历史操作如 `bench new-app solua_home` 按新名执行即可）
+
+> 🔄 **2026-09-01 变更记录：补充 xPos 最终架构、同步排错、权限/翻译规则与商品建档记录**
+> - 明确服务器 ERPNext 账号、xPos 本地账号、同步服务账号三者职责，避免把 `Administrator`、本地 `admin` 和收银员混用
+> - 固化 POS Profile 可多人共用、收银员按登录身份核验；同步 API Key/Secret 只属于服务账号，不使用 cashier 的 API
+> - 记录 POS Opening Shift 本地编号与服务器单据名称不一致、HTTP 417/500/403/404 的根因与安全恢复原则
+> - 固化收银员最小权限、退货密码确认、任何折扣密码审批、直接采购收货的可见范围和离线审批规则
+> - 补充全界面翻译验收、`APPLY TAX WITHHOLDING` 不启用，以及 2026-08-31 窗帘商品主数据导入结果
+
+> 🔄 **2026-09-04 变更记录：补充 09-02 生产 UAT 轮次与 POS 退货修复、09-04 Hub/Till 角色安装包**
+> - 记录 09-02 生产环境全链路 UAT（R1–R4）：开班→现金/折扣/退货→班次汇总→关班的真实数字与服务器证据（Error Log 提交记录、前缀残留核查）
+> - 固化 POS 退货支付行被 ERPNext 重建导致的提交失败与 `CustomSalesInvoice` `-abs()` 修复（`extend_doctype_class` 注册，服务器 md5 已核对）
+> - 补充 09-04 构建的 XPos Hub / Till 双角色安装包：角色划分、端口、U 盘密钥文件、Hub/Till 种子配对与 SHA256 校验
+> - 遗留：R2 轮次的 3 张已取消发票与开班/关班单据仍在库，可运行幂等清理脚本删除（详见 18.8）
 
 ---
 
@@ -33,6 +46,9 @@
 13. [WSL2 开发环境问题排查](#13-wsl2开发环境问题排查)
 14. [自定义 App 开发问题排查](#14-自定义-app-开发问题排查)
 15. [开发问题排查](#15-开发问题排查)
+16. [零售参数设置](#16-零售参数设置)
+17. [xPos 桌面 POS 系统](#17-xpos-桌面-pos-收银系统electron)
+18. [xPos 最终架构、同步排错与商品建档记录](#18-xpos-最终架构同步排错与商品建档记录)
 
 ---
 
@@ -1410,6 +1426,38 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 - **颜色名保持葡语**（决策 2026-08-06）：属性值是数据、不自动翻译，与实物包装标签（葡语 Branco/Preto...）一致；界面按钮/菜单的英文走第 7 章翻译机制
 - **建 Variant 前确认**：模板 attributes 一次加齐所有颜色再点创建变体，避免反复生成
 
+##### 变体生成三条路径速查（2026-09-08 补充）
+
+> 给模板生成变体共三条路径：**界面按钮（日常）**、**官方 API（批量/集成）**、**本项目向导（推荐批量）**。
+> 三条路径都基于同一套底层逻辑（`erpnext/controllers/item_variant.py`），只是入口不同，产物等价（均为 `variant_of=模板` 的 SKU）。
+
+**路径一：界面标准操作（日常单款维护）**
+
+1. 新建/打开模板 Item：勾选 **has_variants=1**，`variant_based_on = Item Attribute`，在 attributes 子表加好属性行（本项目=Cor 颜色）
+2. 工具栏点 **「Make Variant / 创建变体」** 按钮 → 按属性值组合逐个生成；或模板保存后点 **「Create Variants」** 一键生成全部组合
+3. 变体编码由 `make_variant_item_code()` 自动生成（本项目规则 `模板码-颜色缩写`，如 CR-001-BR）
+4. 给变体批量定价：Selling → **Item Price → ⋮ → Add Multiple Items**（模板 standard_rate 不要填，见上方定价规则）
+
+> ⚠️ 模板本身不能进业务单据（`ItemTemplateCannotHaveStock`），库存/POS/销售一律走变体。
+
+**路径二：官方代码/API（批量、自动化）** — `erpnext/controllers/item_variant.py`
+
+| 函数 | 作用 |
+|------|------|
+| `get_variant(template, args)` | 按属性组合查**已存在**的变体（args 如 `{"Cor": "Branco"}`，找不到返回 None） |
+| `create_variant(item, args, use_template_image)` | 创建**单个**变体（内部 `copy_attributes_to_variant` 自动复制 Item Variant Settings 勾选的继承字段） |
+| `create_multiple_variants(item, args)` | **批量**：传 `{"Cor": ["Branco", "Preto"]}` 自动做笛卡尔积生成全部组合 |
+| `enqueue_multiple_variant_creation()` | 组合数 ≥10 自动丢后台队列；>500 拒绝 |
+
+**路径三：本项目自定义向导（推荐批量，第十一会话已交付）**
+
+- 入口：物料列表页 → 顶部按钮 **「批量生成变体」**（`item_variant_wizard.js`，注册于 hooks `page_js`）
+- 流程：选模板 → 勾颜色（Cor 颜色池，6→16 色已扩容、缩写去冲突）→ 服务端批量建变体
+- API：`solua_home.api.variants.bulk_create_variants(template_item, attribute_values=None, price_list=None)`（`my_custom_app_example/solua_home/api/variants.py`）
+  - `attribute_values=None` = 属性全部值；传列表 = 只生成勾选颜色
+  - 已存在同属性组合的变体自动跳过，返回 `{created, skipped, errors}`
+  - 支持价格表参数（默认 Standard Selling），可与批量定价一步完成
+
 #### 6.5.11 零售环境瘦身：POS 限组 + 隐藏工厂模块（2026-08-06 已执行）
 
 > **背景**：POS 页面物料分组树显示了系统自带的空组（Raw Material/Sub Assemblies/Consumable）和演示数据组（Demo Item Group），且桌面有工厂类模块（制造/项目/质量等）。零售店不需要，做了两处清理：
@@ -2542,7 +2590,7 @@ frappe.ui.form.on("Sales Invoice", {
 
 ## 💡 最后提醒
 
-> 📅 最后更新: 2026-08-23 | 新增第17章 xPos 桌面 POS 系统
+> 📅 最后更新: 2026-09-04 | 第17章 xPos 桌面 POS 系统；第18章补充最终运行规则、商品建档、09-02 UAT 轮次与 Hub/Till 角色安装包
 
 | 编号 | 原则 |
 |------|------|
@@ -2624,9 +2672,11 @@ frappe.db.commit()
 | `use_customer_credit` | 启用储值/客户信用 | ✅ 开启 |
 | `tax_inclusive` | 含税模式 | ✅ 开启（莫桑比克） |
 | `allow_return` | 允许退货 | ✅ 开启 |
-| `max_discount_percentage_allowed` | 最大折扣比例 | 15 |
+| `max_discount_percentage_allowed` | 最大折扣比例上限（可在设置中调整） | 按门店政策设置；不得使成交价低于成本 |
 | `use_offline_mode` | 离线模式 | ✅ 开启 |
 | `block_sale_beyond_available_qty` | 禁止超卖 | ✅ 开启 |
+
+**当前折扣规则（最终确认）**：收银员可以输入折扣，但任何大于 0% 的行折扣或整单折扣都必须输入管理员/经理审批密码；上限由零售设置自定义，系统同时拦截折后价低于成本的情况。离线时不能联系服务器，改由本机经理账号审批；没有可用经理账号时禁止折扣，不自动放行。
 
 ### 17.3 中文/葡语翻译
 
@@ -2644,6 +2694,8 @@ ls apps/xpos/xpos/translations/
 **切换语言:**
 - 设置 → 用户 → 语言 → 选择 `中文 (zh)` 或 `Português (pt)`
 - 或在 xPos 界面右上角切换
+
+**翻译验收规则（当前项目）**：菜单栏 `File / Finance / View / Help` 及其子菜单、Report/Purchase/Finance 页面、直接采购收货字段、同步状态条和弹窗中的动态文字都必须使用 `__()` 翻译键；禁止在新增界面直接写死英文。当前业务不使用 `APPLY TAX WITHHOLDING`，xPos 不显示该入口或字段。中文先作为主语言，葡语翻译后续补齐；英文只允许作为缺失翻译的临时回退，不能视为完成。
 
 ### 17.4 访问 xPos
 
@@ -2665,11 +2717,14 @@ ls apps/xpos/xpos/translations/
 | **忠诚度** | 支付对话框 → 忠诚度 | 积分兑换 |
 | **客户信用** | 支付对话框 → 客户信用 | 储值支付 |
 | **采购** | 侧边栏 Purchase Order | 创建/接收采购订单 |
-| **库存** | 侧边栏 Stock Receiving | 采购收货 |
+| **直接采购收货** | 侧边栏 Stock Receiving | 不依赖采购订单直接建立 Purchase Receipt；仅管理员/具备采购权限的账号可见，Cashier 不显示 |
+| **库存** | 侧边栏 Stock Receiving | 按采购订单或直接采购收货入库 |
 | **费用** | 侧边栏 Expense | POS 费用录入 |
 | **银行存款** | 侧边栏 Bank Drop | 现金存银行 |
 | **设置** | 侧边栏 Settings | POS Profile / 打印格式 / 离线模式 |
 | **权限** | 侧边栏 Role Permissions | Cashier / Manager 角色配置 |
+
+**收银员功能边界**：Cashier 只显示销售/收银相关入口。退货可以由 Cashier 发起，但最终确认必须输入管理员/经理密码；Report、Purchase、Finance、直接采购收货等入口只对管理员或明确授权的角色显示。POS Profile 可由多个收银员共用，不要求“一人一个 Profile”。
 
 ### 17.6 快捷键
 
@@ -2776,3 +2831,165 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 > - 生产站点: `erp.solua.one`
 > - SSH: `ssh qq`（用户 ubuntu，sudo 免密）
 > - GitHub: `https://github.com/a83986475/solua-erp.git`
+
+---
+
+## 18. xPos 最终架构、同步排错与商品建档记录
+
+> 本章记录 2026-08-24 至 2026-09-04 的实际决策、故障根因和生产数据结果。与第 17 章的安装说明配合使用；若旧说明与本章冲突，以本章为准。18.8 为 09-02 生产 UAT 轮次与退货修复，18.9 为 09-04 Hub/Till 角色安装包。
+
+### 18.1 账号、API 与 POS Profile 的边界
+
+必须把三种身份分开管理：
+
+| 身份 | 所在位置 | 作用 | 是否用于同步 API |
+|------|---------|------|------------------|
+| **ERPNext `Administrator`** | 云端 ERPNext | 服务器超级管理员、配置和审批 | 不建议放在收银终端 |
+| **ERPNext 收银员** | 云端 ERPNext | 真实业务操作人，销售/退货/交班审计归属此人 | 不使用其个人 API Key |
+| **xPos 本地 `admin`** | 每台 Electron 电脑的本地 SQLite | 管理该终端的本地设置/故障处理 | 不是云端 `Administrator` |
+| **xPos 同步服务账号** | 云端 ERPNext | 作为同步请求的“运输账号”，只授予同步所需权限 | 使用专用 API Key/Secret |
+
+- `Administrator`、本地 `admin`、`posmanager`（若存在）不是同一个账号，不能通过名字判断身份。
+- 收银员登录后，服务端应校验该收银员是否属于当前 POS Profile，再把收银员身份写入销售、退货和交班记录；服务账号只负责传输请求。
+- 一个 POS Profile 可以被多个收银员共用。通过 `applicable_for_users` 绑定允许使用的收银员，不需要为每人复制一个 Profile。
+- 新收银机配置顺序：安装 xPos → 填生产 Server URL → 写入专用同步服务账号的 API Key/Secret → 让收银员用自己的 ERPNext 账号登录 → 检查其可用 POS Profile。API Key/Secret 不写入手册、截图或聊天记录，重置后只在终端安全配置中更新。
+
+### 18.2 收银员权限与审批规则
+
+当前推荐的 Cashier 是最小权限角色组合（Sales User、Accounts User，按需要加 POS Cashier 开/关班权限）。收银员界面只显示销售/收银相关功能；Report、Purchase、Finance、直接采购收货对管理员或明确授权角色开放。
+
+业务规则：
+
+1. Cashier 可以发起退货，但最终确认必须输入管理员/经理密码。
+2. 任何大于 0% 的行折扣或整单折扣都必须输入管理员/经理审批密码；审批阈值在设置中可调整，默认规则为 0%。
+3. 折扣后的实际售价不得低于成本价；这是硬性限制，管理员也不能绕过。
+4. 离线时无法访问服务器，折扣改由本机经理账号审批；没有本机经理账号时禁止折扣。
+5. 直接采购收货不显示给 Cashier；管理员/采购授权账号可不依赖采购订单直接创建 Purchase Receipt。
+
+### 18.3 同步间隔、卡住状态与 HTTP 错误
+
+- 自动同步周期是 **5 分钟**；打开页面、网络恢复或手动点击同步可能立即启动一轮，所以看到短暂的“同步中”不等于实时不停同步。
+- 单个请求必须有超时保护；异常记录保留在本地队列，标记为 `failed` 或 `dead_letter`，不得删除业务数据，也不能因为一条采购订单关闭整条同步队列。
+- 排查时先看本地队列表和 `sync_id_map`，再对照服务器单据名称。同步状态英文只是翻译键缺失，不代表同步逻辑本身失败。
+
+常见错误含义：
+
+| 错误 | 实际含义 | 正确处理 |
+|------|----------|----------|
+| `HTTP 417` | 服务端业务校验未满足，常见于字段、状态或身份不符合要求 | 查看服务器响应正文和日志，修正业务数据后重试 |
+| `HTTP 500` | 服务端代码/异常或进程未加载模块 | 先看 gunicorn/bench 日志，修复后重试 |
+| `HTTP 403` | API 用户无角色权限，或方法没有 `@frappe.whitelist()` | 给同步服务账号授予最小读取/写入权限，并确认方法白名单 |
+| `HTTP 404` | 本地 ID 被当作服务器单据名称，或删除检查端点不存在 | 用本地 ID→服务器 `name` 映射；不删除本地记录 |
+
+**交班特别注意**：错误“POS 开班班次 3 未找到”不是因为没有现金。Electron 本地的数字 `3` 只是 SQLite 自增 ID，服务器需要类似 `POS-OPE-...` 的真实单据名称。开班成功后必须保存 `erp_id` 并写入 `sync_id_map`；查询汇总、关班和上传发票都使用服务器名称。
+
+**安全恢复原则**：保留原采购订单/销售记录，将卡住记录隔离为“同步失败/需要处理”，提供人工重试；不要删除订单、不要关闭整个采购同步队列。同步服务账号必须能读取 Companies、Warehouses、Accounts、Cost Centers、Price Lists、Items、Item Groups、POS Profiles 等主数据，否则会连续出现 403。
+
+### 18.4 语言、状态条和窗口显示
+
+当前验收范围不只是 POS 主页面，还包括：
+
+- 顶部菜单 `File`、`Finance`、`View`、`Help` 和全部子菜单；
+- Report、Purchase、Finance 页面，以及直接采购收货页面中的字段、按钮、占位文字、表格说明；
+- 同步状态条（同步中、待同步、同步失败、已同步、离线、上次同步时间）；
+- 关闭班次、快捷键、折扣审批和退货确认弹窗。
+
+新增 UI 必须把动态文字包在 `__()` 中并同时加入中文翻译键；中文是当前主语言，葡语后续补充。`APPLY TAX WITHHOLDING` 不是本项目业务功能，xPos 不显示它，不能用 CSS 隐藏来代替移除入口。
+
+若改动后仍看到旧英文或顶部账户图标缺失，优先检查：Electron 是否使用了最新构建、是否清除了旧 asar/缓存、组件是否只注册一次；不要先改服务器数据。
+
+### 18.5 2026-08-31 窗帘商品主数据导入结果
+
+来源：`SOLUA HOME窗帘 建档.xlsx`。导入前已核对 12 个物料编码和条码均无重复；所有记录均为成品库存物料，规格为 `140 × 260 cm`，销售单位为“条”，物料组为“窗帘成品”，中文先建档。
+
+| 商品 | 款号（内部 SPU） | 物料编码 | 成本/MZN | 批发/MZN | 零售/MZN | 图片 |
+|------|------------------|----------|---------:|---------:|---------:|------|
+| 素雅 1 | C-MB | SH151015 | 192.10 | 260 | 399 | ✅ |
+| 素雅 2 | C-KJ | SH151039 | 167.24 | 260 | 399 | ✅ |
+| 幻纱 | C-GS | SH151091 | 180.80 | 260 | 399 | ✅ |
+| 极夜 1（100%遮光） | C-TC | SH151077 | 266.36 | 350 | 550 | ✅ |
+| 极夜 2（100%遮光） | C-CM | SH151084 | 259.90 | 350 | 550 | ✅ |
+| 静谧绒（85%遮光） | C-RB | SH151053 | 286.27 | 390 | 550 | ✅ |
+| 莫兰迪（95%遮光） | B-SW | SH151114 | 293.80 | 390 | 650 | ✅ |
+| 暗影（95%遮光） | B-DY | SH151046 | 327.70 | 430 | 699 | ✅ |
+| 光感绒（80%遮光） | B-DR | SH151060 | 334.16 | 430 | 699 | 暂无 |
+| 鎏金（95%遮光） | B-ST | SH151107 | 327.70 | 430 | 699 | ✅ |
+| 高奢 1（95%遮光） | B-XP | SH151121 | 366.12 | 490 | 980 | ✅ |
+| 高奢 2（95%遮光） | A-HS | SH151022 | 474.60 | 590 | 1,300 | ✅ |
+
+价格写入方式：
+
+- 成本/采购单价 → `Standard Buying`（MZN）；
+- 批发价 → `Wholesale Selling`（MZN）；
+- 零售价 → `Standard Selling`（MZN）；
+- 价格区间按用户要求取高值：高奢 1 = 980、高奢 2 = 1,300；
+- 成本金额按货币精度四舍五入到 2 位；
+- 款号只写内部 SPU 编码，不放入 POS 商品名称或客户展示字段；
+- 本次只建立主数据和价格，未导入期初库存；库存需通过采购收货、直接采购收货或库存入库建立。
+
+**ERPNext 成本注意**：`Standard Buying` 是采购价格表；折扣/售价低于成本的运行时检查优先读取仓库 `Bin` 的加权成本，其次读取 `Item.valuation_rate`。首次真实收货后应核对 valuation rate，不能只因为有采购价格表就认为库存成本已经建立。
+
+### 18.6 图片导入的重复附件坑
+
+本次导入曾发现每张图片出现两条 `File` 数据库关联记录：一条是普通附件，一条是 `Item.image` 字段附件；两条记录指向同一个实际文件，并非图片内容重复。原因是先用普通附件方式上传，再设置 Attach Image 字段触发了 ERPNext 的自动关联。
+
+处理结果：删除 11 条无字段的多余关联记录，保留 11 条 `attached_to_field=image` 记录；商品图片仍全部可用。今后批量导入图片必须直接以 `image` 字段关联，并按 `attached_to_field`/`file_url` 做幂等检查，不能先普通上传再补写 `Item.image`。
+
+### 18.7 新增/部署后的最小验收清单
+
+- [ ] 用真实 Cashier 登录，确认只能看到 Sales/Cashier，不能看到 Report/Purchase/Finance
+- [ ] 确认 Cashier 能发起退货，但提交前出现经理密码确认
+- [ ] 输入任意大于 0% 折扣，确认出现审批；输入使售价低于成本的折扣，确认硬拦截
+- [ ] 新建/共用 POS Profile，确认每个允许的收银员都能看到且未授权用户看不到
+- [ ] 断网后检查本地销售记录仍保留；恢复网络后同步每 5 分钟运行，不因单条失败永久显示“同步中”
+- [ ] 复核开班→销售→关班使用服务器 `POS Opening Shift` 名称，而不是本地数字 ID
+- [ ] 检查主菜单、Report/Purchase/Finance、直接采购收货和状态条没有新增硬编码英文
+- [ ] 商品扫码验证 12 个条码；核对“条”单位、三套价格和 11 张图片；补图后再更新 `SH151060`
+
+### 18.8 2026-09-02 生产环境全链路 UAT（R1–R4）与 POS 退货修复
+
+**目标**：在生产库按真实链路验证「开班 → 销售/折扣审批 → 退货退款 → 班次汇总 → 关班」，并固定桌面端上传走同步服务账号的路径。测试身份：`pos_manager@solua.one`（开班/业务归属）+ `xpos_sync@solua.one`（同步运输账号，上传销售），POS Profile `收银方式1 - SH`、Company `Solua Home, Lda`、Warehouse `Finished Goods - SH`、`Cash` 支付。验收数字以 R4 脚本 `.codex-xpos-full-uat.py`（md5 `273ea6a1…`，与服务器 `/tmp` 副本一致）为准：
+
+| 检查点 | 期望值 |
+|--------|--------|
+| 起始状态 | `pos_manager` 无未关开班 |
+| 物料收货 | 2 × 100 入库单已提交 |
+| 开班 | 现金 1000 |
+| 现金销售 | 1 × 120 → 含税 **139.2** |
+| 折扣审批销售 | 1 × 120、10% 折扣、`custom_discount_approved` → **125.28** |
+| 退货退款 | 对现金销售退货 → **−139.2**（`custom_return_approved` + 审批人 `pos_manager`） |
+| 班次汇总 | 3 张发票、1 张退货、合计 **125.28** |
+| 关班 | 3 张发票、1 张退货、总额 **125.28**（期望 1125.28 = 1000 + 139.2 + 125.28 − 139.2） |
+
+**轮次与服务器证据**（按 09-02 22:00–22:13 本地时间在库里的提交记录还原）：
+
+- **R1/早期轮次**：多轮尝试后留下取消/未删单，编写幂等清理脚本 `.codex-cleanup-uat.py`、`.codex-cleanup-uat-r2.py`、`.codex-cleanup-uat-r3.py`、`.codex-repair-uat-cleanup.py` 处理（取消 → 删依赖序），并用 `.codex-final-uat-state.py` 核查残留。
+- **R2（22:09，发票 `ACC-SINV-2026-00049/50/51`）**：现金 139.2 + 折扣 125.28 + 退货 −139.2 均成功提交并关班（`POS-CS-26-0000002`，22:09:37）。R2 清理未完全跑完，**3 张发票至今仍为已取消（docstatus=2）留在库里**，开班 `POS-OS-26-0000002` 也已取消——见下方遗留待办。
+- **R3（22:10）**：完整跑通；后续清理删除 `POS-OS-26-0000003`、`POS-CS-26-0000003`、`ACC-SINV-2026-00052/53/54` 及测试物料/客户，**R3 前缀零残留**。
+- **R4（22:12:35，最终验收轮）**：同一脚本再跑完整链路，**R4 前缀（`UAT-20260902-R4`）在库中零残留**（发票/物料/客户/开班/关班均无），Error Log 窗口（09-02 20:00 → 09-03 08:00）除发票提交记录外无异常堆栈，证明脚本断言全部通过并完成自清理。
+
+**POS 退货修复（09-02 22:09 部署）**：
+
+- 现象：POS 退货支付行会被 ERPNext 在 validate 时按 POS Profile 重建，xPos 已提供的负数退款可能被改成正数，被退货校验拒绝（HTTP 417/500 类业务失败）。
+- 修复：`solua_home` 用 `extend_doctype_class` 完全重写 `Sales Invoice`（`hooks.py` 第 67–68 行），在 `CustomSalesInvoice.set_missing_values()` 与 `verify_payment_amount_is_negative()` 中对 `is_pos and is_return` 的每个支付行执行 `amount = -abs(amount)`，先于标准校验归一化。
+- 服务器文件 `/home/frappe/frappe-bench/apps/solua_home/solua_home/override/sales_invoice.py`（md5 `f2cb7e53…`，与本地 `.codex-custom-sales-invoice.py` 一致）已核对存在；`validate()` 保留父类全部校验并追加金额超 100,000 需审批人等自定义规则。
+- 修复前（22:00–22:08）多次尝试均止步于退货提交；**R2 首次完整三单（22:09:36 提交 `ACC-SINV-2026-00051` 退货 −139.2）即验证修复生效**，R3/R4 连续通过。
+
+**遗留待办**：R2 的 3 张已取消发票（`ACC-SINV-2026-00049/50/51`，docstatus=2）+ 已取消开班 `POS-OS-26-0000002` + 对应关班 `POS-CS-26-0000002` 仍在库，可在下次维护窗口运行 `.codex-cleanup-uat-r2.py` 幂等清理；`.codex-final-uat-state.py` 可用于复查零残留。
+
+### 18.9 2026-09-04 XPos Hub / Till 角色安装包
+
+**角色划分**（一套局域网门店双角色）：
+
+- **Hub（主机角色）**：门店局域网内一台主机。内置 MariaDB 11.4.13（端口 3307）与 Hub 服务（端口 6789），连接云端 ERPNext 负责同步；安装时自动选用可用局域网 IPv4。
+- **Till（收银机角色）**：店内各收银终端。只填 Hub 的 IPv4 地址（端口固定 6789），自动生成本机 Till ID，用本机 MariaDB 做缓存与离线队列；Till 包不含 ERPNext API Key。
+
+**安装前提与流程**（详见 `release/_role-templates/README-Hub.txt`、`README-Till.txt`）：
+
+1. 单机模式仍可用 09-02 的 `release/XPos-Windows-Setup.zip`；**09-04 起的新门店用双包**：`release/XPos-Hub-Setup.zip` + `XPos-Till-Setup.zip`（各约 210 MB，09-04 00:39 构建，内含 `SHA256SUMS.txt`）。
+2. **Hub 先装**：解压 → 把外置 `XPOS-HUB-KEY.json`（U 盘根目录）插入 → 右键管理员运行 `Install-XPos-Hub.ps1`。安装器固定 MariaDB 11.4.13、3307 端口、6789 Hub 端口；发现 `C:\xpos` 先改名为 `C:\xpos.backup-时间戳` 不直接删除；装完桌面出现 “X POS Hub”，`C:\xpos\Hub-Address.txt` 记录当前 Hub 地址。
+3. **Till 后装**：右键管理员运行 `Install-XPos-Till.ps1`，只填 Hub 主机 IPv4；脚本先探测 `http://Hub-IP:6789/api/health`，成功才写配置并安装。
+4. **Hub U 盘密钥文件生成**：在原 xPos Windows 主机上用同一 Windows 用户运行 `release/_role-templates/Build-XPos-RolePackages.ps1`，输出 `XPOS-HUB-KEY.json`；脚本会从本机 MariaDB/Electron 受保护配置读取同步凭据导出为**可移植明文（format 1）**或**同机继承密文（format 2）**。format 2 只能在生成它的原主机与原 Windows 用户下安装 Hub。密钥文件**不得放入安装 ZIP、不得写入手册/截图/聊天**；安装完成后即可拔 U 盘。
+5. 每台新收银机最终仍按 18.1 用收银员本人 ERPNext 账号登录、服务账号负责同步；Hub/Till 包不包含测试订单或测试收银员账户。
+
+**验收要点**：Hub 与 Till 必须处于同一可互通局域网（Windows 网络配置建议“专用”）；改动 Hub IP 后需重跑 Till 安装脚本更新本机 Hub 地址；两个 ZIP 均带逐文件 `SHA256SUMS.txt`，发布前可用 PowerShell `Get-FileHash` 核对。
