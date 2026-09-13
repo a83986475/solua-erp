@@ -48,10 +48,38 @@ doc_events = {
         "after_insert": "solua_home.api.stock.auto_create_item_price",
     },
     "Stock Entry": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
         "on_submit": "solua_home.api.stock.on_stock_entry_submitted",
+    },
+    "Stock Reconciliation": {
+        "validate": "solua_home.api.stock.validate_stock_reconciliation_quantities",
     },
     "Delivery Note": {
         "validate": "solua_home.api.stock.validate_delivery_note",
+    },
+    "Purchase Receipt": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Material Request": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Pick List": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Packing Slip": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Request for Quotation": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Supplier Quotation": {
+        "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "Product Bundle Definition": {
+        "validate": "solua_home.api.stock.validate_product_bundle_definition",
+    },
+    "Pricing Rule": {
+        "validate": "solua_home.api.promotion.validate_promotion_quantities",
     },
     # 允许负库存与 POS「禁止超卖」保持一致（两个字段语义相反）
     "Stock Settings": {
@@ -128,9 +156,13 @@ app_include_css = [
     "/assets/solua_home/css/hide_comments.css",
 ]
 
+# 网站与登录页品牌样式（不修改 Frappe 核心模板）
+web_include_css = "/assets/solua_home/css/login.css"
+
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
     "/assets/solua_home/js/solua_home_global.js",
+    "/assets/solua_home/js/quantity_validation.js",
     "/assets/solua_home/js/label_print.js?v=20260822b",
     "/assets/solua_home/js/promotion_wizard.js",
     "/assets/solua_home/js/retail_settings_panel.js",

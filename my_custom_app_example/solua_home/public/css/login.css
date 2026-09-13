@@ -1,0 +1,168 @@
+/* Solua Home login page: brand styling only; authentication remains native. */
+
+main.container:has(.for-login) {
+	max-width: none;
+	padding: 0;
+}
+
+.for-login {
+	position: relative;
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	padding: 32px 20px;
+	background:
+		radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.72), transparent 30%),
+		radial-gradient(circle at 88% 82%, rgba(205, 225, 211, 0.66), transparent 34%),
+		#f3f6f1;
+}
+
+.for-login::before,
+.for-login::after {
+	content: "";
+	position: absolute;
+	border-radius: 999px;
+	pointer-events: none;
+}
+
+.for-login::before {
+	width: 360px;
+	height: 360px;
+	top: -170px;
+	right: -120px;
+	background: rgba(67, 116, 83, 0.12);
+}
+
+.for-login::after {
+	width: 280px;
+	height: 280px;
+	bottom: -150px;
+	left: -100px;
+	background: rgba(194, 153, 91, 0.14);
+}
+
+.for-login .login-content.page-card {
+	position: relative;
+	z-index: 1;
+	width: min(420px, 100%);
+	margin: 0;
+	padding: 38px 40px 34px;
+	border: 1px solid rgba(50, 77, 59, 0.1);
+	border-radius: 22px;
+	background: rgba(255, 255, 255, 0.94);
+	box-shadow: 0 22px 60px rgba(38, 65, 47, 0.14);
+}
+
+.for-login .page-card-head {
+	padding: 0 0 26px;
+	text-align: left;
+}
+
+.for-login .page-card-head .app-logo {
+	display: none;
+}
+
+.for-login .page-card-head::before {
+	content: "SOLUA HOME";
+	display: block;
+	margin-bottom: 18px;
+	color: #356247;
+	font-size: 20px;
+	font-weight: 800;
+	letter-spacing: 0.16em;
+}
+
+.for-login .page-card-head-text h4 {
+	margin: 0;
+	color: #23362a;
+	font-size: 26px;
+	font-weight: 700;
+}
+
+.for-login .page-card-subtitle {
+	margin-top: 8px;
+	color: #718075;
+	font-size: 0;
+}
+
+.for-login .page-card-subtitle::after {
+	content: "窗帘与零售管理系统";
+	font-size: 13px;
+}
+
+.for-login .form-label {
+	margin-bottom: 7px;
+	color: #43564a;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.for-login .form-control {
+	height: 46px;
+	border: 1px solid #dbe4dc;
+	border-radius: 11px;
+	background: #fbfdfb;
+	box-shadow: none;
+	transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.for-login .form-control:focus {
+	border-color: #6d9a79;
+	background: #fff;
+	box-shadow: 0 0 0 3px rgba(67, 116, 83, 0.14);
+}
+
+.for-login .page-card-actions {
+	padding-top: 8px;
+}
+
+.for-login .btn-login {
+	height: 46px;
+	border: 0;
+	border-radius: 11px;
+	background: #356247;
+	color: #fff;
+	font-size: 15px;
+	font-weight: 700;
+	box-shadow: 0 8px 18px rgba(53, 98, 71, 0.2);
+}
+
+.for-login .btn-login:hover,
+.for-login .btn-login:focus {
+	background: #2b523a;
+	color: #fff;
+}
+
+.for-login .btn-login-option {
+	height: 42px;
+	margin-top: 10px;
+	border: 1px solid #dbe4dc;
+	border-radius: 11px;
+	background: #fff;
+	color: #53665a;
+}
+
+.for-login .btn-login-option:hover,
+.for-login .btn-login-option:focus {
+	border-color: #9db9a3;
+	background: #f6faf6;
+	color: #356247;
+}
+
+.for-login .forgot-password-message a,
+.for-login .sign-up-message a {
+	color: #4f7d5d;
+}
+
+@media (max-width: 480px) {
+	.for-login {
+		padding: 20px 14px;
+	}
+
+	.for-login .login-content.page-card {
+		padding: 30px 24px 26px;
+		border-radius: 18px;
+	}
+}

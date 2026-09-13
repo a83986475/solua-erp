@@ -4,10 +4,63 @@
 # ============================
 
 import random
+from decimal import Decimal, InvalidOperation
 
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
+
+
+def validate_positive_integer_qty(value, label="数量", item_code=None):
+    """数量只能是大于等于 1 的整数；空值交给字段必填校验处理。"""
+    if value in (None, ""):
+        return
+
+    try:
+        qty = Decimal(str(value))
+        valid = qty.is_finite() and qty >= 1 and qty == qty.to_integral_value()
+    except (InvalidOperation, ValueError, TypeError):
+        valid = False
+
+    if not valid:
+        target = item_code or label
+        frappe.throw(_("{0} 的数量必须是大于等于 1 的整数，当前值为 {1}").format(target, value))
+
+
+def validate_transaction_quantities(doc, method=None):
+    """校验销售、采购和库存单据中的物料数量。"""
+    for table_name in ("items", "locations"):
+        for item in doc.get(table_name, []):
+            if not item.get("item_code"):
+                continue
+            value = item.get("qty")
+            # ERPNext 退货行用负数表示；仍要求绝对值为正整数。
+            if doc.get("is_return") and flt(value) < 0:
+                value = abs(Decimal(str(value)))
+            validate_positive_integer_qty(value, "数量", item.item_code)
+
+
+def validate_product_bundle_definition(doc, method=None):
+    """校验打包定义的包含数量。"""
+    validate_positive_integer_qty(doc.get("quantity"), "打包包含数量", doc.get("parent_item"))
+
+
+def validate_stock_reconciliation_quantities(doc, method=None):
+    """盘点数量允许 0（用于清零），但不允许小数或负数。"""
+    for item in doc.get("items", []):
+        if not item.get("item_code") or item.get("qty") in (None, ""):
+            continue
+        try:
+            qty = Decimal(str(item.get("qty")))
+            valid = qty.is_finite() and qty >= 0 and qty == qty.to_integral_value()
+        except (InvalidOperation, ValueError, TypeError):
+            valid = False
+        if not valid:
+            frappe.throw(
+                _("物料 {0} 的盘点数量必须是大于等于 0 的整数，当前值为 {1}").format(
+                    item.item_code, item.get("qty")
+                )
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +242,8 @@ def on_stock_entry_submitted(doc, method=None):
 
 def validate_delivery_note(doc, method=None):
     """交货单验证"""
+    validate_transaction_quantities(doc)
+
     # 示例：出库前检查库存是否充足
     for item in doc.items:
         actual_qty = frappe.db.get_value(
