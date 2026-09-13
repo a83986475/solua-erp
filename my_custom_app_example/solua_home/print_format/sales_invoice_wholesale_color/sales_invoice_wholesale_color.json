@@ -1,0 +1,18 @@
+{
+  "custom_format": 1,
+  "disabled": 0,
+  "doc_type": "Sales Invoice",
+  "docstatus": 0,
+  "doctype": "Print Format",
+  "html": "",
+  "idx": 1,
+  "line_breaks": 0,
+  "module": "Solua Home 定制",
+  "name": "批发销售单（颜色版）",
+  "print_format_builder": 0,
+  "print_format_type": "Jinja",
+  "raw_commands": "<style>\n  .wholesale-title { text-align: center; margin-bottom: 18px; }\n  .wholesale-meta { width: 100%; margin-bottom: 14px; }\n  .wholesale-items { width: 100%; border-collapse: collapse; }\n  .wholesale-items th, .wholesale-items td { border: 1px solid #d1d8dd; padding: 7px 6px; vertical-align: middle; }\n  .wholesale-items th { background: #f5f7f9; }\n  .wholesale-image { width: 42px; height: 42px; object-fit: cover; }\n  .wholesale-qr-list { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; }\n  .wholesale-qr { display: flex; align-items: center; gap: 7px; }\n  .wholesale-qr img { width: 62px; height: 62px; }\n</style>\n<h2 class='wholesale-title'>{{ _('批发销售单') }}</h2>\n<table class='wholesale-meta'>\n  <tr><td><b>{{ _('客户') }}</b>：{{ doc.customer_name or doc.customer }}</td><td><b>{{ _('日期') }}</b>：{{ doc.posting_date }}</td></tr>\n  <tr><td><b>{{ _('单号') }}</b>：{{ doc.name }}</td><td><b>{{ _('币种') }}</b>：{{ doc.currency }}</td></tr>\n</table>\n<table class='wholesale-items'>\n  <thead><tr>{% if doc.custom_print_color_images %}<th>{{ _('图片') }}</th>{% endif %}<th>{{ _('订货货号') }}</th><th>{{ _('色号') }}</th><th>{{ _('颜色') }}</th><th>{{ _('数量') }}</th><th>{{ _('单位') }}</th><th>{{ _('单价') }}</th><th>{{ _('金额') }}</th></tr></thead>\n  <tbody>\n  {% for item in doc.items %}\n    {% set color = get_item_color_info(item.item_code) %}\n    <tr>{% if doc.custom_print_color_images %}<td>{% if color.image %}<img class='wholesale-image' src='{{ color.image }}' alt='{{ color.color_name }}'>{% endif %}</td>{% endif %}<td>{{ color.order_code or item.item_code }}</td><td>{{ color.color_code or '—' }}</td><td>{{ color.color_name or color.display_name }}</td><td style='text-align:right'>{{ item.qty }}</td><td>{{ item.uom or item.stock_uom }}</td><td style='text-align:right'>{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td><td style='text-align:right'>{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td></tr>\n  {% endfor %}\n  </tbody>\n  <tfoot><tr><td colspan='{% if doc.custom_print_color_images %}7{% else %}6{% endif %}' style='text-align:right'><b>{{ _('合计') }}</b></td><td style='text-align:right'><b>{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</b></td></tr></tfoot>\n</table>\n{% if doc.custom_print_color_qr %}\n  {% set seen = [] %}\n  <div class='wholesale-qr-list'><b>{{ _('色卡') }}：</b>\n  {% for item in doc.items %}\n    {% set color = get_item_color_info(item.item_code) %}\n    {% if color.template_code and color.template_code not in seen and color.card_url %}\n      {% set _ = seen.append(color.template_code) %}\n      {% set qr = get_color_card_qr_img(color.template_code) %}\n      {% if qr %}<div class='wholesale-qr'><img src='{{ qr }}' alt='QR'><span>{{ color.template_code }}</span></div>{% endif %}\n    {% endif %}\n  {% endfor %}\n  </div>\n{% endif %}",
+  "raw_printing": 1,
+  "show_section_headings": 0,
+  "standard": "No"
+}

@@ -1,0 +1,135 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<style>
+    .color-card-page { max-width: 980px; margin: 0 auto; padding: 32px 16px 56px; }
+    .color-card-search { display: flex; gap: 8px; max-width: 620px; margin: 20px 0 28px; }
+    .color-card-search input { flex: 1; min-width: 0; }
+    .color-card-result { display: none; }
+    .color-card-header { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+    .color-card-header img { width: 180px; height: 180px; object-fit: cover; border-radius: 8px; background: #f5f5f5; }
+    .color-card-meta { color: var(--text-muted); margin: 6px 0; }
+    .color-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
+    .color-card-item { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
+    .color-card-item img { display: block; width: 100%; height: 170px; object-fit: cover; background: #f5f5f5; cursor: zoom-in; }
+    .color-card-item-body { padding: 12px; }
+    .color-card-code { font-weight: 600; word-break: break-word; }
+    .color-card-muted { color: var(--text-muted); font-size: 13px; }
+    .color-card-empty { padding: 24px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); }
+    @media (max-width: 560px) {
+        .color-card-header { flex-direction: column; }
+        .color-card-header img { width: 100%; height: 220px; }
+        .color-card-search { flex-direction: column; }
+    }
+</style>
+
+<div class="color-card-page">
+    <h1>{{ _("窗帘色卡") }}</h1>
+    <p class="text-muted">{{ _("输入款式货号、完整订货货号或共用条码，查看已发布的颜色图片。") }}</p>
+    <form class="color-card-search" id="color-card-search">
+        <input id="color-card-query" class="form-control" type="search"
+               placeholder="{{ _('例如：SH151015 或 SH151015-01') }}" autocomplete="off">
+        <button class="btn btn-primary" type="submit">{{ _("查询") }}</button>
+    </form>
+    <div id="color-card-status" class="color-card-muted" role="status"></div>
+    <div id="color-card-result" class="color-card-result"></div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+frappe.ready(() => {
+    const form = document.getElementById("color-card-search");
+    const input = document.getElementById("color-card-query");
+    const status = document.getElementById("color-card-status");
+    const result = document.getElementById("color-card-result");
+
+    const text = (tag, value, className) => {
+        const node = document.createElement(tag);
+        node.textContent = value || "";
+        if (className) node.className = className;
+        return node;
+    };
+
+    const image = (src, alt, className) => {
+        if (!src) return null;
+        const node = document.createElement("img");
+        node.src = src;
+        node.alt = alt || "";
+        node.loading = "lazy";
+        if (className) node.className = className;
+        node.addEventListener("click", () => window.open(src, "_blank", "noopener"));
+        return node;
+    };
+
+    const render = (card) => {
+        result.replaceChildren();
+        result.style.display = "block";
+
+        const header = document.createElement("div");
+        header.className = "color-card-header";
+        const cover = image(card.image, card.name, "");
+        if (cover) header.appendChild(cover);
+        const meta = document.createElement("div");
+        meta.appendChild(text("h2", card.name));
+        meta.appendChild(text("p", `{{ _('款式货号') }}：${card.order_code || card.template_code}`, "color-card-meta"));
+        if (card.spu_code) meta.appendChild(text("p", `SPU：${card.spu_code}`, "color-card-meta"));
+        if (card.spec_summary) meta.appendChild(text("p", card.spec_summary, "color-card-meta"));
+        header.appendChild(meta);
+        result.appendChild(header);
+
+        const grid = document.createElement("div");
+        grid.className = "color-card-grid";
+        (card.variants || []).forEach((variant) => {
+            const item = document.createElement("article");
+            item.className = "color-card-item";
+            const photo = image(variant.image, variant.color_name || variant.order_code, "");
+            if (photo) item.appendChild(photo);
+            else item.appendChild(text("div", "{{ _('图片待补') }}", "color-card-empty"));
+            const body = document.createElement("div");
+            body.className = "color-card-item-body";
+            body.appendChild(text("div", variant.order_code, "color-card-code"));
+            if (variant.color_code) body.appendChild(text("div", `{{ _('色号') }}：${variant.color_code}`, "color-card-muted"));
+            if (variant.color_name) body.appendChild(text("div", variant.color_name, "color-card-muted"));
+            item.appendChild(body);
+            grid.appendChild(item);
+        });
+        if (!grid.children.length) grid.appendChild(text("div", "{{ _('暂未发布颜色资料') }}", "color-card-empty"));
+        result.appendChild(grid);
+    };
+
+    const search = async (query) => {
+        query = (query || "").trim();
+        if (!query) return;
+        status.textContent = "{{ _('查询中...') }}";
+        result.style.display = "none";
+        try {
+            const response = await fetch(
+                `/api/method/solua_home.api.color_card.get_public_color_card?query=${encodeURIComponent(query)}`,
+                { headers: { Accept: "application/json" } }
+            );
+            const payload = await response.json();
+            if (!response.ok || !payload.message) {
+                status.textContent = "{{ _('未找到已发布的色卡资料。') }}";
+                return;
+            }
+            status.textContent = "";
+            render(payload.message);
+        } catch (error) {
+            status.textContent = "{{ _('查询失败，请稍后重试。') }}";
+        }
+    };
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        search(input.value);
+    });
+
+    const initial = new URLSearchParams(window.location.search).get("q");
+    if (initial) {
+        input.value = initial;
+        search(initial);
+    }
+});
+</script>
+{% endblock %}

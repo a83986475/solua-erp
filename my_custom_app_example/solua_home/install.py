@@ -9,6 +9,8 @@ def after_install():
     add_item_attributes()
     add_color_pool()
     add_variant_custom_fields()
+    add_color_card_fields()
+    add_sales_color_print_fields()
     configure_item_variant_settings()
     add_discount_approval_field()
     add_company_discount_settings()
@@ -566,6 +568,96 @@ def add_variant_custom_fields():
     frappe.db.commit()
 
 
+def add_color_card_fields():
+    """为颜色变体补充固定色号、对外货号和公开发布开关。"""
+    fields = [
+        {
+            "dt": "Item",
+            "fieldname": "custom_color_code",
+            "label": "固定色号",
+            "fieldtype": "Data",
+            "insert_after": "custom_pos_short_name",
+            "depends_on": "eval:doc.variant_of",
+            "description": "本款内固定的数字色号，例如 01、02；一旦使用不重新分配",
+        },
+        {
+            "dt": "Item",
+            "fieldname": "custom_order_code",
+            "label": "对外订货货号",
+            "fieldtype": "Data",
+            "insert_after": "custom_color_code",
+            "description": "客户使用的稳定货号；为空时公开页面回退使用 Item 编码",
+        },
+        {
+            "dt": "Item",
+            "fieldname": "custom_color_card_published",
+            "label": "发布到公开色卡",
+            "fieldtype": "Check",
+            "insert_after": "custom_swatch_image",
+            "default": "0",
+            "description": "模板和具体颜色都勾选后，才会出现在 erp.solua.one/colors",
+        },
+    ]
+
+    for field in fields:
+        try:
+            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+                frappe.get_doc({
+                    "doctype": "Custom Field",
+                    **field,
+                    "owner": "Administrator",
+                }).insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(
+                f"色卡字段创建失败 [{field.get('fieldname')}]: {e}",
+                "solua_home.color_card_fields",
+            )
+
+    frappe.db.commit()
+
+
+def add_sales_color_print_fields():
+    """给批发销售发票提供图片和二维码两个独立打印开关。"""
+    fields = [
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_images",
+            "label": "批发单显示颜色图片",
+            "fieldtype": "Check",
+            "insert_after": "is_pos",
+            "default": "0",
+            "allow_on_submit": 1,
+            "description": "批发销售单打印格式开启时，显示每个颜色的实拍图",
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_qr",
+            "label": "批发单显示色卡二维码",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_images",
+            "default": "0",
+            "allow_on_submit": 1,
+            "description": "批发销售单打印格式开启时，显示对应款式的公开色卡二维码",
+        },
+    ]
+
+    for field in fields:
+        try:
+            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+                frappe.get_doc({
+                    "doctype": "Custom Field",
+                    **field,
+                    "owner": "Administrator",
+                }).insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(
+                f"销售单打印开关创建失败 [{field.get('fieldname')}]: {e}",
+                "solua_home.color_card_fields",
+            )
+
+    frappe.db.commit()
+
+
 # 窗帘颜色池（Cor 属性）：全部常用颜色 + 唯一缩写
 # 变体编码 = 模板编码-缩写（如 CR-001-PR = Preto 黑）；缩写必须全局唯一
 CURTAIN_COLOR_POOL = [
@@ -674,6 +766,7 @@ def configure_item_variant_settings():
             "item_group",
             "custom_chinese_name",
             "custom_spu_code",
+            "custom_swatch_image",
         ]
 
         existing_fields = {row.field_name for row in settings.fields}

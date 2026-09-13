@@ -53,6 +53,13 @@ doc_events = {
     "Delivery Note": {
         "validate": "solua_home.api.stock.validate_delivery_note",
     },
+    # 允许负库存与 POS「禁止超卖」保持一致（两个字段语义相反）
+    "Stock Settings": {
+        "on_update": "solua_home.api.stock_settings.sync_from_stock_settings",
+    },
+    "POS Profile": {
+        "on_update": "solua_home.api.stock_settings.sync_from_pos_profile",
+    },
 
     # ========== 通用 ==========
     "Address": {
@@ -79,6 +86,9 @@ jinja = {
     "methods": [
         "solua_home.printing.label_helpers.get_barcode_img",
         "solua_home.printing.label_helpers.get_selling_price",
+        "solua_home.api.color_card.get_public_color_card_url",
+        "solua_home.printing.color_card.get_item_color_info",
+        "solua_home.printing.color_card.get_color_card_qr_img",
     ],
 }
 
@@ -125,12 +135,20 @@ app_include_js = [
     "/assets/solua_home/js/promotion_wizard.js",
     "/assets/solua_home/js/retail_settings_panel.js",
     "/assets/solua_home/js/print_format_import_export.js",
+    # Point of Sale 是已打包的标准页面，page_js 不一定会被执行；
+    # 全局引入后由 pos_custom.js 自己等待 POS 类加载，确保颜色弹窗可靠生效。
+    "/assets/solua_home/js/pos_custom.js",
 ]
 
 # Custom JS for standard pages
 page_js = {
-    "point-of-sale": "public/js/pos_custom.js?v=20260822",
     "print-designer": "public/js/print_designer_zh.js",
+}
+
+# Custom JS for Item form: template page shows per-color and total stock.
+doctype_js = {
+    "Item": "public/js/item_color_stock.js",
+    "Sales Invoice": "public/js/sales_invoice_print_options.js",
 }
 
 # Custom JS for doctype list views（Item 列表页的向导按钮）

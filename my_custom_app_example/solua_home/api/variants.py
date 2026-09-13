@@ -19,17 +19,23 @@ def get_template_variants(template_item):
     if not template_item:
         return []
 
-    variants = frappe.get_all(
+    fields = [
+        "item_code", "item_name", "custom_chinese_name",
+        "custom_spec_summary", "custom_pos_short_name",
+        "image", "custom_swatch_image", "stock_uom", "disabled",
+        "item_group", "brand",
+    ]
+    for fieldname in ["custom_color_code", "custom_order_code"]:
+        if frappe.db.has_column("Item", fieldname):
+            fields.append(fieldname)
+
+    variants = frappe.get_list(
         "Item",
         filters={
             "variant_of": template_item,
             "disabled": 0,
         },
-        fields=["item_code", "item_name", "custom_chinese_name",
-                "custom_spec_summary", "custom_pos_short_name",
-                "image", "custom_swatch_image",
-                "stock_uom", "disabled",
-                "item_group", "brand"],
+        fields=fields,
         order_by="item_code asc",
     )
 
@@ -88,7 +94,7 @@ def get_template_stock_summary(template_item, warehouse=None):
 
     stock_data = {}
     try:
-        bins = frappe.get_all(
+        bins = frappe.get_list(
             "Bin",
             filters=filters,
             fields=["item_code", "warehouse", "actual_qty"],
