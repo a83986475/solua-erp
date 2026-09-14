@@ -1,13 +1,23 @@
 /* Solua Home login page: brand styling only; authentication remains native. */
 
+html:has(.for-login),
+body:has(.for-login) {
+	background: #f3f6f1;
+}
+
 main.container:has(.for-login) {
 	max-width: none;
+	min-height: 100vh;
+	min-height: 100dvh;
 	padding: 0;
+	background: #f3f6f1;
 }
 
 .for-login {
 	position: relative;
 	min-height: 100vh;
+	min-height: 100dvh;
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -63,10 +73,10 @@ main.container:has(.for-login) {
 .for-login .page-card-head .app-logo {
 	display: block;
 	width: min(280px, 100%);
-	height: 150px;
+	height: 240px;
 	margin: 0 0 18px;
 	object-fit: cover;
-	object-position: center center;
+	object-position: center 42%;
 	content: url("/files/solua-logo.jpg");
 }
 

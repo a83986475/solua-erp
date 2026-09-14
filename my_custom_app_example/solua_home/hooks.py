@@ -157,7 +157,7 @@ app_include_css = [
 ]
 
 # 网站与登录页品牌样式（不修改 Frappe 核心模板）
-web_include_css = "/assets/solua_home/css/login.css?v=login-logo-1"
+web_include_css = "/assets/solua_home/css/login.css?v=login-logo-2"
 
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
