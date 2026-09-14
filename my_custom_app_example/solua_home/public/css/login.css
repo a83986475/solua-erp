@@ -82,14 +82,7 @@ main.container:has(.for-login) {
 }
 
 .for-login .page-card-subtitle {
-	margin-top: 8px;
-	color: #718075;
-	font-size: 0;
-}
-
-.for-login .page-card-subtitle::after {
-	content: "窗帘与零售管理系统";
-	font-size: 13px;
+	display: none;
 }
 
 .for-login .form-label {
