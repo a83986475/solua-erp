@@ -2,7 +2,7 @@
 
 ## 当前状态：首页快捷入口修复已定向部署（2026-09-15，最高优先级）
 
-本次受控发布已完成：`develop` commit `ec1cccb55c87b5c1bfdac3296f99e1b7ae74c3df` 已推送；生产仅传输白名单运行文件，代表文件 SHA256 与本地一致。完整备份、配置和旧目标代码快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-HOME-ACTIONS`；本次 DB/public/private files 备份为 `20260915_212223-erp_solua_one-*`，已成功生成并列出归档，未做恢复演练。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
+本次受控发布已完成：`develop` commit `ec1cccb55c87b5c1bfdac3296f99e1b7ae74c3df` 已推送；生产仅传输白名单运行文件，20/20 目标文件 SHA256 与本地一致，重载后 Supervisor 全部 RUNNING。完整备份、配置和旧目标代码快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-HOME-ACTIONS`；本次 DB/public/private files 备份为 `20260915_212223-erp_solua_one-*`，已成功生成并列出归档，未做恢复演练。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
 
 本次根因修复：去掉 `api/home.py` 对 Administrator 的首页硬编码拒绝，Guest 仍返回 `no_permission`；首页按实际 DocType 权限分组显示库存管理、标签打印、优惠/促销、订单与客户及其他入口。标签打印、促销、POS 交班浮窗已停止注入，原功能调用与快捷键保留；xPos 使用已核实 `/desk/x-pos?sidebar=X%20POS`。生产核验真实 `Module Def: Solua Wholesale`、`Page: solua-home`、`Page.load_assets`（JS/CSS 非空）、按真实记录名读取的两模板（Jinja、HTML 非空、`raw_printing=0`）、hooks import、`desktop:home_page=solua-home` 均通过。Administrator 与 `yangyang7920@gmail.com` dashboard 为 `ok`，Guest 为 `no_permission`；`/api/method/frappe.ping` 返回 200，未登录 `/desk/solua-home` 正确转登录页。
 
