@@ -291,38 +291,62 @@ assert home.get_color_variants(barcode="SHARED")["state"]=="no_permission"
 print("PASS: nonempty SI/POS merge and return 325; FX outstanding 45; warehouse role/Guest/parent Item/company/warehouse/hidden Bin isolation")
 
 # Targeted installer: exercise actual field loop twice, then injected import error.
-created_fields=set();installed_modules=set();imports=[];commits=[];rollbacks=[]
+created_fields=set();installed_modules=set();module_inserts=0;imports=[];commits=[];rollbacks=[]
 class InstallDoc(types.SimpleNamespace):
     def insert(self,**kwargs):
+        global module_inserts
         if self.doctype=="Custom Field":created_fields.add((self.dt,self.fieldname))
-        elif self.doctype=="Module Def":installed_modules.add(self.module_name)
+        elif self.doctype=="Module Def":module_inserts+=1;installed_modules.add(self.module_name)
         else:raise AssertionError("Unexpected installer mutation")
         return self
     def load_assets(self):
         self.script="candidate JS";self.style="candidate CSS"
 def install_get_doc(arg,name=None):
     if isinstance(arg,dict):return InstallDoc(**arg)
-    if arg=="Page":return InstallDoc(module="Solua Wholesale")
+    if arg=="Page":return InstallDoc(name="solua-home",module="Solua Wholesale")
     if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Wholesale")
     raise AssertionError(arg)
 frappe.get_doc=install_get_doc
 frappe.get_attr=lambda name:lambda:None
 frappe.db.exists=lambda dt,filters: filters in installed_modules if dt=="Module Def" else (filters["dt"],filters["fieldname"]) in created_fields
+frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="solua_home") if dt=="Module Def" and name in installed_modules else None
 frappe.db.commit=lambda:commits.append(1)
 frappe.db.rollback=lambda:rollbacks.append(1)
 importer=types.ModuleType("frappe.modules.import_file")
 importer.import_file_by_path=lambda path,**kwargs:imports.append(path)
 sys.modules[importer.__name__]=importer
+modules_pkg=types.ModuleType("frappe.modules")
+modules_pkg.__path__=[]
+modules_pkg.get_module_path=lambda *args: "/virtual/solua_wholesale/page/solua_home"
+sys.modules[modules_pkg.__name__]=modules_pkg
+import os as _installer_test_os
+_installer_test_isdir=_installer_test_os.path.isdir
+_installer_test_os.path.isdir=lambda path: path=="/virtual/solua_wholesale/page/solua_home" or _installer_test_isdir(path)
 install_spec=importlib.util.spec_from_file_location("installer_candidate",ROOT/"install.py")
 installer=importlib.util.module_from_spec(install_spec);install_spec.loader.exec_module(installer)
 installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
-assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"}
+assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
 assert len(imports)==6 and len(commits)==2
+original_get_value=frappe.db.get_value
+frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
+try:installer.install_wholesale_only()
+except RuntimeError as exc:assert "Invalid Module Def" in str(exc)
+else:raise AssertionError("Invalid Module Def accepted")
+assert len(rollbacks)==1 and len(commits)==2
+frappe.db.get_value=original_get_value
+original_module_path=modules_pkg.get_module_path
+modules_pkg.get_module_path=lambda *args: (_ for _ in ()).throw(RuntimeError("injected module path failure"))
+try:installer.install_wholesale_only()
+except RuntimeError as exc:assert "module path" in str(exc)
+else:raise AssertionError("Missing module path rejected incorrectly")
+assert len(rollbacks)==2 and len(commits)==2 and len(created_fields)==field_count
+modules_pkg.get_module_path=original_module_path
 def broken_import(*args,**kwargs):raise RuntimeError("injected import failure")
 importer.import_file_by_path=broken_import
 try:installer.install_wholesale_only()
 except RuntimeError:pass
 else:raise AssertionError("Import failure swallowed")
-assert len(rollbacks)==1 and len(commits)==2
-print("PASS: targeted installer repeated without duplicate fields/module; three scoped imports; failure propagates")
+assert len(rollbacks)==3 and len(commits)==2
+_installer_test_os.path.isdir=_installer_test_isdir
+print("PASS: fresh module registration, idempotent rerun, strict module/path/import failures; three scoped imports")

@@ -27,10 +27,12 @@ try:
  print("SEARCH",home.search_items("__SOLUA_READONLY_NO_MATCH__"))
  printing=types.ModuleType("candidate_printing")
  exec(compile(payload["printing"],"candidate_printing.py","exec"),printing.__dict__)
+ candidates={}
  for key,name in (("home","solua_home.api.home"),("stock","solua_home.api.stock"),("printing","solua_home.printing.wholesale"),("boot","solua_home.boot"),("install","solua_home.install")):
   candidate=types.ModuleType(name)
   exec(compile(payload[key],name,"exec"),candidate.__dict__)
   sys.modules[name]=candidate
+  candidates[key]=candidate
  hooks={}
  exec(compile(payload["hooks"],"candidate_hooks.py","exec"),hooks)
  methods=[]
@@ -43,7 +45,11 @@ try:
  for method in methods:
   assert callable(frappe.get_attr(method)),method
  print("HOOK_IMPORTS",len(methods),"PASS")
- print("DEFAULT_PAGE",home.get_home_page(frappe.session.user))
+ bootinfo={}
+ candidates["boot"].extended_bootinfo(bootinfo)
+ assert "home_page" not in bootinfo
+ print("BOOT_HOME_PAGE","not injected; native desktop:home_page remains authoritative")
+ print("API_HOME_PAGE_HELPER",home.get_home_page(frappe.session.user))
  from frappe.utils.jinja import get_jenv
  env=get_jenv()
  env.globals["get_wholesale_print_data"]=printing.get_wholesale_print_data

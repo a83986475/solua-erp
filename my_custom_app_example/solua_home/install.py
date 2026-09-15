@@ -2,15 +2,35 @@
 import frappe
 
 
+def ensure_wholesale_module():
+    """Register the one shipped module without running a site migration."""
+    if not frappe.db.exists("Module Def", "Solua Wholesale"):
+        frappe.get_doc({
+            "doctype": "Module Def",
+            "module_name": "Solua Wholesale",
+            "app_name": "solua_home",
+            "custom": 0,
+        }).insert(ignore_permissions=True)
+
+    module = frappe.db.get_value(
+        "Module Def", "Solua Wholesale", ["name", "app_name"], as_dict=True
+    )
+    if not module or module.app_name != "solua_home":
+        raise RuntimeError("Invalid Module Def Solua Wholesale")
+    return module
+
+
 def install_wholesale_only():
-    """Explicit reviewed release entry point; never calls after_install/migrate."""
+    """Install only the reviewed wholesale page, fields and two print formats."""
     import os
     from frappe.modules.import_file import import_file_by_path
+    from frappe.modules import get_module_path
 
     try:
-        if not frappe.db.exists("Module Def", "Solua Wholesale"):
-            frappe.get_doc({"doctype": "Module Def", "module_name": "Solua Wholesale",
-                            "app_name": "solua_home", "custom": 0}).insert(ignore_permissions=True)
+        page_dir = get_module_path("Solua Wholesale", "page", "solua_home")
+        if not os.path.isdir(page_dir):
+            raise RuntimeError("Solua Wholesale page package is not importable: " + page_dir)
+        ensure_wholesale_module()
         add_wholesale_fields(commit=False)
         base = os.path.dirname(__file__)
         for folder in ("sales_order_wholesale_color", "delivery_note_guia_remessa"):
@@ -21,6 +41,8 @@ def install_wholesale_only():
         page = frappe.get_doc("Page", "solua-home")
         if page.module != "Solua Wholesale":
             raise RuntimeError("Unexpected Page module")
+        if not page.name or page.name != "solua-home":
+            raise RuntimeError("Unexpected Page name")
         page.load_assets()
         if not page.script or not page.style:
             raise RuntimeError("Solua Page assets missing")

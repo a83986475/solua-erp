@@ -13,20 +13,6 @@
 
 frappe.provide("solua_home.global_js");
 
-// v16 can explicitly route an empty Desk entry to desktop before Page fallback.
-// Apply only the server-selected employee default, never a document deep link.
-$(function () {
-    const use_wholesale_home = () => {
-        const target = frappe.boot?.solua_home?.default_page;
-        const route = frappe.get_route?.() || [];
-        if (target && (!route.length || (route.length === 1 && route[0] === "desktop"))) {
-            frappe.set_route(target);
-        }
-    };
-    frappe.router.on("change", use_wholesale_home);
-    use_wholesale_home();
-});
-
 (function () {
 	"use strict";
 

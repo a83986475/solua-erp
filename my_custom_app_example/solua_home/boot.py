@@ -3,18 +3,10 @@ import frappe
 
 
 def extended_bootinfo(bootinfo):
-    """注入自定义 boot 信息"""
-    from solua_home.api.home import get_home_page
-
-    # Respect explicit xPos/default workspace choices. Ordinary System Users
-    # share the permission-aware wholesale page; this is only boot metadata.
-    home_page = get_home_page(frappe.session.user)
-    if home_page:
-        bootinfo["home_page"] = home_page
+    """注入元数据；默认 Desk 入口由原生 desktop:home_page 管理。"""
     bootinfo["solua_home"] = {
         "version": "0.0.1",
         "app_name": "solua_home",
-        "default_page": home_page,
         "curtain_colors": get_curtain_colors(),
     }
 

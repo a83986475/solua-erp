@@ -18,15 +18,12 @@ setImmediate(async()=>{
  assert(!cards.includes('value">0'));assert.equal((cards.match(/value">—/g)||[]).length,5);
  assert(!node('[data-role="actions"]').content.includes("Stock Reconciliation"));
  assert(node('[data-role="pending"]').content.includes("待到货采购订单"));
- let current=[],target=null,listener;
- const globals={boot:{solua_home:{default_page:"solua-home"}},provide(){},get_route:()=>current,
- set_route:value=>{target=value;},router:{on(event,fn){listener=fn;}}};
+ let current=[],target=null;
+ const globals={boot:{solua_home:{}},provide(){},get_route:()=>current,
+ set_route:value=>{target=value;},router:{on(){throw new Error("default route hook must not be registered");}}};
  const source=fs.readFileSync(path.join(base,"public/js/solua_home_global.js"),"utf8").split("\n(function () {")[0];
  vm.runInNewContext(source,{frappe:globals,$:fn=>fn()});
- assert.equal(target,"solua-home");
- target=null;current=["Form","Sales Order","SO-1"];listener();assert.equal(target,null);
- current=["desktop"];listener();assert.equal(target,"solua-home");
- globals.boot.solua_home.default_page=null;target=null;listener();assert.equal(target,null);
+ assert.equal(target,null);
  frappe.call=async()=>{throw new Error("network failure");};
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));
