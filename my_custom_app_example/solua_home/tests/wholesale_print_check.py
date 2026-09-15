@@ -291,7 +291,7 @@ assert home.get_color_variants(barcode="SHARED")["state"]=="no_permission"
 print("PASS: nonempty SI/POS merge and return 325; FX outstanding 45; warehouse role/Guest/parent Item/company/warehouse/hidden Bin isolation")
 
 # Targeted installer: exercise actual field loop twice, then injected import error.
-created_fields=set();installed_modules=set();module_inserts=0;imports=[];commits=[];rollbacks=[]
+created_fields=set();installed_modules=set();module_inserts=0;imports=[];commits=[];rollbacks=[];module_map_refresh=[]
 class InstallDoc(types.SimpleNamespace):
     def insert(self,**kwargs):
         global module_inserts
@@ -310,6 +310,8 @@ frappe.get_doc=install_get_doc
 frappe.get_attr=lambda name:lambda:None
 frappe.db.exists=lambda dt,filters: filters in installed_modules if dt=="Module Def" else (filters["dt"],filters["fieldname"]) in created_fields
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="solua_home") if dt=="Module Def" and name in installed_modules else None
+frappe.cache=lambda: types.SimpleNamespace(delete_value=lambda key:module_map_refresh.append(key))
+frappe.setup_module_map=lambda include_all_apps=True:module_map_refresh.append(("setup",include_all_apps))
 frappe.db.commit=lambda:commits.append(1)
 frappe.db.rollback=lambda:rollbacks.append(1)
 importer=types.ModuleType("frappe.modules.import_file")
@@ -327,7 +329,7 @@ installer=importlib.util.module_from_spec(install_spec);install_spec.loader.exec
 installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
-assert len(imports)==6 and len(commits)==2
+assert len(imports)==6 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()

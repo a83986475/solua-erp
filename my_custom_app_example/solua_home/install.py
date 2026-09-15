@@ -20,6 +20,12 @@ def ensure_wholesale_module():
     return module
 
 
+def refresh_wholesale_module_map():
+    """Refresh only Frappe's cached app/module map after modules.txt is shipped."""
+    frappe.cache().delete_value("app_modules")
+    frappe.setup_module_map(include_all_apps=True)
+
+
 def install_wholesale_only():
     """Install only the reviewed wholesale page, fields and two print formats."""
     import os
@@ -27,6 +33,7 @@ def install_wholesale_only():
     from frappe.modules import get_module_path
 
     try:
+        refresh_wholesale_module_map()
         page_dir = get_module_path("Solua Wholesale", "page", "solua_home")
         if not os.path.isdir(page_dir):
             raise RuntimeError("Solua Wholesale page package is not importable: " + page_dir)
