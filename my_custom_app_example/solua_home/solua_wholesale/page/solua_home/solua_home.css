@@ -1,0 +1,22 @@
+.solua-home-page { max-width: 1180px; margin: 0 auto; color: #263238; }
+.solua-home-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 0 22px; }
+.solua-home-brand { display: flex; align-items: center; gap: 8px; font-size: 25px; font-weight: 700; color: #a37b2c; }
+.solua-home-logo { max-width: 150px; max-height: 42px; object-fit: contain; }
+.solua-home-subtitle, .solua-home-meta, .solua-home-card-state { color: #77838b; font-size: 12px; }
+.solua-home-header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.solua-home-state { min-height: 20px; color: #77838b; }
+.solua-home-section { background: #fff; border: 1px solid #e5e7e9; border-radius: 8px; padding: 16px; margin: 0 0 16px; }
+.solua-home-section h3 { font-size: 15px; margin: 0 0 14px; color: #37474f; }
+.solua-home-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.solua-home-card { background: #fcfaf6; border-left: 3px solid #c59a45; border-radius: 6px; padding: 13px; min-height: 78px; }
+.solua-home-card-label { color: #65727a; font-size: 12px; }
+.solua-home-card-value { font-size: 20px; font-weight: 600; margin: 9px 0 3px; }
+.solua-home-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.solua-home-search { display: flex; gap: 8px; margin-bottom: 12px; }
+.solua-home-search input { flex: 1; }
+.solua-home-list-row { display: flex; width: 100%; justify-content: space-between; gap: 12px; border: 0; border-bottom: 1px solid #eef0f1; background: transparent; padding: 10px 2px; text-align: left; }
+.solua-home-list-row:hover { background: #fcfaf6; }
+.solua-home-list-row span { overflow-wrap: anywhere; }
+.solua-home-pending-title { font-weight: 600; margin: 4px 0 6px; }
+.solua-home-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 800px) { .solua-home-header, .solua-home-columns { display: block; } .solua-home-header-actions { justify-content: flex-start; margin-top: 12px; } .solua-home-cards { grid-template-columns: repeat(2, 1fr); } .solua-home-section { padding: 12px; } }

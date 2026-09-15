@@ -1,0 +1,23 @@
+Solua Home 定制首页实施计划.md
+my_custom_app_example/solua_home/api/home.py
+my_custom_app_example/solua_home/api/stock.py
+my_custom_app_example/solua_home/boot.py
+my_custom_app_example/solua_home/hooks.py
+my_custom_app_example/solua_home/install.py
+my_custom_app_example/solua_home/modules.txt
+my_custom_app_example/solua_home/solua_wholesale/__init__.py
+my_custom_app_example/solua_home/solua_wholesale/page/__init__.py
+my_custom_app_example/solua_home/solua_wholesale/page/solua_home/__init__.py
+my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.json
+my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.js
+my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.css
+my_custom_app_example/solua_home/public/js/wholesale_forms.js
+my_custom_app_example/solua_home/public/js/solua_home_global.js
+my_custom_app_example/solua_home/printing/wholesale.py
+my_custom_app_example/solua_home/print_format/sales_order_wholesale_color/sales_order_wholesale_color.json
+my_custom_app_example/solua_home/print_format/delivery_note_guia_remessa/delivery_note_guia_remessa.json
+my_custom_app_example/solua_home/tests/wholesale_forms_check.cjs
+my_custom_app_example/solua_home/tests/wholesale_page_check.cjs
+my_custom_app_example/solua_home/tests/wholesale_print_check.py
+my_custom_app_example/solua_home/tests/readonly_candidate_check.ps1
+my_custom_app_example/solua_home/tests/release_whitelist.txt

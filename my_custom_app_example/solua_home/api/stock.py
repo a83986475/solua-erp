@@ -244,19 +244,56 @@ def validate_delivery_note(doc, method=None):
     """交货单验证"""
     validate_transaction_quantities(doc)
 
-    # 示例：出库前检查库存是否充足
-    for item in doc.items:
-        actual_qty = frappe.db.get_value(
-            "Bin",
-            {"item_code": item.item_code, "warehouse": item.warehouse},
-            "actual_qty",
+    # Keep the selected store/order identifiers on the delivery snapshot when
+    # a note is created from a Sales Order; standard address/contact fields are
+    # still the source of the full address and contact details.
+    order_names = {row.get("against_sales_order") for row in doc.items if row.get("against_sales_order")}
+    order_name = next(iter(order_names)) if len(order_names) == 1 else None
+    if doc.get("docstatus") == 0 and order_name and not doc.get("custom_wholesale_snapshot"):
+        for fieldname in ("custom_store_name", "custom_customer_order_no", "custom_invoice_plan"):
+            if not doc.get(fieldname) and frappe.get_meta("Delivery Note").has_field(fieldname):
+                value = frappe.db.get_value("Sales Order", order_name, fieldname)
+                if value:
+                    setattr(doc, fieldname, value)
+
+    # Native stock-ledger validation handles UOM, serial/batch and warehouse
+    # quantities atomically on submit. Do not compare sales UOM against Bin or
+    # recheck already deducted stock on a submitted print-option Update.
+
+
+def prepare_delivery_snapshot(doc, method=None):
+    """Freeze per-order quantities in the delivery UOM under order-line locks."""
+    if doc.get("is_return"):
+        return
+    prior = {}
+    for item in sorted(doc.items, key=lambda row: row.get("so_detail") or ""):
+        detail = item.get("so_detail")
+        order_name = item.get("against_sales_order")
+        if not detail or not order_name:
+            continue
+        order = frappe.db.sql(
+            "SELECT parent, item_code, stock_qty FROM `tabSales Order Item` WHERE name=%s FOR UPDATE",
+            (detail,), as_dict=True,
         )
-        if actual_qty is not None and item.qty > actual_qty:
-            frappe.throw(
-                _("物料 {0} 在仓库 {1} 的库存不足（需求: {2}, 可用: {3}）").format(
-                    item.item_code, item.warehouse, item.qty, actual_qty
-                )
-            )
+        if not order or order[0].parent != order_name or order[0].item_code != item.item_code:
+            frappe.throw(_("送货行与销售订单行不匹配"))
+        factor = flt(item.get("conversion_factor") if item.get("conversion_factor") is not None else 1)
+        if factor <= 0:
+            frappe.throw(_("单位换算系数必须大于0"))
+        if detail not in prior:
+            prior[detail] = flt(frappe.db.sql(
+                """SELECT COALESCE(SUM(i.stock_qty),0) FROM `tabDelivery Note Item` i
+                JOIN `tabDelivery Note` d ON d.name=i.parent
+                WHERE d.docstatus=1 AND d.name<>%s AND i.so_detail=%s AND i.against_sales_order=%s""",
+                (doc.name, detail, order_name),
+            )[0][0])
+        delivered = flt(item.qty) * factor
+        if prior[detail] + delivered > flt(order[0].stock_qty) + 0.000001:
+            frappe.throw(_("本次送货超过销售订单剩余数量：{0}").format(item.item_code))
+        item.custom_ordered_qty = flt(order[0].stock_qty) / factor
+        item.custom_delivered_before_qty = prior[detail] / factor
+        item.custom_remaining_qty = max(flt(order[0].stock_qty) - prior[detail] - delivered, 0) / factor
+        prior[detail] += delivered
 
 
 def auto_create_item_price(doc, method=None):

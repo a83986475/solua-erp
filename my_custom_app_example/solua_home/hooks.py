@@ -21,6 +21,7 @@ doc_events = {
     },
     "Sales Order": {
         "validate": "solua_home.api.sales.validate_sales_order",
+        "before_submit": "solua_home.printing.wholesale.prepare_print_snapshot",
     },
     "Quotation": {
         "validate": "solua_home.api.sales.validate_quotation",
@@ -56,6 +57,10 @@ doc_events = {
     },
     "Delivery Note": {
         "validate": "solua_home.api.stock.validate_delivery_note",
+        "before_submit": [
+            "solua_home.api.stock.prepare_delivery_snapshot",
+            "solua_home.printing.wholesale.prepare_print_snapshot",
+        ],
     },
     "Purchase Receipt": {
         "validate": "solua_home.api.stock.validate_transaction_quantities",
@@ -118,6 +123,12 @@ jinja = {
         "solua_home.api.color_card.get_public_color_card_url",
         "solua_home.printing.color_card.get_item_color_info",
         "solua_home.printing.color_card.get_color_card_qr_img",
+        "solua_home.printing.wholesale.get_company_print_info",
+        "solua_home.printing.wholesale.get_customer_print_info",
+        "solua_home.printing.wholesale.get_delivery_order_info",
+        "solua_home.printing.wholesale.get_delivery_invoice_names",
+        "solua_home.printing.wholesale.get_driver_phone",
+        "solua_home.printing.wholesale.get_wholesale_print_data",
     ],
 }
 
@@ -182,6 +193,10 @@ page_js = {
 doctype_js = {
     "Item": "public/js/item_color_stock.js",
     "Sales Invoice": "public/js/sales_invoice_print_options.js",
+    "Sales Order": "public/js/wholesale_forms.js",
+    "Delivery Note": "public/js/wholesale_forms.js",
+    "Purchase Receipt": "public/js/wholesale_forms.js",
+    "Stock Reconciliation": "public/js/wholesale_forms.js",
 }
 
 # Custom JS for doctype list views（Item 列表页的向导按钮）
