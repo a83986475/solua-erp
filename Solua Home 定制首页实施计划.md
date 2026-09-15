@@ -1,10 +1,10 @@
 # Solua Home 定制首页实施计划
 
-## 当前状态：安装链路已修复，生产默认入口保持原生 workspace（2026-09-15，最高优先级）
+## 当前状态：修复已定向部署，默认入口已启用（2026-09-15，最高优先级）
 
-此前受控发布已按白名单备份、提交、推送并尝试定向安装；命令曾返回 0，但生产数据库未确认可用的 Page 资源，因此已停止发布并仅定向回退运行时代码，未恢复整库、未删除业务数据。生产当前 `desktop:home_page=workspace`，不启用 `solua-home`；此前定向安装留下的 Module Def/Page/字段数据库记录保留，待正确代码包重新部署后核验，不将其称为已可用首页。备份仍位于 `qq:/home/frappe/solua-wholesale-release-20260915-J7wbC2`，完整性已核验，未做恢复演练。
+受控发布已完成：本地/远端 `develop` 为 `82e8d639080c706dea368589c70fc63768d1759a`；生产仅按白名单传输运行时文件，逐项 SHA256 与 staging 一致。完整备份及旧目标快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-FIX-01`，数据库 gzip、公开/私有文件归档与配置已校验；未做恢复演练，不宣称灾备恢复已验证。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
 
-本轮候选修复已完成：`install_wholesale_only` 先用真实模块路径解析 `Solua Wholesale/page/solua_home`，再幂等注册并校验正确的 Module Def；导入两模板与 Page 后立即查询 Page、加载 JS/CSS、核验关键 hooks/模板，任一步失败都会回滚并抛错。`boot.py` 与全局 JS 不再强制覆盖原生 `desktop:home_page`，避免安装不完整时接管默认入口。修复尚未重新提交、推送或部署，等待受控发布验证。
+安装链路根因已闭合：生产 app 原有 `solua_home` 自指 symlink 且缺 `modules.txt`，旧安装器未刷新 `app_modules`，导致命令返回 0 但 `get_module_path` 不可解析。现已部署 `modules.txt`、真实 `solua_wholesale` 包及安装器的定向缓存刷新/幂等 Module Def 注册。生产核验 `Page: solua-home`、JS/CSS、hooks、快照字段、两模板 HTML/raw_printing=0 与 Frappe 内存 PDF 均通过；`desktop:home_page=solua-home` 已设置。实际入口为 `/desk/solua-home`，但当前无可用登录浏览器会话，HTTP 仅验证未登录转登录页，不能据此声称浏览器首页验收完成。
 
 ### 发布前八点自审记录
 
@@ -37,7 +37,7 @@ H=`node .../wholesale_page_check.cjs`；R=`& ./.../readonly_candidate_check.ps1`
 6. 安装后逐文件核对源/线上SHA256、重新只读调用经理及实际员工权限、验证真实模块与所有hook、HTTP与浏览器默认路由/深链接/xPos、打印预览/PDF、手机扫码草稿。无单独业务测试授权不创建生产测试交易。需要服务重新加载时按当次已放行的限定步骤执行并检查健康。
 7. 回退优先恢复备份白名单代码、原入口与两模板/Page配置；部署前不存在的新增配置只在核对无后续引用后撤销。保留新增业务及快照字段数据，不DROP列、不恢复整库覆盖新交易、不回收编号。回退后再次核对hash/登录/业务深链接。
 
-上线阻塞项：需先审阅本轮安装链路修复，再重新按白名单备份、比较生产main独立改动并定向发布；真实浏览器/生产PDF/扫码与业务集成仍待验收。没有把这些未验证项标记为上线通过。
+上线后未验证项：登录浏览器首页/深链接/xPos与手机宽度、物理扫码枪连续盘点、真实员工权限矩阵、真实提交/取消/修订并发业务流程、真实多页图片/QR人工版式验收仍待用户或可用隔离环境完成；生产内存 PDF 已通过，但不等于真实业务单据版式全部通过。没有把这些未验证项标记为上线通过。
 
 ## 历史记录：2026-09-15 上线授权与复核交付
 
