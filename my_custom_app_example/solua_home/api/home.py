@@ -214,12 +214,18 @@ def _permissions():
         "new_delivery_note": _can_create("Delivery Note"),
         "new_purchase_receipt": _can_create("Purchase Receipt"),
         "new_item": _can_create("Item"),
+        "new_stock_entry": _can_create("Stock Entry"),
         "read_item": _can_read("Item"),
         "read_stock_reconciliation": _can_read("Stock Reconciliation"),
         "new_stock_reconciliation": _can_create("Stock Reconciliation"),
         "read_customer": _can_read("Customer"),
         "read_supplier": _can_read("Supplier"),
         "read_item_price": _can_read("Item Price"),
+        "read_print_settings": _can_read("Print Settings"),
+        "read_print_format": _can_read("Print Format"),
+        "read_pricing_rule": _can_read("Pricing Rule"),
+        "new_pricing_rule": _can_create("Pricing Rule"),
+        "read_pos_closing": _can_read("POS Closing Entry"),
     }
 
 
@@ -227,7 +233,7 @@ def _permissions():
 @frappe.read_only()
 def get_dashboard_data(company=None, warehouse=None):
     """Return homepage data using permission-aware list queries."""
-    if frappe.session.user in {"Guest", "Administrator"}:
+    if frappe.session.user == "Guest":
         return {"state": "no_permission"}
     company_doc = _resolve_company(company)
     if not company_doc:

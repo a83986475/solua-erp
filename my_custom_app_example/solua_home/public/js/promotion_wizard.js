@@ -2,7 +2,7 @@
  * Promotion Wizard for solua_home
  *
  * 功能：基于模板快速创建促销规则（特价/折扣/买赠/量大从优/会员专享）
- * 入口：Ctrl+Shift+D 或右下角浮动按钮
+ * 入口：首页快捷操作或 Ctrl+Shift+D
  */
 frappe.provide("solua_home.promotion_wizard");
 
@@ -437,35 +437,11 @@ frappe.provide("solua_home.promotion_wizard");
         return null;
     }
 
-    // ─── 浮动按钮 ─────────────────────────────────────────────────
-
-    function inject_floating_button() {
-        if (window.location.pathname.includes("/point-of-sale")) return;
-
-        var $btn = $('<div id="pm-float-btn" title="促销管理 (Ctrl+Shift+D)" style="' +
-            'position:fixed;bottom:140px;right:24px;z-index:9990;' +
-            'width:48px;height:48px;border-radius:50%;' +
-            'background:#e67e22;color:#fff;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'font-size:20px;box-shadow:0 4px 12px rgba(230,126,34,0.4);' +
-            'transition:transform 0.2s,box-shadow 0.2s;">🎯</div>');
-
-        $btn.on("mouseenter", function () {
-            $(this).css({ transform: "scale(1.1)", "box-shadow": "0 6px 20px rgba(230,126,34,0.5)" });
-        });
-        $btn.on("mouseleave", function () {
-            $(this).css({ transform: "scale(1)", "box-shadow": "0 4px 12px rgba(230,126,34,0.4)" });
-        });
-        $btn.on("click", open_dialog);
-        $("body").append($btn);
-    }
-
     // ─── 导出接口 ─────────────────────────────────────────────────
     solua_home.promotion_wizard.open = open_dialog;
     solua_home.promotion_wizard.close = close_dialog;
 
     $(document).ready(function () {
-        inject_floating_button();
         // 绑定表单提交（延迟绑定，等 DOM 就绪）
         $(document).on("click", "#pm-submit-form", _submit_form);
         $(document).on("click", "#pm-cancel-form", function () {

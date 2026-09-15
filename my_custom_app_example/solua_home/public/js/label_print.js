@@ -649,34 +649,8 @@ frappe.provide("solua_home.label_print");
         });
     }
 
-    // ─── 浮动按钮（SVG 图标）────────────────────────────────────
-
-    function inject_floating_button() {
-        if (window.location.pathname.includes("/point-of-sale")) return;
-
-        var $btn = $('<div id="lp-float-btn" title="标签打印 (Ctrl+L)" style="' +
-            'position:fixed;bottom:80px;right:24px;z-index:9990;' +
-            'width:48px;height:48px;border-radius:50%;' +
-            'background:#007bff;color:#fff;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'box-shadow:0 4px 12px rgba(0,123,255,0.4);' +
-            'transition:transform 0.2s,box-shadow 0.2s;">' + ICONS.tag + '</div>');
-
-        $btn.on("mouseenter", function () {
-            $(this).css({ transform: "scale(1.1)", "box-shadow": "0 6px 20px rgba(0,123,255,0.5)" });
-        });
-        $btn.on("mouseleave", function () {
-            $(this).css({ transform: "scale(1)", "box-shadow": "0 4px 12px rgba(0,123,255,0.4)" });
-        });
-        $btn.on("click", open_dialog);
-        $("body").append($btn);
-    }
-
     // ─── 导出接口 ─────────────────────────────────────────────────
     solua_home.label_print.open = open_dialog;
     solua_home.label_print.close = close_dialog;
 
-    $(document).ready(function () {
-        inject_floating_button();
-    });
 })();

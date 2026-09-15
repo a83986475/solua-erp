@@ -24,7 +24,19 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 
 	function action(label, doctype, name, allowed = false) {
 		if (!allowed) return "";
-		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}">${text(label)}</button>`;
+		const purpose = arguments[4]?.purpose || "";
+		const new_doc = arguments[4]?.new_doc ? ` data-new-doc="1"` : "";
+		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${new_doc}>${text(label)}</button>`;
+	}
+
+	function utility_action(label, key, allowed = false) {
+		if (!allowed) return "";
+		return `<button class="btn btn-default btn-sm solua-home-action" data-utility="${text(key)}">${text(label)}</button>`;
+	}
+
+	function action_group(title, buttons) {
+		const visible = buttons.filter(Boolean);
+		return visible.length ? `<div class="solua-home-action-group"><h4>${text(title)}</h4><div class="solua-home-actions">${visible.join("")}</div></div>` : "";
 	}
 
 	function render(data) {
@@ -52,15 +64,34 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		].join(""));
 		const permissions = data.permissions || {};
 		root.find('[data-role="actions"]').html([
-			action(__("新建销售订单"), "Sales Order", null, permissions.new_sales_order),
-			action(__("新建交货单"), "Delivery Note", null, permissions.new_delivery_note),
-			action(__("新建采购收货"), "Purchase Receipt", null, permissions.new_purchase_receipt),
-			action(__("手机扫码盘点"), "Stock Reconciliation", null, permissions.new_stock_reconciliation),
-			action(__("客户/门店"), "Customer", null, permissions.read_customer),
-			action(__("查库存"), "Item", null, permissions.read_item),
-			action(__("供应商"), "Supplier", null, permissions.read_supplier),
-			action(__("公开色卡"), "__colors", null, true),
-			action(__("xPos 现有入口"), "__xpos", null, true),
+			action_group(__("库存管理"), [
+				action(__("新建物料"), "Item", null, permissions.new_item, { new_doc: true }),
+				action(__("物料出库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
+				action(__("领用（Material Issue）"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
+				action(__("损耗（Material Issue）"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
+				action(__("手机扫码盘点"), "Stock Reconciliation", null, permissions.new_stock_reconciliation),
+				action(__("采购收货"), "Purchase Receipt", null, permissions.new_purchase_receipt),
+				action(__("查库存"), "Item", null, permissions.read_item),
+			]),
+			action_group(__("标签打印"), [
+				utility_action(__("打印设置"), "print_settings", permissions.read_print_settings),
+				utility_action(__("打印设计"), "print_designer", permissions.read_print_format),
+				utility_action(__("标签打印"), "label_print", permissions.read_item),
+			]),
+			action_group(__("优惠/促销"), [
+				utility_action(__("优惠/促销管理"), "promotion", permissions.new_pricing_rule),
+			]),
+			action_group(__("订单与客户"), [
+				action(__("新建销售订单"), "Sales Order", null, permissions.new_sales_order),
+				action(__("新建交货单"), "Delivery Note", null, permissions.new_delivery_note),
+				action(__("客户/门店"), "Customer", null, permissions.read_customer),
+				action(__("供应商"), "Supplier", null, permissions.read_supplier),
+			]),
+			action_group(__("其他入口"), [
+				utility_action(__("POS交班"), "pos_closing", permissions.read_pos_closing),
+				utility_action(__("公开色卡"), "colors", true),
+				utility_action(__("xPos 现有入口"), "xpos", true),
+			]),
 		].join(""));
 		root.find('[data-role="data-status"]').html(`<span>${__("商品资料")}</span>：${__("缺图片")} ${text(data.item_data?.missing_image)} · ${__("缺固定色号")} ${text(data.item_data?.missing_color_code)}<span class="text-muted">（未加载/无权限不会伪装为 0）</span>`);
 	}
@@ -86,8 +117,29 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	root.find('[data-role="search"]').on("keydown", (event) => { if (event.key === "Enter") root.find('[data-action="search"]').click(); });
 	root.on("click", ".solua-home-action, .solua-home-list-row", function () {
 		const doctype = this.dataset.doctype;
-		if (doctype === "__colors") return window.open("/colors", "_blank");
-		if (doctype === "__xpos") return window.open("/desk/x-pos?sidebar=X%20POS", "_blank", "noopener");
+		const utility = this.dataset.utility;
+		if (utility === "print_settings") return frappe.set_route("Form", "Print Settings");
+		if (utility === "print_designer") return frappe.set_route("print-designer");
+		if (utility === "label_print") {
+			if (typeof window.solua_home?.label_print?.open === "function") return window.solua_home.label_print.open();
+			return frappe.msgprint(__("标签打印功能尚未加载，请刷新后重试。"));
+		}
+		if (utility === "promotion") {
+			if (typeof window.solua_home?.promotion_wizard?.open === "function") return window.solua_home.promotion_wizard.open();
+			return frappe.msgprint(__("优惠功能尚未加载，请刷新后重试。"));
+		}
+		if (utility === "pos_closing") {
+			if (typeof window.solua_home?.pos?.open_closing === "function") return window.solua_home.pos.open_closing();
+			return frappe.msgprint(__("POS交班功能尚未加载，请刷新后重试。"));
+		}
+		if (utility === "colors") return window.open("/colors", "_blank");
+		if (utility === "xpos") return window.open("/desk/x-pos?sidebar=X%20POS", "_blank", "noopener");
+		if (!doctype) return;
+		if (this.dataset.newDoc) return frappe.new_doc(doctype);
+		if (doctype === "Stock Entry" && this.dataset.purpose) {
+			frappe.route_options = { purpose: this.dataset.purpose };
+			return frappe.new_doc("Stock Entry");
+		}
 		if (!this.dataset.name && ["Sales Order", "Delivery Note", "Purchase Receipt", "Stock Reconciliation"].includes(doctype)) return frappe.new_doc(doctype);
 		route(doctype, this.dataset.name || null);
 	});

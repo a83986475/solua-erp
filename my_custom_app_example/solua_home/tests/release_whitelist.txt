@@ -12,6 +12,9 @@ my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.json
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.js
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.css
 my_custom_app_example/solua_home/public/js/wholesale_forms.js
+my_custom_app_example/solua_home/public/js/label_print.js
+my_custom_app_example/solua_home/public/js/promotion_wizard.js
+my_custom_app_example/solua_home/public/js/pos_custom.js
 my_custom_app_example/solua_home/public/js/solua_home_global.js
 my_custom_app_example/solua_home/printing/wholesale.py
 my_custom_app_example/solua_home/print_format/sales_order_wholesale_color/sales_order_wholesale_color.json
