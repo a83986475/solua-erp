@@ -1,14 +1,16 @@
 # Solua Home 定制首页实施计划
 
-## 当前状态：修复已定向部署，默认入口已启用（2026-09-15，最高优先级）
+## 当前状态：首页快捷入口修复已定向部署（2026-09-15，最高优先级）
 
-受控发布已完成：本地/远端 `develop` 为 `82e8d639080c706dea368589c70fc63768d1759a`；生产仅按白名单传输运行时文件，逐项 SHA256 与 staging 一致。完整备份及旧目标快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-FIX-01`，数据库 gzip、公开/私有文件归档与配置已校验；未做恢复演练，不宣称灾备恢复已验证。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
+本次受控发布已完成：`develop` commit `ec1cccb55c87b5c1bfdac3296f99e1b7ae74c3df` 已推送；生产仅传输白名单运行文件，代表文件 SHA256 与本地一致。完整备份、配置和旧目标代码快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-HOME-ACTIONS`；本次 DB/public/private files 备份为 `20260915_212223-erp_solua_one-*`，已成功生成并列出归档，未做恢复演练。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
 
-安装链路根因已闭合：生产 app 原有 `solua_home` 自指 symlink 且缺 `modules.txt`，旧安装器未刷新 `app_modules`，导致命令返回 0 但 `get_module_path` 不可解析。现已部署 `modules.txt`、真实 `solua_wholesale` 包及安装器的定向缓存刷新/幂等 Module Def 注册。生产核验 `Page: solua-home`、JS/CSS、hooks、快照字段、两模板 HTML/raw_printing=0 与 Frappe 内存 PDF 均通过；`desktop:home_page=solua-home` 已设置。实际入口为 `/desk/solua-home`，但当前无可用登录浏览器会话，HTTP 仅验证未登录转登录页，不能据此声称浏览器首页验收完成。
+本次根因修复：去掉 `api/home.py` 对 Administrator 的首页硬编码拒绝，Guest 仍返回 `no_permission`；首页按实际 DocType 权限分组显示库存管理、标签打印、优惠/促销、订单与客户及其他入口。标签打印、促销、POS 交班浮窗已停止注入，原功能调用与快捷键保留；xPos 使用已核实 `/desk/x-pos?sidebar=X%20POS`。生产核验真实 `Module Def: Solua Wholesale`、`Page: solua-home`、`Page.load_assets`（JS/CSS 非空）、按真实记录名读取的两模板（Jinja、HTML 非空、`raw_printing=0`）、hooks import、`desktop:home_page=solua-home` 均通过。Administrator 与 `yangyang7920@gmail.com` dashboard 为 `ok`，Guest 为 `no_permission`；`/api/method/frappe.ping` 返回 200，未登录 `/desk/solua-home` 正确转登录页。
 
-### 发布前八点自审记录
+实际入口为 `/desk/solua-home`。当前 CUA 无浏览器会话，因此真实登录后的 Admin/经理/受限员工页面、深链接/xPos点击、手机宽度、物理扫码枪和人工 PDF 版式仍未验证；不把 HTTP 200 或生产内存检查称为这些验收已通过。
 
-本节是唯一现行状态：本次为执行代理自审，不是独立复核。当前只完成候选代码、隔离测试与生产只读检查；未 commit/push/部署。继续等待主代理明确放行，既有上线授权保留。以下“历史记录”中的“本轮”“当前”“等待”等措辞仅记录当时状态，不覆盖本节。
+### 部署前八点自审记录（历史）
+
+以下表格保留发布前自审证据；其中“未部署/等待放行”等措辞仅为历史状态，不覆盖本节当前状态。
 
 证据脚本位于 `my_custom_app_example/solua_home/tests/`：
 P=`python .../wholesale_print_check.py`；S=`node .../wholesale_forms_check.cjs`；
