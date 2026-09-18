@@ -71,5 +71,5 @@
 - staged 文件清单与敏感模式扫描：48 个明确文件；不含 `XPOS-HUB-KEY.json`、`config-snapshot/`、`tests/artifacts/`、ASAR、安装包或并行路径；模板中只保留凭据边界和读取逻辑，没有凭据值。
 - fetch/分叉检查：已执行 `git fetch origin develop`；无分叉，本地先保留并行提交 `895ddaa2eb`，随后新增本次提交。
 - commit SHA：并行 xPos `895ddaa2eb`；正式 app `8477ac2e24`；审计/诊断/角色模板 `0b11e92bfb`。
-- push 与 `git ls-remote` 回读：待执行；目标为 `origin/develop`，预计先回读 `0b11e92bfb`，再提交本报告最终回读证据。
+- push 与 `git ls-remote` 回读：已成功执行 `git push origin HEAD:develop`，远端从 `0b11e92bfb` 更新到 `8c4d301f1f`；随后 `git ls-remote origin refs/heads/develop` 回读为 `8c4d301f1fe59a5ea6aedf18c6dbd038c9359565`。本行随后的报告更新提交会再次推送并回读。
 - 剩余未处理项：并行 xPos 改动、`.tmp_delivery_audit/`、当前安装包和 Hub 外置凭据不纳入本次提交；其余以最终 `git status` 为准。
