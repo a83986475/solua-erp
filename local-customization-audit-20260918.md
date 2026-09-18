@@ -69,7 +69,7 @@
 - 归档清单/哈希：`1005` 个文件，`2,398,804,246` bytes；历史 Hub/Till 备份包、xPos 临时目录、生产快照、浏览器运行时产物均保留在该目录。当前 Hub 包 SHA-256：`A0027AB899E04969CBC54DADD9E05012F71AF1402FBC56BF7F3F7481CFDB9CF7`；当前 Till 包 SHA-256：`5129D231EFAAB1EBE1366EEB09A98C7BE8064DA274A74491B275786BCF93826C`。
 - 正式 app 语法/最小测试：44 个 Python 文件 AST 通过、8 个 JSON 通过；`wholesale_forms_check.cjs`、`wholesale_page_check.cjs`、`wholesale_print_check.py` 全部 PASS；`git diff --cached --check` 通过。
 - staged 文件清单与敏感模式扫描：48 个明确文件；不含 `XPOS-HUB-KEY.json`、`config-snapshot/`、`tests/artifacts/`、ASAR、安装包或并行路径；模板中只保留凭据边界和读取逻辑，没有凭据值。
-- fetch/分叉检查：待执行
-- commit SHA：待填写
-- push 与 `git ls-remote` 回读：待填写
+- fetch/分叉检查：已执行 `git fetch origin develop`；无分叉，本地先保留并行提交 `895ddaa2eb`，随后新增本次提交。
+- commit SHA：并行 xPos `895ddaa2eb`；正式 app `8477ac2e24`；审计/诊断/角色模板 `0b11e92bfb`。
+- push 与 `git ls-remote` 回读：待执行；目标为 `origin/develop`，预计先回读 `0b11e92bfb`，再提交本报告最终回读证据。
 - 剩余未处理项：并行 xPos 改动、`.tmp_delivery_audit/`、当前安装包和 Hub 外置凭据不纳入本次提交；其余以最终 `git status` 为准。
