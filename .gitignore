@@ -23,3 +23,24 @@ node_modules/
 # Banking SPA
 erpnext/public/banking
 erpnext/www/banking.html
+
+# Local audit recovery and production-sensitive exports
+/.local-archive-20260918/
+/XPOS-HUB-KEY.json
+/config-snapshot/
+/dump.rdb
+
+# Local xPos release packages are not source
+/release/XPos-Hub-Setup/
+/release/XPos-Till-Setup/
+/release/XPos-Hub-Setup.zip
+/release/XPos-Till-Setup.zip
+/release/XPos-Hub-Setup.zip.bak-*
+/release/XPos-Till-Setup.zip.bak-*
+
+# Parallel xPos working copies; keep out of the ERPNext source commit
+/CommandSearch.remote.vue
+/MenuBar.remote.vue
+/PaymentDialog.remote.vue
+/ReturnDialog.remote.vue
+/locale.remote.ts
