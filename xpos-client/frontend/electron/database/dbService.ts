@@ -339,6 +339,7 @@ async function runMigrations(): Promise<void> {
 	}
 
 	const columnMigrations: [string, string, string][] = [
+		["currency_exchange_rates", "name", "VARCHAR(255) DEFAULT NULL"],
 		["sales_invoice_payments", "pos_tender_currency", "VARCHAR(10) DEFAULT NULL"],
 		["sales_invoice_payments", "pos_tender_amount", "DECIMAL(18,6) DEFAULT NULL"],
 		["sales_invoice_payments", "pos_exchange_rate", "DECIMAL(21,9) DEFAULT NULL"],
@@ -360,6 +361,22 @@ async function runMigrations(): Promise<void> {
 		} catch (err) {
 			log.warn(`Migration for ${table}.${col} failed`, err);
 		}
+	}
+
+	try {
+		const [indexes] = await db.execute<RowDataPacket[]>(
+			"SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS " +
+				"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'currency_exchange_rates' " +
+				"AND INDEX_NAME = 'uniq_currency_exchange_name'",
+		);
+		if ((indexes as RowDataPacket[]).length === 0) {
+			await db.execute(
+				"ALTER TABLE `currency_exchange_rates` ADD UNIQUE KEY `uniq_currency_exchange_name` (`name`)",
+			);
+			log.info("Migration: added currency_exchange_rates.name unique key");
+		}
+	} catch (err) {
+		log.warn("Migration for currency_exchange_rates.name unique key failed", err);
 	}
 
 	for (const tbl of ["pending_invoices", "pending_purchases"]) {

@@ -300,6 +300,7 @@ CREATE TABLE IF NOT EXISTS `modes_of_payment` (
 
 CREATE TABLE IF NOT EXISTS `currency_exchange_rates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(255) NOT NULL,
   `from_currency` VARCHAR(10) NOT NULL,
   `to_currency` VARCHAR(10) NOT NULL,
   `exchange_rate` DECIMAL(21,9) NOT NULL DEFAULT 0,
@@ -307,6 +308,7 @@ CREATE TABLE IF NOT EXISTS `currency_exchange_rates` (
   `for_selling` TINYINT(1) DEFAULT 0,
   `modified` DATETIME DEFAULT NULL,
   `synced_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uniq_currency_exchange_name` (`name`),
   UNIQUE KEY `uniq_rate` (`from_currency`, `to_currency`, `date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

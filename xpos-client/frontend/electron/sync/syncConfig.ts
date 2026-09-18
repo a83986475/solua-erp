@@ -124,6 +124,7 @@ export const SYNC_TABLES: SyncTableConfig[] = [
 		orderBy: "date",
 		direction: "pull",
 		idbStore: "currency_exchange_rates",
+		primaryKey: "name",
 		localIdField: "xpos_local_id",
 		incremental: false,
 		regetAll: true,
