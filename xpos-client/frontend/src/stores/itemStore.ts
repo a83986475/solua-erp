@@ -60,9 +60,12 @@ export const useItemStore = defineStore("items", () => {
 
 	function offlineSearchConfig() {
 		const settings = useSettingsStore();
+		// Pinia exposes the settings array as a reactive Proxy; Electron IPC only
+		// accepts structured-cloneable values, so pass a plain array across.
+		const fields = [...settings.itemSearchFields];
 		const limit = settings.itemSearchLimit;
 		const capped = searchTerm.value && limit > 0 ? Math.min(pageLength.value, limit) : pageLength.value;
-		return { fields: settings.itemSearchFields, limit: capped };
+		return { fields, limit: capped };
 	}
 
 	const showItemDetail = ref(false);
