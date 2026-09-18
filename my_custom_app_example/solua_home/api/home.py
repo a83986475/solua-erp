@@ -359,11 +359,13 @@ def search_items(query=None):
 
 @frappe.whitelist()
 @frappe.read_only()
-def get_color_variants(barcode=None, template=None):
+def get_color_variants(barcode=None, template=None, barcode_only=False):
     """Resolve a shared style barcode to permitted concrete color variants.
 
     The barcode identifies the style only; the employee must choose the fixed
-    color explicitly. This endpoint never changes inventory or documents.
+    color explicitly. When barcode_only is true, only barcode fields are
+    considered, so an Item Code or SPU cannot accidentally open the picker.
+    This endpoint never changes inventory or documents.
     """
     if not _can_read("Item"):
         return {"state": "no_permission", "templates": []}
@@ -383,13 +385,15 @@ def get_color_variants(barcode=None, template=None):
                     "Item", {"name": ["in", parent_names], "disabled": 0},
                     ["name", "item_code", "item_name", "has_variants", "variant_of"], limit=20,
                 ))
-        fields = _search_fields()
-        if fields:
-            candidates.extend(_list(
-                "Item", {"disabled": 0},
-                ["name", "item_code", "item_name", "has_variants", "variant_of"], limit=20,
-                or_filters=[[field, "=", barcode] for field in fields],
-            ))
+        strict_barcode = str(barcode_only).lower() in {"1", "true", "yes"}
+        if not strict_barcode:
+            fields = _search_fields()
+            if fields:
+                candidates.extend(_list(
+                    "Item", {"disabled": 0},
+                    ["name", "item_code", "item_name", "has_variants", "variant_of"], limit=20,
+                    or_filters=[[field, "=", barcode] for field in fields],
+                ))
     if not candidates:
         return {"state": "no_data", "templates": []}
 

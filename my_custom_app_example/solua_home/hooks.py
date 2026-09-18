@@ -106,6 +106,7 @@ doc_events = {
 # ------------------- 类重写 -------------------
 extend_doctype_class = {
     "Sales Invoice": "solua_home.override.sales_invoice.CustomSalesInvoice",
+    "Sales Order": "solua_home.override.sales_order.CustomSalesOrder",
 }
 
 override_whitelisted_methods = {
@@ -173,10 +174,10 @@ web_include_css = "/assets/solua_home/css/login.css?v=login-logo-3"
 
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
-    "/assets/solua_home/js/solua_home_global.js",
+    "/assets/solua_home/js/solua_home_global.js?v=sales-order-date-20260917",
     "/assets/solua_home/js/quantity_validation.js",
-    "/assets/solua_home/js/label_print.js?v=20260822b",
-    "/assets/solua_home/js/promotion_wizard.js",
+    "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
+    "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
     "/assets/solua_home/js/retail_settings_panel.js",
     "/assets/solua_home/js/print_format_import_export.js",
     # Point of Sale 是已打包的标准页面，page_js 不一定会被执行；

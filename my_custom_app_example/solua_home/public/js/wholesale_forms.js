@@ -5,17 +5,19 @@
 
 	function open_color_picker(frm, kind) {
 		const is_receipt = kind === "receipt";
+		const is_sales_order = kind === "sales_order";
+		const is_reconciliation = kind === "reconciliation";
 		const dialog = new frappe.ui.Dialog({
-			title: is_receipt ? __("按色扫码收货") : __("按色扫码盘点"),
+			title: is_receipt ? __("按色扫码收货") : is_sales_order ? __("销售开单选颜色") : __("按色扫码盘点"),
 			fields: [
-				{ fieldname: "barcode", label: __("款式/原包装条码"), fieldtype: "Data", reqd: 1, description: __("共用条码只识别款式，颜色必须人工选择") },
+				{ fieldname: "barcode", label: __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },
-				{ fieldname: "qty", label: is_receipt ? __("收货数量（正整数）") : __("本次实盘数量（可为 0）"), fieldtype: "Data", hidden: 1 },
+				{ fieldname: "qty", label: is_receipt ? __("收货数量（正整数）") : is_sales_order ? __("销售数量（正整数）") : __("本次实盘数量（可为 0）"), fieldtype: "Data", hidden: 1 },
 				{ fieldname: "warehouse", label: __("明确仓库"), fieldtype: "Link", options: "Warehouse", default: frm.doc.set_warehouse || frm.doc.last_scanned_warehouse || "", reqd: 1 },
 				...(is_receipt ? [{ fieldname: "rate", label: __("最终单位成本"), fieldtype: "Currency", hidden: 1, min: 0.0001, description: __("直接输入外部算好的最终成本，不在系统内分摊到岸费用") }] : []),
 				{ fieldname: "duplicate_mode", label: __("已有同色同仓行"), fieldtype: "Select", options: [{ label: __("覆盖数量"), value: "replace" }, { label: __("追加数量"), value: "append" }], default: "replace", hidden: 1 },
-				{ fieldname: "hint", fieldtype: "HTML", options: `<div class="text-muted small">${__("没有新增行 = 尚未盘点；明确输入 0 = 实盘为 0。扫码后可连续录入。")}</div>` },
+				{ fieldname: "hint", fieldtype: "HTML", options: `<div class="text-muted small">${is_sales_order ? __("选择颜色后写入具体变体货号；可连续录入。") : __("没有新增行 = 尚未盘点；明确输入 0 = 实盘为 0。扫码后可连续录入。")}</div>` },
 			],
 			primary_action_label: __("查询颜色"),
 		});
@@ -72,7 +74,7 @@
 			const current_request = ++request_id;
 			dialog.set_primary_action(__("查询中…"), () => {});
 			try {
-				const response = await frappe.call({ method: variant_api, args: { barcode } });
+				const response = await frappe.call({ method: variant_api, args: { barcode, barcode_only: 1 } });
 				if (current_request === request_id && barcode === (dialog.get_value("barcode") || "").trim()) {
 					selected_barcode = barcode;
 					show_variants(response.message || {});
@@ -93,8 +95,8 @@
 			const raw_qty = dialog.get_value("qty");
 			if (frm.doc.docstatus !== 0 || !selected_barcode || selected_barcode !== (dialog.get_value("barcode") || "").trim()
 				|| !variants.some((row) => row.name === item_code) || !warehouse || raw_qty == null || String(raw_qty).trim() === ""
-				|| !Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty) || (is_receipt && (qty === 0 || !Number.isFinite(rate) || rate <= 0))) {
-				frappe.msgprint(__("请完整填写仓库、颜色、整数数量；收货还需要最终单位成本"));
+				|| !Number.isFinite(qty) || !Number.isInteger(qty) || (is_reconciliation ? qty < 0 : qty <= 0) || (is_receipt && (!Number.isFinite(rate) || rate <= 0))) {
+				frappe.msgprint(is_receipt ? __("请完整填写仓库、颜色、正整数数量和最终单位成本") : __("请完整填写仓库、颜色和正整数数量"));
 				return;
 			}
 			busy = true;
@@ -169,8 +171,20 @@
 		dialog.show();
 	}
 
+	function make_sales_order_delivery_date_optional(frm) {
+		frm.set_df_property?.("delivery_date", "reqd", 0);
+		frm.fields_dict?.items?.grid?.update_docfield_property("delivery_date", "reqd", 0);
+	}
+
 	["Sales Order", "Delivery Note"].forEach((doctype) => frappe.ui.form.on(doctype, {
+		setup(frm) {
+			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
+		},
 		refresh(frm) {
+			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
+			if (doctype === "Sales Order" && frm.doc.docstatus === 0) {
+				frm.add_custom_button(__("按款式条码选颜色"), () => open_color_picker(frm, "sales_order"), __("工具"));
+			}
 			const label = __(doctype === "Sales Order" ? "客户订单确认单" : "Guia de Remessa");
 			if (!frm.is_new()) frm.add_custom_button(label, () => print_wholesale(frm), __("打印"));
 		},

@@ -30,7 +30,7 @@ def validate_positive_integer_qty(value, label="数量", item_code=None):
 def validate_transaction_quantities(doc, method=None):
     """校验销售、采购和库存单据中的物料数量。"""
     for table_name in ("items", "locations"):
-        for item in doc.get(table_name, []):
+        for item in (doc.get(table_name) or []):
             if not item.get("item_code"):
                 continue
             value = item.get("qty")
@@ -181,14 +181,13 @@ def validate_item(doc, method=None):
             frappe.throw(_("固定色号必须是数字，例如 1、2 或 01、02"))
         doc.custom_color_code = color_code
 
-        if (
-            doc.get("variant_of")
-            and frappe.db.has_column("Item", "custom_order_code")
-            and not doc.get("custom_order_code")
-        ):
-            doc.custom_order_code = f"{doc.variant_of}-{color_code}"
-
         if doc.variant_of:
+            if (
+                frappe.db.has_column("Item", "custom_order_code")
+                and not doc.get("custom_order_code")
+            ):
+                doc.custom_order_code = f"{doc.variant_of}-{color_code}"
+
             existing_color = frappe.db.get_value(
                 "Item",
                 {

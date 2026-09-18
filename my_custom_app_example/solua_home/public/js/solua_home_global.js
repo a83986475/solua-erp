@@ -16,6 +16,46 @@ frappe.provide("solua_home.global_js");
 (function () {
 	"use strict";
 
+	// Sales Order's standard script toggles the child delivery_date requirement
+	// from order_type/skip_delivery_note. Keep it optional for this workflow.
+	const keepSalesOrderDeliveryDateOptional = (frm) => {
+		if (!frm || frm.doctype !== "Sales Order") return;
+
+		const apply = () => {
+			if (frm.doc?.docstatus !== 0) return;
+			frm.set_df_property?.("delivery_date", "reqd", 0);
+
+			const grid = frm.fields_dict?.items?.grid;
+			if (!grid) return;
+			if (!grid.__solua_delivery_date_guard && typeof grid.toggle_reqd === "function") {
+				const toggle_reqd = grid.toggle_reqd;
+				grid.toggle_reqd = function (fieldname, reqd) {
+					return toggle_reqd.call(this, fieldname, fieldname === "delivery_date" ? 0 : reqd);
+				};
+				grid.__solua_delivery_date_guard = true;
+			}
+			grid.update_docfield_property?.("delivery_date", "reqd", 0);
+		};
+
+		apply();
+		setTimeout(apply, 0);
+		setTimeout(apply, 250);
+	};
+
+	const registerSalesOrderDeliveryDateFix = () => {
+		if (!frappe.ui?.form?.on || solua_home.global_js.__sales_order_delivery_date_fix) return;
+		solua_home.global_js.__sales_order_delivery_date_fix = true;
+		frappe.ui.form.on("Sales Order", {
+			setup: keepSalesOrderDeliveryDateOptional,
+			onload: keepSalesOrderDeliveryDateOptional,
+			refresh: keepSalesOrderDeliveryDateOptional,
+			order_type: keepSalesOrderDeliveryDateOptional,
+			skip_delivery_note: keepSalesOrderDeliveryDateOptional,
+		});
+	};
+
+	registerSalesOrderDeliveryDateFix();
+
 	// ------------------------------------------------------------
 	// Link 输入框有内容时，点击也弹出下拉
 	// ------------------------------------------------------------

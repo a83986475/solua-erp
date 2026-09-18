@@ -200,12 +200,12 @@ def validate_sales_order(doc, method=None):
     """销售订单保存时验证"""
     validate_transaction_quantities(doc)
 
-    # 交货日期至少在当前日期3天后（date_diff 返回整数，兼容字符串/日期）
-    if doc.delivery_date:
-        from frappe.utils import date_diff, today
+    # 交货日期只需不早于销售单日期；不要求提前若干天。
+    if doc.delivery_date and doc.transaction_date:
+        from frappe.utils import getdate
 
-        if date_diff(doc.delivery_date, today()) < 3:
-            frappe.throw(_("交货日期必须至少在当前日期3天后"))
+        if getdate(doc.delivery_date) < getdate(doc.transaction_date):
+            frappe.throw(_("交货日期不能早于销售单日期"))
 
 
 def validate_quotation(doc, method=None):

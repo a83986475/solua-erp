@@ -1,6 +1,6 @@
 # ERPNext 定制开发操作手册
 
-> 版本: v16 | 最后更新: 2026-09-08 | 基于真实安装经验编写
+> 版本: v16 | 最后更新: 2026-09-15 | 基于真实安装经验编写
 
 > 🔄 **2026-08-06 变更记录：App 重命名 my_custom_app → solua_home**
 > - **模块名**：`my_custom_app` → `solua_home`（Python 包名规范：小写+下划线，无空格）
@@ -22,6 +22,17 @@
 > - 固化 POS 退货支付行被 ERPNext 重建导致的提交失败与 `CustomSalesInvoice` `-abs()` 修复（`extend_doctype_class` 注册，服务器 md5 已核对）
 > - 补充 09-04 构建的 XPos Hub / Till 双角色安装包：角色划分、端口、U 盘密钥文件、Hub/Till 种子配对与 SHA256 校验
 > - 遗留：R2 轮次的 3 张已取消发票与开班/关班单据仍在库，可运行幂等清理脚本删除（详见 18.8）
+
+> 🔄 **2026-09-13 变更记录：归档 09-08—09-09 Hub/Till 产物与本地扫码修复**
+> - 更新当前 Hub/Till 安装包的实际构建产物与 SHA256，明确 Hub 持有同步凭据、Till 只配置 Hub 地址
+> - 记录本地 xPos 条码搜索的根因与修复：改用本地精确条码查询，离线扫码不再依赖在线回退
+> - 补充部署路径、旧 `app.asar` 备份、验证结果和后续待办，避免把旧安装包或明文密钥当成最新版本
+
+> 🔄 **2026-09-15 变更记录：补充生产物料基础数据与颜色属性操作**
+> - 定向创建缺失的 Item Group：`窗帘`、`窗帘杆`、`地板革`
+> - 定向创建缺失的 UOM：`根`、`卷`；并将既有 UOM `条` 修正为只允许整数
+> - 在生产 `Item Attribute: Cor` 中，为除 `Branco`、`Preto` 外的 14 个基础颜色增加 `Escuro`（深）与 `Claro`（浅）值，共新增 28 个，缩写保持唯一
+> - 仅运行 `bench --site erp.solua.one console` 定向脚本并回读验证；未运行 `migrate`/`after_install`，未创建 Item 变体、库存或业务交易
 
 ---
 
@@ -49,6 +60,7 @@
 16. [零售参数设置](#16-零售参数设置)
 17. [xPos 桌面 POS 系统](#17-xpos-桌面-pos-收银系统electron)
 18. [xPos 最终架构、同步排错与商品建档记录](#18-xpos-最终架构同步排错与商品建档记录)
+19. [xPos 角色包归档与本地扫码修复（2026-09-08—09-09）](#19-xpos-角色包归档与本地扫码修复2026-09-0809-09)
 
 ---
 
@@ -1440,6 +1452,8 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 
 > ⚠️ 模板本身不能进业务单据（`ItemTemplateCannotHaveStock`），库存/POS/销售一律走变体。
 
+> **成本价建档规则**：普通库存物料和具体 Variant 建档时必须填写大于 0 的「成本价（Valuation Rate）」，否则不能保存；`has_variants=1` 的模板仅用于生成 Variant，可以暂不填写成本价。创建 Variant 时，系统会自动继承模板的成本价；如果模板成本价为空，会阻止 Variant 创建，需先补充模板的默认成本价。该规则不适用于非库存物料或受托加工物料。
+
 **路径二：官方代码/API（批量、自动化）** — `erpnext/controllers/item_variant.py`
 
 | 函数 | 作用 |
@@ -2590,7 +2604,7 @@ frappe.ui.form.on("Sales Invoice", {
 
 ## 💡 最后提醒
 
-> 📅 最后更新: 2026-09-04 | 第17章 xPos 桌面 POS 系统；第18章补充最终运行规则、商品建档、09-02 UAT 轮次与 Hub/Till 角色安装包
+> 📅 最后更新: 2026-09-15 | 第17章 xPos 桌面 POS 系统；第18章补充最终运行规则、商品建档、09-02 UAT 与 Hub/Till 首包；第19章补充 09-08—09-09 当前角色包和本地扫码修复；补充 09-15 生产物料主数据操作
 
 | 编号 | 原则 |
 |------|------|
@@ -2674,7 +2688,26 @@ frappe.db.commit()
 | `allow_return` | 允许退货 | ✅ 开启 |
 | `max_discount_percentage_allowed` | 最大折扣比例上限（可在设置中调整） | 按门店政策设置；不得使成交价低于成本 |
 | `use_offline_mode` | 离线模式 | ✅ 开启 |
-| `block_sale_beyond_available_qty` | 禁止超卖 | ✅ 开启 |
+| `allow_negative_stock`（Stock Settings） | 允许库存为负；库存为 0 仍可过账销售 | ✅ 开启（当前生产配置） |
+| `block_sale_beyond_available_qty`（POS Profile） | 禁止销售超过可用库存 | ❌ 关闭（与上项联动） |
+
+#### 库存为 0 销售：两个设置的位置与联动
+
+这两个设置必须按“业务状态”保持一致，但由于字段含义相反，数值是反向的：
+
+| 业务状态 | ERPNext 后台：Stock Settings | ERPNext 后台：POS Profile |
+|----------|------------------------------|----------------------------|
+| 允许库存为 0/不足时销售并过账 | `allow_negative_stock = 1` | `block_sale_beyond_available_qty = 0` |
+| 库存不足时禁止销售 | `allow_negative_stock = 0` | `block_sale_beyond_available_qty = 1` |
+
+**后台位置：**
+
+1. 全局设置：ERPNext → **设置（Settings）** → **库存设置（Stock Settings）** → **允许负库存（Allow Negative Stock）**。
+2. POS设置：ERPNext → **销售（Selling）** → **POS Profile** → 打开 `收银方式1 - SH` → **禁止销售超过可用库存（Block Sale Beyond Available Qty）**。
+
+当前生产环境已开启第一种业务状态：允许负库存为 1、POS Profile 禁止超卖为 0。系统已配置双向联动：修改 Stock Settings 会同步所有 POS Profile；修改任一 POS Profile 的“禁止超卖”会反向同步 Stock Settings 和其他 POS Profile。xPos 桌面端不单独维护这两个值，而是在同步 POS Profile 时获取最新配置。
+
+> 注意：`允许负库存`是 ERPNext 的全局设置，会影响 POS、采购、交货和其他库存单据；开启后库存可能显示为负数。`隐藏无库存商品（hide_unavailable_items）`只控制商品是否在POS列表显示，不控制能否销售。`update_stock`应保持开启，否则销售过账不会扣减库存。
 
 **当前折扣规则（最终确认）**：收银员可以输入折扣，但任何大于 0% 的行折扣或整单折扣都必须输入管理员/经理审批密码；上限由零售设置自定义，系统同时拦截折后价低于成本的情况。离线时不能联系服务器，改由本机经理账号审批；没有可用经理账号时禁止折扣，不自动放行。
 
@@ -2832,11 +2865,15 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 > - SSH: `ssh qq`（用户 ubuntu，sudo 免密）
 > - GitHub: `https://github.com/a83986475/solua-erp.git`
 
+### 生产命令执行用户规则（必须遵守）
+
+`ubuntu` 仅用于只读检查和系统级命令（如 `sudo supervisorctl`）。所有 `bench`、Python、pip、yarn/npm、Vite、Electron 构建，以及写入 `/home/frappe/frappe-bench` 的操作，必须通过 `sudo -u frappe -i` 执行；禁止直接用 `ubuntu` 构建或写入应用目录。否则可能产生 `node_modules/.vite-temp` 等文件归属错误，后续由 `frappe` 执行会报 `EACCES`。2026-09-08 已记录一次该问题：xPos web build 用 `ubuntu` 失败，改用 `frappe` 成功。
+
 ---
 
 ## 18. xPos 最终架构、同步排错与商品建档记录
 
-> 本章记录 2026-08-24 至 2026-09-04 的实际决策、故障根因和生产数据结果。与第 17 章的安装说明配合使用；若旧说明与本章冲突，以本章为准。18.8 为 09-02 生产 UAT 轮次与退货修复，18.9 为 09-04 Hub/Till 角色安装包。
+> 本章记录 2026-08-24 至 2026-09-04 的实际决策、故障根因和生产数据结果。与第 17 章的安装说明配合使用；若旧说明与本章冲突，以本章为准。18.8 为 09-02 生产 UAT 轮次与退货修复，18.9 为 09-04 首次 Hub/Till 角色安装包；09-08—09-09 的增量修复见第 19 章。
 
 ### 18.1 账号、API 与 POS Profile 的边界
 
@@ -2852,7 +2889,8 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 - `Administrator`、本地 `admin`、`posmanager`（若存在）不是同一个账号，不能通过名字判断身份。
 - 收银员登录后，服务端应校验该收银员是否属于当前 POS Profile，再把收银员身份写入销售、退货和交班记录；服务账号只负责传输请求。
 - 一个 POS Profile 可以被多个收银员共用。通过 `applicable_for_users` 绑定允许使用的收银员，不需要为每人复制一个 Profile。
-- 新收银机配置顺序：安装 xPos → 填生产 Server URL → 写入专用同步服务账号的 API Key/Secret → 让收银员用自己的 ERPNext 账号登录 → 检查其可用 POS Profile。API Key/Secret 不写入手册、截图或聊天记录，重置后只在终端安全配置中更新。
+- 旧的单机直连模式：安装 xPos → 填生产 Server URL → 在受保护配置中写入专用同步服务账号的 API Key/Secret → 让收银员用自己的 ERPNext 账号登录 → 检查其可用 POS Profile。API Key/Secret 不写入手册、截图或聊天记录。
+- 当前新门店推荐 Hub/Till 模式：只有 Hub 安装时读取同步凭据并连接云端；Till 只填写 Hub 的局域网 IPv4（端口 6789），不接收 ERPNext API Key/Secret。收银员仍用自己的 ERPNext 账号登录，业务归属与权限校验不变。凭据重置后只更新 Hub 的受保护配置，不逐台写入收银机。
 
 ### 18.2 收银员权限与审批规则
 
@@ -2929,6 +2967,34 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 
 **ERPNext 成本注意**：`Standard Buying` 是采购价格表；折扣/售价低于成本的运行时检查优先读取仓库 `Bin` 的加权成本，其次读取 `Item.valuation_rate`。首次真实收货后应核对 valuation rate，不能只因为有采购价格表就认为库存成本已经建立。
 
+### 18.5.1 2026-09-15 生产基础数据与 Cor 颜色属性操作记录
+
+本节为生产 `erp.solua.one` 的定向主数据操作记录；与早期颜色池、窗帘导入记录相冲突时，以本节的当前回读结果为准。执行身份为服务器 `frappe`，只操作明确列出的主数据，不创建 Item、Item Variant、库存或销售/采购交易。
+
+**执行前核对：**
+
+- Item Group `窗帘`、`窗帘杆`、`地板革` 不存在；父组 `All Item Groups` 存在。
+- UOM `条` 已存在，但 `must_be_whole_number=0`；UOM `根`、`卷` 不存在。
+- `Item Attribute: Cor` 已存在，原有 16 个颜色值及缩写均存在且无重复。
+
+**实际写入：**
+
+| 对象 | 操作 | 实际结果 |
+|------|------|----------|
+| Item Group | 缺失时创建，父组为 `All Item Groups`，`is_group=0` | 创建 `窗帘`、`窗帘杆`、`地板革` |
+| UOM | 缺失时创建，启用且只允许整数 | 创建 `根`、`卷` |
+| UOM `条` | 将 `must_be_whole_number` 从 `0` 改为 `1` | 已改为只允许整数 |
+| Item Attribute `Cor` | 缺失时追加，不重复覆盖 | 为 14 个非黑白基础色各追加 `{基础颜色} Escuro`、`{基础颜色} Claro`，共 28 个 |
+
+颜色属性的新增值采用现有葡萄牙语命名和缩写规则，例如 `Azul Escuro / AZ-E`、`Azul Claro / AZ-C`；`Branco`、`Preto` 不增加派生值。写入后回读结果：总值 44、颜色名称唯一、缩写唯一、黑白派生值为 0。
+
+**验证与边界：**
+
+- 验证路径：`ssh qq` → `sudo -u frappe` → `/home/frappe/frappe-bench` → `bench --site erp.solua.one console`。
+- 定向脚本采用幂等判断；异常时回滚，成功后提交并立即回读。
+- 本次没有创建具体颜色变体；后续创建窗帘杆/窗帘模板及变体时，使用 `Cor` 的具体颜色值，并为每个变体配置独立货号和条码。
+- 没有运行广泛 `bench migrate`、`after_install` 或颜色池重建逻辑；没有改动价格、库存、客户或历史交易。
+
 ### 18.6 图片导入的重复附件坑
 
 本次导入曾发现每张图片出现两条 `File` 数据库关联记录：一条是普通附件，一条是 `Item.image` 字段附件；两条记录指向同一个实际文件，并非图片内容重复。原因是先用普通附件方式上传，再设置 Attach Image 字段触发了 ERPNext 的自动关联。
@@ -2993,3 +3059,60 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 5. 每台新收银机最终仍按 18.1 用收银员本人 ERPNext 账号登录、服务账号负责同步；Hub/Till 包不包含测试订单或测试收银员账户。
 
 **验收要点**：Hub 与 Till 必须处于同一可互通局域网（Windows 网络配置建议“专用”）；改动 Hub IP 后需重跑 Till 安装脚本更新本机 Hub 地址；两个 ZIP 均带逐文件 `SHA256SUMS.txt`，发布前可用 PowerShell `Get-FileHash` 核对。
+
+---
+
+## 19. xPos 角色包归档与本地扫码修复（2026-09-08—09-09）
+
+> 本章是第 18 章之后的增量记录。它描述当前工作区中 09-09 重新生成的 Hub/Till 安装包，以及已经在本地 xPos 验证通过的离线条码修复。不要把旧的 09-04 记录、当前 ZIP 和外置凭据文件混为一谈。
+
+### 19.1 当前 Hub/Till 安装包
+
+当前工作区产物（构建时间均为 2026-09-09 23:19 左右）如下：
+
+| 角色 | 文件 | SHA256 | 校验结果 |
+|------|------|--------|----------|
+| Hub | `release/XPos-Hub-Setup.zip` | `B3620AA9F53177F60808CF997143662538AA107693E7D0DA5E62B13DC58EA6A6` | 78 个文件，清单通过 |
+| Till | `release/XPos-Till-Setup.zip` | `CF23B7753276549C33A8C36BABB18A1522560D13911DB3510BD739D905EBB545` | 78 个文件，清单通过 |
+
+- 两个 ZIP 都不包含 ERPNext API Key/Secret；包内 `app.asar` 当前 SHA256 为 `B68C4BA263288E438A6B5D7E7446CCC7543FED17E48F6334F3303D1CDF76F169`。
+- Hub 凭据文件仍是工作区根目录的 `XPOS-HUB-KEY.json`，只作为安装时的外置文件放在 U 盘根目录；该文件含敏感凭据，不得提交 Git、放入 ZIP、截图、手册或聊天记录，安装完成后拔出 U 盘并妥善销毁/保管副本。
+- Hub 安装后以 `C:\xpos\Hub-Address.txt` 提供局域网地址；Till 安装脚本先访问 `http://Hub-IP:6789/api/health`，通过后才写入配置。Hub IP 变化时必须重新运行 Till 安装脚本。
+- 新门店只采用“Hub 先装、Till 后装”的双角色流程；单机直连包仅用于兼容旧测试环境。任何新 Till 都不应保存云端同步密钥。
+
+### 19.2 本地离线扫码修复
+
+**现象**：同步完成后，本地 xPos 扫描条码 `6901234567893` 仍提示找不到商品；联网状态和同步状态均正常。
+
+**根因**：Electron `searchByBarcode()` 原先调用 `db:get-items`。查询 SQL 可以用 `Item Barcode` 子表过滤，但没有把 `ib.barcode` 返回到结果对象；随后前端再执行 `item.barcode === 扫码值`，把实际已同步的商品误过滤掉。
+
+**修复后的固定流程**：
+
+1. 先用本地 `db:get-item-by-barcode` 做精确条码查询；
+2. 再用本地 `db:get-items` 补充价格和库存；
+3. 保留直接输入货号的路径；
+4. 不增加在线回退，不因扫码临时联网，也不改变同步配置。
+
+验证记录：`yarn typecheck` 通过，`yarn dist:win` 生成新包并部署到 `C:\xpos\resources\app.asar`；旧包备份为 `C:\xpos\resources\app.asar.bak-barcode-20260908-2312`。用户在 2026-09-09 确认本地扫描 `6901234567893` 已正常加购，说明修复生效。
+
+**后续改动约束**：xPos 的离线扫码只能依赖本地镜像；后台同步必须同步 `Item`、`Item Barcode` 和价格数据，且 `Item Barcode` 增量记录必须包含 `modified` 字段，否则新增条码不会进入本地库。不要用在线接口作为扫码兜底来掩盖本地同步缺字段。
+
+### 19.3 当前身份与同步边界（Hub/Till 版）
+
+| 操作 | 实际身份/位置 |
+|------|---------------|
+| 收银、退货发起、交班审计 | 收银员本人 ERPNext 账号；退货确认/折扣仍按经理密码规则 |
+| 离线缓存和队列 | Till 本机 MariaDB/SQLite |
+| 云端主数据、销售上传 | Hub 上的专用同步服务账号与其最小权限角色 |
+| 门店局域网连接 | Till → Hub `:6789`；Till 不直连 ERPNext 云端 |
+
+同步账号此前为排障曾使用全角色兜底；正式上线前仍应收敛为 `XPos Sync Service`/`XPOS Sync` 专用最小权限角色，并清理不必要的 User Permission 限制。不要把 `Administrator` 或 Cashier 的 API 密钥复制到 Hub/Till 安装介质。
+
+### 19.4 目前仍需处理的事项
+
+- [ ] 对实体热敏打印机做现场打印测试（软件预览已通过）
+- [ ] 导入 12 款窗帘的期初库存；当前只有主数据和三套价格
+- [ ] 补齐 `SH151060`（光感绒）图片后更新 Item 图片
+- [ ] 清理 09-02 R2 留下的 3 张已取消发票及对应开班/关班单据，并用最终状态脚本复核零残留
+- [ ] 将同步服务账号从排障用全角色兜底收敛到专用最小权限角色
+- [ ] 新门店按当前 ZIP 做 Hub/Till 安装验收：局域网、断网缓存、恢复同步、收银员登录和条码扫码各测一遍

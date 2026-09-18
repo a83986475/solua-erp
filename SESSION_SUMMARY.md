@@ -430,6 +430,10 @@
 
 **二次修复**（用户仍报「只出现模板」）：查配置发现 `收银方式1 - SH` 的 **auto_add_item_to_cart=0**——原生搜索命中模板后只**展示**模板卡片，不会自动点击也不会弹框（硬件扫码才走自定义 onScan）。补 `filter_items` 覆写：搜索命中**唯一模板**时自动调后端弹颜色选择框；防误弹守卫（搜索框内容已变则跳过）。page_js 是服务端内联进页面 HTML、每请求从磁盘读，改完刷新页面即可生效（无需重启）。
 
+**颜色弹窗回归修复（2026-09-09）**：曾为防止模板无价而让 `get_items` 把模板展开成 4 个变体，结果清除了 `has_variants=1`，导致前端颜色弹窗失去触发条件。已撤销该展开逻辑，恢复正确链路：后端返回单个模板 → `pos_custom.js` 弹颜色 → 选择后按变体 Item Price 加购。
+
+**自带 POS 再次只显示模板（2026-09-09）**：后端已正确返回模板及 `has_variants=1`，但前端仍提示模板无价。根因是 ERPNext 16 的 POS 为预打包标准页，`page_js` 不保证执行；此前还把 `?v=...` 写进 `page_js` 路径，Frappe 会把查询串当文件名而读不到脚本。现将 `pos_custom.js` 改为 `app_include_js` 全局加载（脚本自行等待 POS 类），`page_js` 不再附加查询串。xPos 网页、本地程序均不改；xPos 继续保持离线扫码原则。
+
 ### POS 库存开关参考（上线配置，2026-08-15）
 
 用户问「库存不准时能否临时关闭无库存不可售」——答案是两级开关 + 一个显示开关，机制如下（供上线后参照）：
@@ -597,6 +601,14 @@
 | **solua_home** | 0.0.1，已安装到 erp.solua.one 站点 |
 | **GitHub 仓库** | https://github.com/a83986475/solua-erp.git |
 
+### 生产命令权限边界（重要，2026-09-08）
+
+- `ssh qq` 默认登录用户是 `ubuntu`；该用户仅用于只读检查和系统级命令（例如 `sudo supervisorctl`）。
+- 所有 `bench`、Python、pip、yarn/npm、Vite、Electron 构建，以及任何写入 `/home/frappe/frappe-bench` 的命令，必须切换为 `frappe` 用户执行。
+- 禁止直接用 `ubuntu` 在应用目录执行构建或写入操作。否则会造成 `node_modules/.vite-temp`、构建产物或缓存归属错误，后续用 `frappe` 执行时出现 `EACCES`。
+- 不要把修改目录权限作为常规修复；应改用正确的 `frappe` 用户重跑。2026-09-08 已验证：xPos 首次以 `ubuntu` 执行 web build 因 `node_modules/.vite-temp` 权限失败，改用 `frappe` 后成功。
+- **xPos 离线原则（2026-09-09）**：扫码决策只读取本地镜像，禁止依赖在线查询；联网时由后台同步 `Item`、`Item Barcode` 和价格数据。`Item Barcode` 增量同步必须包含 `modified` 字段，否则新增条码可能无法进入本地库。
+
 ### 第十八会话：标签打印功能（2026-08-18，本次）
 
 **一句话总结**：新增「标签打印」功能——全站 Ctrl+L 打开扫码/搜索界面，选模板→设数量→批量打印；后端搜索 API 支持条码精确匹配（模板自动展开变体）+ 模糊搜索 + Print Format 渲染。
@@ -626,6 +638,8 @@ ssh qq 'sudo -u frappe -i bash -l -c "cd /home/frappe/frappe-bench && source env
 # 执行 supervisorctl 命令（ubuntu 用户有免密 sudo）
 ssh qq 'sudo supervisorctl status'
 ssh qq 'sudo supervisorctl restart all'
+
+# 规则：bench/构建/写入应用目录必须使用 frappe；ubuntu 不得直接执行
 
 # 数据库查询
 ssh qq 'mysql -h 127.0.0.1 -u _62af7cb1044ac230 -pUwwJaHWYXIL21g5O _62af7cb1044ac230 -e "SELECT ..."'
@@ -1167,3 +1181,10 @@ xPos 已覆盖 solua_home 95% 的功能，且额外支持离线收银、热敏�
 - Till 安装包：`C:\Users\Yang\solua-home\sites\erpnext\release\XPos-Till-Setup.zip`
   - SHA256：`FB318211021EE75F2558FC15231F2D133164310839AE70B29CADFD60B6AFEE4E`
 - 记录中的验证结果：两个 ZIP 各 78 个文件，内部校验清单全部通过；API Key / Secret 未打入 ZIP；两包中的 `app.asar` SHA256 均为 `A02A64BC32D4EFA52FFED7F0F6C05936D3908A34FFFF2BED6DD9EC167512C468`；Till 功能逻辑和说明未改。
+
+### 第二十一会话：xPos 本地扫码条码解析修复（2026-09-08）
+
+- 根因：Electron 端 `searchByBarcode()` 原先调用 `db:get-items`；该 SQL 只用 `Item Barcode` 子表参与过滤，没有返回 `ib.barcode` 字段，随后按 `item.barcode === 扫码值` 再过滤，导致本地已同步的 `6901234567893` 仍被判定为找不到。
+- 修复：Electron 端改用已有的本地 `db:get-item-by-barcode` 精确查询，再用本地 `db:get-items` 补充价格/库存；保留离线直接输入货号，不增加在线回退，不改同步配置。
+- 验证：`yarn typecheck` 通过；`yarn dist:win` 生成并部署新 `C:\xpos\resources\app.asar`。旧包备份为 `C:\xpos\resources\app.asar.bak-barcode-20260908-2312`；xPos 当时正在运行，未强制关闭，重启后加载新逻辑。
+- 用户确认（2026-09-09）：本地 xPos 扫码 `6901234567893` 已恢复正常，修复成功。
