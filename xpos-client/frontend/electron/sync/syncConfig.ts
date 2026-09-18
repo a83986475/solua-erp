@@ -107,7 +107,7 @@ export const SYNC_TABLES: SyncTableConfig[] = [
 	{
 		doctype: "Mode of Payment",
 		label: "Modes of Payment",
-		fields: ["name", "mode_of_payment", "type", "pos_tender_currency", "enabled"],
+		fields: ["name", "mode_of_payment", "type", "enabled"],
 		orderBy: "modified",
 		direction: "pull",
 		idbStore: "modes_of_payment",
@@ -121,7 +121,7 @@ export const SYNC_TABLES: SyncTableConfig[] = [
 		doctype: "Currency Exchange",
 		label: "Exchange Rates",
 		fields: ["name", "from_currency", "to_currency", "exchange_rate", "date", "for_selling"],
-		orderBy: "date desc",
+		orderBy: "date",
 		direction: "pull",
 		idbStore: "currency_exchange_rates",
 		localIdField: "xpos_local_id",

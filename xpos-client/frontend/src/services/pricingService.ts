@@ -15,6 +15,7 @@ import { cachePricingRules, getCustomer } from "@/services/dbBridge";
 import {
 	applyPricingRulesToCart,
 	loadPricingRuleSnapshot,
+	normalizePricingRuleSnapshot,
 	type CartPricingLine,
 	type CartPricingResult,
 	type PricingContext,
@@ -120,7 +121,7 @@ export async function refreshPricingRuleSnapshot(context: {
 	if (!posProfile || !context.company || !isOnline()) return [];
 
 	try {
-		const rules = await call<PricingRuleSnapshot[]>("xpos.api.pricing_rules.get_active_pricing_rules", {
+		const rules = await call<Record<string, unknown>[]>("xpos.x_pos.api.pricing_rules.get_active_pricing_rules", {
 			params: JSON.stringify({
 				pos_profile: posProfile,
 				company: context.company,
@@ -128,8 +129,9 @@ export async function refreshPricingRuleSnapshot(context: {
 				currency: context.currency,
 			}),
 		});
-		await cachePricingRules(posProfile, rules || []);
-		return rules || [];
+		const normalizedRules = (rules || []).map(normalizePricingRuleSnapshot);
+		await cachePricingRules(posProfile, normalizedRules);
+		return normalizedRules;
 	} catch (error) {
 		if (!isNetworkError(error)) {
 			console.warn("Could not refresh pricing rule snapshot:", error);

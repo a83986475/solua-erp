@@ -73,3 +73,18 @@ Hub/Till 角色包使用全新外部目录生成，没有运行会删除固定�
 - 在不影响生产的窗口，用真实测试 API key 连接 qq，确认一次完整增量同步和删除同步；重点观察上述子表、POS Users 和 Companies 525 日志。
 - 用真实已有商品确认 `custom_swatch_image` 和 `image` 两种字段下的图片下载、缓存和离线显示。
 - 在干净 Windows 测试机安装 Hub/Till 包后做一次安装器、MariaDB 初始化、登录、开班和打印回归。
+
+## 2026-09-18 同步错误 follow-up
+
+18:14 UTC 的新日志不是之前的删除检查问题，而是三个客户端/服务端接口契约不一致：
+
+- `xpos.api.pricing_rules.get_active_pricing_rules` 旧接口硬编码查询不存在的 `apply_recursion` 列；客户端已切换到 qq 上已有的 `xpos.x_pos.api.pricing_rules.get_active_pricing_rules`，并把新版返回值归一化到现有离线定价引擎格式。
+- `Exchange Rates` 的配置值误带 `date desc`，统一请求构造又追加 `asc`，形成 `date desc asc`；配置已改为字段名 `date`。
+- `Modes of Payment` 把当前服务端不存在的父表字段 `pos_tender_currency` 放进列表字段；已移除该字段，收银端仍按现有发票币种回退逻辑工作。
+
+Follow-up 验证：类型检查通过；完整测试 358/358 通过；Electron 构建和打包通过。qq 仍未修改。
+
+- follow-up 回滚副本：`C:\xpos\backups\xpos-20260918-followup-sync\app.asar.pre-followup-20260918`，SHA256 `BDA52E10F0F394F24AABCEE420B4C11567934861153E5CE45F5AD6B8BCC6E957`
+- 当前安装 `C:\xpos\resources\app.asar`：10,591,107 bytes，SHA256 `2B362E93E15C7BF6E29473464C404BA8AD0DB9F10D16F2D62D509BAB86A8D548`
+- follow-up Hub 包：`C:\xpos\builds\xpos-repair-20260918-followup-sync\XPos-Hub-Setup.zip`，SHA256 `D81F7D064430399F4F7D53459E63C4E4F7BDF1280E7DFB9C1AA93FABD75BD34B`
+- follow-up Till 包：`C:\xpos\builds\xpos-repair-20260918-followup-sync\XPos-Till-Setup.zip`，SHA256 `0F1F0B9F70CEE3F2466A319E19C7526695645F2075DC9F51E6C036C230F751D2`

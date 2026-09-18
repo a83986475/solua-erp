@@ -56,6 +56,70 @@ export interface PricingRuleSnapshot {
 	offline_supported?: number;
 }
 
+function numberValue(value: unknown): number | undefined {
+	const number = typeof value === "number" ? value : Number(value);
+	return Number.isFinite(number) ? number : undefined;
+}
+
+function stringValues(value: unknown): string[] | undefined {
+	if (Array.isArray(value)) {
+		const values = value.filter((item): item is string => typeof item === "string" && item.length > 0);
+		return values.length ? values : undefined;
+	}
+	return typeof value === "string" && value ? [value] : undefined;
+}
+
+function targetValues(
+	row: Record<string, unknown>,
+	pluralField: string,
+	singularField: string,
+	childField: string,
+): string[] | undefined {
+	const direct = stringValues(row[pluralField]) || stringValues(row[singularField]);
+	if (direct) return direct;
+	if (!Array.isArray(row.items)) return undefined;
+	const values = row.items
+		.map((item) => (item && typeof item === "object" ? (item as Record<string, unknown>)[childField] : undefined))
+		.filter((item): item is string => typeof item === "string" && item.length > 0);
+	return values.length ? values : undefined;
+}
+
+/** Normalize the current x_pos pricing endpoint and the legacy endpoint to one offline shape. */
+export function normalizePricingRuleSnapshot(row: Record<string, unknown>): PricingRuleSnapshot {
+	const normalized = { ...row } as unknown as PricingRuleSnapshot;
+	const rateType =
+		typeof row.rate_or_discount_type === "string"
+			? row.rate_or_discount_type
+			: typeof row.rate_or_discount === "string"
+				? row.rate_or_discount
+				: "";
+	const numericRate = numberValue(row.rate_or_discount);
+
+	normalized.name = String(row.name || "");
+	normalized.apply_on = String(row.apply_on || "");
+	normalized.price_or_product_discount = String(
+		row.price_or_product_discount ?? row.price_or_discount ?? "",
+	);
+	normalized.rate_or_discount = rateType || undefined;
+	if (numericRate !== undefined) {
+		if (rateType === "Rate" && normalized.rate === undefined) normalized.rate = numericRate;
+		if (rateType === "Discount Percentage" && normalized.discount_percentage === undefined) {
+			normalized.discount_percentage = numericRate;
+		}
+		if (rateType === "Discount Amount" && normalized.discount_amount === undefined) {
+			normalized.discount_amount = numericRate;
+		}
+	}
+	if (normalized.is_recursive === undefined && row.apply_per_threshold !== undefined) {
+		normalized.is_recursive = numberValue(row.apply_per_threshold) || 0;
+	}
+	normalized.item_codes ??= targetValues(row, "item_codes", "item_code", "item_code");
+	normalized.item_groups ??= targetValues(row, "item_groups", "item_group", "item_group");
+	normalized.brands ??= targetValues(row, "brands", "brand", "brand");
+
+	return normalized;
+}
+
 export interface CartPricingLine {
 	row_id: string;
 	item_code: string;

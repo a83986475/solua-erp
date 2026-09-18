@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	applyPricingRulesToCart,
+	normalizePricingRuleSnapshot,
 	type CartPricingLine,
 	type PricingContext,
 	type PricingRuleSnapshot,
@@ -56,6 +57,27 @@ function line(overrides: Partial<CartPricingLine> = {}): CartPricingLine {
 }
 
 describe("offline pricing engine", () => {
+	it("normalizes the current server pricing snapshot", () => {
+		const normalized = normalizePricingRuleSnapshot({
+			name: "PR-CURRENT",
+			apply_on: "Item Code",
+			price_or_discount: "Price",
+			rate_or_discount_type: "Discount Percentage",
+			rate_or_discount: 12.5,
+			item_code: "ITEM-A",
+			apply_per_threshold: 1,
+		});
+
+		expect(normalized).toMatchObject({
+			name: "PR-CURRENT",
+			price_or_product_discount: "Price",
+			rate_or_discount: "Discount Percentage",
+			discount_percentage: 12.5,
+			is_recursive: 1,
+			item_codes: ["ITEM-A"],
+		});
+	});
+
 	describe("item-level price discounts", () => {
 		it("applies a percentage discount", () => {
 			const result = applyPricingRulesToCart([line()], CTX, [rule({ discount_percentage: 10 })]);
