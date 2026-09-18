@@ -1,0 +1,15 @@
+frontend/node_modules/
+frontend/dist/
+frontend/dist-electron/
+frontend/release/
+frontend/*.asar
+frontend/*.exe
+frontend/*.msi
+frontend/*.tgz
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/*.db
+frontend/*.sqlite
+frontend/*.sqlite3
+frontend/logs/

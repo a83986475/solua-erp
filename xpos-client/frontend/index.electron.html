@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" href="./public/pwa-192x192.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<meta name="theme-color" content="#f97316" />
+		<meta http-equiv="Content-Security-Policy"
+			content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https:; img-src 'self' data: http: https:; font-src 'self' data:;" />
+		<title>X POS</title>
+		<script>
+			// Apply theme immediately before Vue mounts to prevent flash
+			(function () {
+				const theme = localStorage.getItem("xpos-theme") || "system";
+				let effectiveTheme = theme;
+
+				if (theme === "system") {
+					effectiveTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+						? "dark"
+						: "light";
+				}
+
+				const html = document.documentElement;
+				if (effectiveTheme === "dark") {
+					html.classList.add("dark");
+					html.classList.remove("light");
+				} else {
+					html.classList.add("light");
+					html.classList.remove("dark");
+				}
+			})();
+		</script>
+	</head>
+
+	<body>
+		<div id="app"></div>
+		<script>
+			// In Electron mode, boot data comes from the server after login.
+			// Initialize empty – the authStore will populate this.
+			window.xpos = window.xpos || {};
+			window.xpos.boot = {};
+			window.xpos._messages = {};
+			window.xpos.csrf_token = "";
+		</script>
+		<script type="module" src="/src/main.ts"></script>
+	</body>
+</html>
