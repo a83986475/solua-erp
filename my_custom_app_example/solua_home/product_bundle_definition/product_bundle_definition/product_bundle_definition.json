@@ -1,0 +1,22 @@
+{
+  "name": "Product Bundle Definition",
+  "module": "Product Bundle Definition",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "fields": [
+    {"fieldname": "parent_item", "fieldtype": "Link", "label": "母物料", "options": "Item", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "bundle_name", "fieldtype": "Data", "label": "打包名称", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "barcode", "fieldtype": "Data", "label": "打包条码", "reqd": 1, "unique": 1, "in_list_view": 1},
+    {"fieldname": "quantity", "fieldtype": "Int", "label": "包含数量", "reqd": 1, "default": 1, "in_list_view": 1},
+    {"fieldname": "bundle_price", "fieldtype": "Currency", "label": "打包总价", "description": "留空则按单价×数量计算"},
+    {"fieldname": "is_active", "fieldtype": "Check", "label": "启用", "default": 1, "in_list_view": 1}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Stock Manager", "read": 1, "write": 1, "create": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "title_field": "bundle_name",
+  "search_fields": "parent_item,bundle_name,barcode"
+}

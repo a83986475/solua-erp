@@ -1,0 +1,18 @@
+{
+	"custom_format": 1,
+	"disabled": 0,
+	"doc_type": "Item",
+	"docstatus": 0,
+	"doctype": "Print Format",
+	"html": "",
+	"idx": 1,
+	"line_breaks": 0,
+	"module": "Selling",
+	"name": "价格标签 50x30",
+	"print_format_builder": 0,
+	"print_format_type": "Jinja",
+	"raw_commands": "<style>\n\t@page { size: 50mm 30mm; margin: 0; }\n\t.print-format { page-width: 50mm; page-height: 30mm; margin-top: 0; margin-bottom: 0; }\n\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t.label {\n\t\twidth: 50mm; height: 29mm; max-height: 29mm;\n\t\tpadding: 1.2mm 2mm;\n\t\tdisplay: flex; flex-direction: column;\n\t\tjustify-content: space-between;\n\t\tfont-family: \"Noto Sans CJK SC\", \"Microsoft YaHei\", sans-serif;\n\t\toverflow: hidden;\n\t}\n\t.name-zh { font-size: 10px; font-weight: 700; line-height: 1.1; }\n\t.name-pt { font-size: 7px; color: #333; line-height: 1.05; }\n\t.model { font-size: 6.5px; color: #888; }\n\t.price-row { display: flex; align-items: baseline; }\n\t.price { font-size: 17px; font-weight: 800; line-height: 1; }\n\t.barcode-box { display: flex; justify-content: center; }\n\t.barcode-box img { height: 7mm; max-height: 7mm; }\n</style>\n<div class=\"label\">\n\t<div class=\"name-zh\">{{ doc.custom_chinese_name or doc.item_name }}</div>\n\t<div class=\"name-pt\">{{ doc.item_name }}</div>\n\t<div class=\"model\">{{ doc.item_code }}{% if doc.custom_spu_code %} · {{ doc.custom_spu_code }}{% endif %}</div>\n\t<div class=\"price-row\">\n\t\t<span class=\"price\">{{ get_selling_price(doc) }}</span>\n\t</div>\n\t<div class=\"barcode-box\">\n\t\t<img src=\"{{ get_barcode_img(doc) }}\" alt=\"barcode\">\n\t</div>\n</div>",
+	"raw_printing": 1,
+	"show_section_headings": 0,
+	"standard": "Yes"
+}

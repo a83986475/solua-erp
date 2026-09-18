@@ -1,0 +1,21 @@
+{
+ "is_submittable": 0,
+ "name": "Daily Settlement",
+ "module": "Accounting",
+ "owner": "Administrator",
+ "report_name": "Daily Settlement",
+ "report_type": "Script Report",
+ "reference_report_name": "Daily Settlement",
+ "filters": [
+  {
+   "fieldname": "report_date",
+   "fieldtype": "Date",
+   "label": "Report Date",
+   "default": "Today",
+   "reqd": 1
+  }
+ ],
+ "columns": [],
+ "sort_by": "Cashier",
+ "sort_order": "ASC"
+}
