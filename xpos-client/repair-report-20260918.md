@@ -88,3 +88,5 @@ Follow-up 验证：类型检查通过；完整测试 358/358 通过；Electron �
 - 当前安装 `C:\xpos\resources\app.asar`：10,591,107 bytes，SHA256 `2B362E93E15C7BF6E29473464C404BA8AD0DB9F10D16F2D62D509BAB86A8D548`
 - follow-up Hub 包：`C:\xpos\builds\xpos-repair-20260918-followup-sync\XPos-Hub-Setup.zip`，SHA256 `D81F7D064430399F4F7D53459E63C4E4F7BDF1280E7DFB9C1AA93FABD75BD34B`
 - follow-up Till 包：`C:\xpos\builds\xpos-repair-20260918-followup-sync\XPos-Till-Setup.zip`，SHA256 `0F1F0B9F70CEE3F2466A319E19C7526695645F2075DC9F51E6C036C230F751D2`
+
+更新本机时发现用户已启动 `C:\xpos\X POS.exe`，已关闭该明确的客户端进程后完成替换。两个当前 DB 配置的非密码字段仍与基线一致、端口仍为 3307，未残留隔离测试端口或测试库；客户端运行期间重新序列化了加密密码字段（仍为 `enc:v1:`），明文未读取、未输出、未入库。
