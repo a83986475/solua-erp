@@ -17,6 +17,7 @@ export interface SyncTableConfig {
 	parentDoctype?: string;
 	isCompanyBased?: boolean;
 	regetAll?: boolean;
+	syncCursorVersion?: number;
 }
 
 export const SYNC_TABLES: SyncTableConfig[] = [
@@ -234,6 +235,7 @@ export const SYNC_TABLES: SyncTableConfig[] = [
 			"apply_customer_discount",
 			"allow_print_draft_invoices",
 			"use_offline_mode",
+			"modified",
 		],
 		orderBy: "modified",
 		direction: "pull",
@@ -619,14 +621,16 @@ export const SYNC_TABLES: SyncTableConfig[] = [
 			"projected_qty",
 			"reserved_qty",
 			"ordered_qty",
+			"modified",
 		],
 		orderBy: "modified",
 		direction: "pull",
 		idbStore: "bins",
 		localIdField: "xpos_local_id",
-		incremental: true,
+	incremental: true,
 		batchSize: 500,
 		pullOrder: 30,
+		syncCursorVersion: 2,
 		dependsOn: ["items", "warehouses"],
 	},
 	{

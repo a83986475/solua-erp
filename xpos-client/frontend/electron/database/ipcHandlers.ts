@@ -21,6 +21,7 @@ import {
 	type DbConfig,
 } from "./dbService";
 import { createLogger } from "../logger";
+import { resolveStockWarehouse, SELLABLE_ITEM_SQL } from "../../src/services/catalogPolicy";
 
 const log = createLogger("DB-IPC");
 
@@ -54,6 +55,20 @@ async function resolveItemSearchColumns(requested?: string[]): Promise<string[]>
 	}
 
 	return usable.length ? usable : ["item_code", "item_name"];
+}
+
+async function resolveLocalStockWarehouse(requested: string): Promise<string> {
+	const rows = await query<{ warehouse: string }>(
+		"SELECT DISTINCT `warehouse` FROM `bins` WHERE COALESCE(`warehouse`, '') <> '' ORDER BY `warehouse`",
+	);
+	const resolved = resolveStockWarehouse(
+		requested,
+		rows.map((row) => row.warehouse),
+	);
+	if (resolved !== requested) {
+		log.warn(`Stock warehouse fallback: profile=${requested} local-bin=${resolved}`);
+	}
+	return resolved;
 }
 
 export function registerDbHandlers(): void {
@@ -115,12 +130,13 @@ export function registerDbHandlers(): void {
 				warehouse?: string;
 			},
 		) => {
+			const stockWarehouse = await resolveLocalStockWarehouse(opts?.warehouse || "");
 			// Correlated subqueries for price and stock avoid duplicate rows from JOINs.
 			// The item_barcodes LEFT JOIN is only for search filtering.
 			const params: unknown[] = [
 				opts?.priceList || "", // price subquery
-				opts?.warehouse || "", // stock_cache subquery
-				opts?.warehouse || "", // bins subquery
+				stockWarehouse, // bins subquery
+				stockWarehouse, // stock_cache fallback subquery
 			];
 
 			let sql = `SELECT DISTINCT i.*,
@@ -132,15 +148,15 @@ export function registerDbHandlers(): void {
       ) AS rate,
       i.\`stock_uom\` AS uom,
       COALESCE(
-        (SELECT sc.\`actual_qty\` FROM \`stock_cache\` sc
-         WHERE sc.\`item_code\` = i.\`item_code\` AND sc.\`warehouse\` = ? LIMIT 1),
         (SELECT b.\`actual_qty\` FROM \`bins\` b
          WHERE b.\`item_code\` = i.\`item_code\` AND b.\`warehouse\` = ? LIMIT 1),
+        (SELECT sc.\`actual_qty\` FROM \`stock_cache\` sc
+         WHERE sc.\`item_code\` = i.\`item_code\` AND sc.\`warehouse\` = ? LIMIT 1),
         0
       ) AS actual_qty
       FROM \`items\` i
       LEFT JOIN \`item_barcodes\` ib ON ib.\`parent\` = i.\`item_code\`
-      WHERE i.\`disabled\` = 0`;
+      WHERE i.\`disabled\` = 0 AND ${SELLABLE_ITEM_SQL}`;
 
 			if (opts?.group && opts.group !== "All Item Groups") {
 				sql += " AND i.`item_group` = ?";
@@ -177,7 +193,7 @@ export function registerDbHandlers(): void {
 
 	ipcMain.handle("db:count-items", async () => {
 		const row = await queryOne<{ cnt: number }>(
-			"SELECT COUNT(*) as cnt FROM `items` WHERE `disabled` = 0",
+			`SELECT COUNT(*) as cnt FROM \`items\` i WHERE i.\`disabled\` = 0 AND ${SELLABLE_ITEM_SQL}`,
 		);
 		return row?.cnt ?? 0;
 	});

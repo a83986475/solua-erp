@@ -29,6 +29,16 @@ export interface DoctypeMeta {
 	is_submittable?: 0 | 1;
 }
 
+const STANDARD_QUERY_FIELDS = new Set([
+	"name",
+	"owner",
+	"creation",
+	"modified",
+	"modified_by",
+	"docstatus",
+	"idx",
+]);
+
 const NON_VALUE_FIELDTYPES = new Set([
 	"Section Break",
 	"Column Break",
@@ -72,6 +82,19 @@ export async function getDoctypeMeta(doctype: string): Promise<DoctypeMeta> {
 
 export function isValueType(fieldtype: string): boolean {
 	return !NON_VALUE_FIELDTYPES.has(fieldtype);
+}
+
+export function getQueryableFields(requested: string[], meta: DoctypeMeta | null): string[] {
+	if (!meta) return requested;
+
+	const allowed = new Set(STANDARD_QUERY_FIELDS);
+	for (const field of meta.fields) {
+		if (isValueType(field.fieldtype) && !field.hidden) {
+			allowed.add(field.fieldname);
+		}
+	}
+
+	return requested.filter((field) => allowed.has(field));
 }
 
 export function getStandardFilterFields(meta: DoctypeMeta): DocField[] {

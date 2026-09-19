@@ -2,6 +2,7 @@ import { ref, reactive, computed, watch, isRef, type Ref } from "vue";
 import { getList, getCount, searchLink } from "@/services/api";
 import {
 	getDoctypeMeta,
+	getQueryableFields,
 	getStandardFilterFields,
 	getAllFilterableFields,
 	type DoctypeMeta,
@@ -139,7 +140,7 @@ export function useListView(options: ListViewOptions) {
 			};
 
 			if (options.fields && options.fields.length > 0) {
-				listArgs.fields = options.fields;
+				listArgs.fields = getQueryableFields(options.fields, meta.value);
 			}
 
 			const [rows, count] = await Promise.all([

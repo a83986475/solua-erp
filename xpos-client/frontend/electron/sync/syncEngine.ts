@@ -274,7 +274,18 @@ async function pullTable(config: SyncTableConfig): Promise<number> {
 	});
 
 	let lastModified: string | null = null;
+	let cursorReset = false;
 	if (config.incremental) {
+		if (config.syncCursorVersion !== undefined) {
+			const versionKey = `sync_cursor_version_${config.idbStore}`;
+			const storedVersion = await getMeta(versionKey);
+			if (storedVersion !== String(config.syncCursorVersion)) {
+				await setMeta(`last_sync_${config.idbStore}`, "");
+				await setMeta(versionKey, String(config.syncCursorVersion));
+				cursorReset = true;
+				log.info(`${config.label}: reset incremental cursor for sync schema v${config.syncCursorVersion}`);
+			}
+		}
 		lastModified = await getMeta(`last_sync_${config.idbStore}`);
 	}
 
@@ -323,6 +334,19 @@ async function pullTable(config: SyncTableConfig): Promise<number> {
 						return r;
 					});
 		await upsertBatch(config.idbStore, processedBatch, primaryKey);
+		if (config.idbStore === "bins") {
+			const stockCacheRows = normalizedBatch
+				.filter((row) => row.item_code && row.warehouse)
+				.map((row) => ({
+					cache_key: `${row.warehouse}::${row.item_code}`,
+					warehouse: String(row.warehouse),
+					item_code: String(row.item_code),
+					actual_qty: Number(row.actual_qty || 0),
+				}));
+			if (stockCacheRows.length > 0) {
+				await upsertBatch("stock_cache", stockCacheRows, "cache_key");
+			}
+		}
 
 		totalPulled += batch.length;
 		start += batch.length;
@@ -338,7 +362,7 @@ async function pullTable(config: SyncTableConfig): Promise<number> {
 		}
 	}
 
-	if (totalPulled > 0 || !config.incremental) {
+	if (totalPulled > 0 || !config.incremental || cursorReset) {
 		const newTimestamp = maxServerModified ?? new Date().toISOString();
 		await setMeta(`last_sync_${config.idbStore}`, newTimestamp);
 	}
@@ -378,7 +402,9 @@ async function detectDeletions(config: SyncTableConfig): Promise<number> {
 	}
 
 	const localRows = await query<Record<string, string>>(
-		`SELECT \`${primaryKey}\` FROM \`${config.idbStore}\``,
+		config.idbStore === "bins"
+			? "SELECT `name`, `item_code`, `warehouse` FROM `bins`"
+			: `SELECT \`${primaryKey}\` FROM \`${config.idbStore}\``,
 	);
 
 	const toDelete = localRows.filter((row) => !serverNameSet.has(String(row[primaryKey])));
@@ -408,6 +434,12 @@ async function detectDeletions(config: SyncTableConfig): Promise<number> {
 	for (const row of localRows) {
 		const localKey = row[primaryKey];
 		if (!serverNameSet.has(String(localKey))) {
+			if (config.idbStore === "bins" && row.item_code && row.warehouse) {
+				await execute("DELETE FROM `stock_cache` WHERE `warehouse` = ? AND `item_code` = ?", [
+					row.warehouse,
+					row.item_code,
+				]);
+			}
 			await execute(`DELETE FROM \`${config.idbStore}\` WHERE \`${primaryKey}\` = ?`, [localKey]);
 
 			await execute(
