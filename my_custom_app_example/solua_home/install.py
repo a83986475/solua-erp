@@ -2,6 +2,40 @@
 import frappe
 
 
+def ensure_solua_stock_entry_types():
+    """Reuse or create the two issue classifications used by the Solua Home page."""
+    if not frappe.db.exists("DocType", "Stock Entry Type"):
+        raise RuntimeError("Stock Entry Type DocType is unavailable")
+
+    definitions = {
+        "领用": ("领用", ("领用", "Consumption", "Issue for Use")),
+        "损耗": ("损耗", ("损耗", "Wastage", "Waste", "Material Loss")),
+    }
+    existing = frappe.get_all(
+        "Stock Entry Type",
+        filters={"purpose": "Material Issue"},
+        fields=["name", "purpose"],
+        limit_page_length=0,
+    )
+    by_name = {row.name: row for row in existing}
+    resolved = {}
+    for key, (preferred, aliases) in definitions.items():
+        match = next((by_name[name] for name in aliases if name in by_name), None)
+        if match:
+            resolved[key] = match.name
+            continue
+        doc = frappe.get_doc({
+            "doctype": "Stock Entry Type",
+            "name": preferred,
+            "purpose": "Material Issue",
+            "is_standard": 0,
+        })
+        doc.insert(ignore_permissions=True)
+        resolved[key] = doc.name
+    frappe.db.commit()
+    return resolved
+
+
 def ensure_wholesale_module():
     """Register the one shipped module without running a site migration."""
     if not frappe.db.exists("Module Def", "Solua Wholesale"):
@@ -88,6 +122,7 @@ def after_install():
     add_company_discount_settings()
     add_pos_profile_settings()
     configure_pos_tax()
+    ensure_solua_stock_entry_types()
     sync_standard_print_formats()
     sync_standard_pages()
     add_member_system_fields()

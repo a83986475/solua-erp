@@ -5,6 +5,7 @@ function node(key){if(!nodes.has(key)) nodes.set(key,{content:"",html(v){this.co
 function makeRoot(){const root={handlers:[],html(){return this;},find:node,on(event,selector,handler){this.handlers.push({event,selector,handler});return this;}};roots.push(root);return root;}
 const calls=[],routes=[],newDocs=[],opened=[];
 const data={state:"ok",company:"Company",currency:"MZN",permissions:{},
+ stock_entry_types:{issue:"Material Issue",consumption:"Consumption",wastage:"Wastage"},
  invoiced_today:{state:"no_permission",amount:0},outstanding:{state:"no_permission",amount:0},
  orders_pending:{state:"no_permission",count:0},delivered_today:{state:"no_permission",amount:0},
  low_stock:{state:"no_permission",count:0},pending_purchase:{state:"no_permission"},
@@ -28,12 +29,23 @@ setImmediate(async()=>{
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));root=roots.at(-1);
  const actions=node('[data-role="actions"]').content;
- for (const label of ["库存管理","标签打印","优惠/促销","新建物料","物料出库","领用（Material Issue）","损耗（Material Issue）","打印设置","打印设计","标签打印","优惠/促销管理","POS交班","xPos 现有入口"])
+ for (const label of ["库存管理","标签打印","优惠/促销","新建物料","库存入库","物料出库","领用","损耗","打印设置","打印设计","标签打印","优惠/促销管理","POS交班","xPos 现有入口"])
   assert(actions.includes(label),"missing homepage action: "+label);
  assert(actions.includes('data-new-doc="1"'));assert(actions.includes('data-purpose="Material Issue"'));
+ assert(actions.includes('data-stock-entry-type="Consumption"'));assert(actions.includes('data-stock-entry-type="Wastage"'));
  const actionHandler=root.handlers.find(h=>h.selector.includes("solua-home-action")).handler;
- actionHandler.call({dataset:{doctype:"Item",newDoc:"1"}});assert.deepEqual(newDocs.pop(),["Item"]);
- actionHandler.call({dataset:{doctype:"Stock Entry",purpose:"Material Issue"}});assert.equal(frappe.route_options.purpose,"Material Issue");assert.deepEqual(newDocs.pop(),["Stock Entry"]);
+ actionHandler.call({dataset:{doctype:"Item",newDoc:"1"}});assert.equal(frappe.route_options,null);assert.deepEqual(newDocs.pop(),["Item"]);
+ for (const options of [
+  {purpose:"Material Receipt",stockEntryType:"Material Receipt"},
+  {purpose:"Material Issue",stockEntryType:"Material Issue"},
+  {purpose:"Material Issue",stockEntryType:"Consumption"},
+  {purpose:"Material Issue",stockEntryType:"Wastage"},
+ ]) {
+  actionHandler.call({dataset:{doctype:"Stock Entry",...options}});
+  assert.equal(frappe.route_options.purpose,options.purpose);
+  assert.equal(frappe.route_options.stock_entry_type,options.stockEntryType);
+  assert.deepEqual(newDocs.pop(),["Stock Entry"]);
+ }
  actionHandler.call({dataset:{utility:"print_settings"}});assert.deepEqual(routes.pop(),["Form","Print Settings"]);
  actionHandler.call({dataset:{utility:"print_designer"}});assert.deepEqual(routes.pop(),["print-designer"]);
  actionHandler.call({dataset:{utility:"label_print"}});actionHandler.call({dataset:{utility:"promotion"}});actionHandler.call({dataset:{utility:"pos_closing"}});

@@ -25,8 +25,9 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	function action(label, doctype, name, allowed = false) {
 		if (!allowed) return "";
 		const purpose = arguments[4]?.purpose || "";
+		const stock_entry_type = arguments[4]?.stock_entry_type || "";
 		const new_doc = arguments[4]?.new_doc ? ` data-new-doc="1"` : "";
-		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${new_doc}>${text(label)}</button>`;
+		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${stock_entry_type ? ` data-stock-entry-type="${text(stock_entry_type)}"` : ""}${new_doc}>${text(label)}</button>`;
 	}
 
 	function utility_action(label, key, allowed = false) {
@@ -63,12 +64,14 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			(data.low_stock?.items || []).map((row) => `<button class="solua-home-list-row" data-doctype="Item" data-name="${text(row.name)}"><span>${text(row.item_name)}</span><span>${text(row.actual_qty)} / ${text(row.reorder_level)} ${text(row.stock_uom)}</span></button>`).join("") || `<div class="text-muted">${text(state_label(data.low_stock?.state) || __("暂无预警"))}</div>`,
 		].join(""));
 		const permissions = data.permissions || {};
+		const stock_entry_types = data.stock_entry_types || {};
 		root.find('[data-role="actions"]').html([
 			action_group(__("库存管理"), [
 				action(__("新建物料"), "Item", null, permissions.new_item, { new_doc: true }),
-				action(__("物料出库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
-				action(__("领用（Material Issue）"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
-				action(__("损耗（Material Issue）"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue" }),
+				action(__("库存入库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Receipt", stock_entry_type: "Material Receipt" }),
+				action(__("物料出库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue", stock_entry_type: stock_entry_types.issue || "Material Issue" }),
+				action(__("领用"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue", stock_entry_type: stock_entry_types.consumption || "领用" }),
+				action(__("损耗"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue", stock_entry_type: stock_entry_types.wastage || "损耗" }),
 				action(__("手机扫码盘点"), "Stock Reconciliation", null, permissions.new_stock_reconciliation),
 				action(__("采购收货"), "Purchase Receipt", null, permissions.new_purchase_receipt),
 				action(__("查库存"), "Item", null, permissions.read_item),
@@ -135,10 +138,18 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		if (utility === "colors") return window.open("/colors", "_blank");
 		if (utility === "xpos") return window.open("/desk/x-pos?sidebar=X%20POS", "_blank", "noopener");
 		if (!doctype) return;
-		if (this.dataset.newDoc) return frappe.new_doc(doctype);
 		if (doctype === "Stock Entry" && this.dataset.purpose) {
-			frappe.route_options = { purpose: this.dataset.purpose };
+			// Always replace route_options so a previous stock operation cannot leak
+			// into the next one when the user returns to the homepage.
+			frappe.route_options = {
+				purpose: this.dataset.purpose,
+				stock_entry_type: this.dataset.stockEntryType || this.dataset.purpose,
+			};
 			return frappe.new_doc("Stock Entry");
+		}
+		if (this.dataset.newDoc) {
+			frappe.route_options = null;
+			return frappe.new_doc(doctype);
 		}
 		if (!this.dataset.name && ["Sales Order", "Delivery Note", "Purchase Receipt", "Stock Reconciliation"].includes(doctype)) return frappe.new_doc(doctype);
 		route(doctype, this.dataset.name || null);

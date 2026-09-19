@@ -4,6 +4,19 @@
 
 本次受控发布已完成：`develop` commit `ec1cccb55c87b5c1bfdac3296f99e1b7ae74c3df` 已推送；生产仅传输白名单运行文件，20/20 目标文件 SHA256 与本地一致，重载后 Supervisor 全部 RUNNING。完整备份、配置和旧目标代码快照位于 `qq:/home/frappe/solua-wholesale-release-20260915-HOME-ACTIONS`；本次 DB/public/private files 备份为 `20260915_212223-erp_solua_one-*`，已成功生成并列出归档，未做恢复演练。未执行 `migrate`、`after_install` 或 `after_migrate`，未创建生产测试业务记录。
 
+### 当前增量任务：库存快捷操作修复（2026-09-19）
+
+根因：旧首页只给三个出库类按钮传递 `purpose: "Material Issue"`，且生产缓存/旧资源可能残留；没有传递 `stock_entry_type`，因此无法区分普通出库、领用和损耗。修复采用 Frappe v16 原生 `frappe.route_options`，每次点击重新生成 `{purpose, stock_entry_type}`，返回首页后不会继承上一操作。首页接口会返回生产实际采用的等价类型名，避免已有英文类型被误写成中文名。
+
+| 首页入口 | `purpose` | `stock_entry_type` |
+|---|---|---|
+| 库存入库 | `Material Receipt` | `Material Receipt` |
+| 物料出库 | `Material Issue` | `Material Issue` |
+| 领用 | `Material Issue` | `领用`（已有等价类型则复用） |
+| 损耗 | `Material Issue` | `损耗`（已有等价类型则复用） |
+
+已定向部署并验证：备份目录为 `qq:/home/frappe/solua-backups/20260919-home-shortcuts/`，包含 site config、database、public/private files 与旧 `solua_home` 源码；未执行 `migrate`。生产源码与本地 SHA256 已一致，`install_wholesale_only`、Stock Entry Type 幂等检查、clear-cache 与 `frappe.ping` 均成功；未提交库存单、未改变库存、未操作 WSL。Administrator 与 `yangyang7920@gmail.com` 的服务器端首页权限数据均返回 `state=ok`，四种入口映射可用。当前仍需在已登录浏览器中人工点击四个入口，确认草稿字段后关闭、不保存；本轮未把缺少浏览器会话称为 UI 已验收。
+
 本次根因修复：去掉 `api/home.py` 对 Administrator 的首页硬编码拒绝，Guest 仍返回 `no_permission`；首页按实际 DocType 权限分组显示库存管理、标签打印、优惠/促销、订单与客户及其他入口。标签打印、促销、POS 交班浮窗已停止注入，原功能调用与快捷键保留；xPos 使用已核实 `/desk/x-pos?sidebar=X%20POS`。生产核验真实 `Module Def: Solua Wholesale`、`Page: solua-home`、`Page.load_assets`（JS/CSS 非空）、按真实记录名读取的两模板（Jinja、HTML 非空、`raw_printing=0`）、hooks import、`desktop:home_page=solua-home` 均通过。Administrator 与 `yangyang7920@gmail.com` dashboard 为 `ok`，Guest 为 `no_permission`；`/api/method/frappe.ping` 返回 200，未登录 `/desk/solua-home` 正确转登录页。
 
 实际入口为 `/desk/solua-home`。当前 CUA 无浏览器会话，因此真实登录后的 Admin/经理/受限员工页面、深链接/xPos点击、手机宽度、物理扫码枪和人工 PDF 版式仍未验证；不把 HTTP 200 或生产内存检查称为这些验收已通过。

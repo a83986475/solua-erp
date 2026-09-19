@@ -229,6 +229,23 @@ def _permissions():
     }
 
 
+def _stock_entry_types():
+    """Return the actual Material Issue type names used by the homepage."""
+    if not _can_read("Stock Entry Type"):
+        return {}
+    rows = _list("Stock Entry Type", {"purpose": "Material Issue"}, ["name"], limit=0)
+    names = {row.name for row in rows}
+
+    def pick(preferred, aliases):
+        return next((name for name in aliases if name in names), preferred)
+
+    return {
+        "issue": pick("Material Issue", ("Material Issue",)),
+        "consumption": pick("领用", ("领用", "Consumption", "Issue for Use")),
+        "wastage": pick("损耗", ("损耗", "Wastage", "Waste", "Material Loss")),
+    }
+
+
 @frappe.whitelist()
 @frappe.read_only()
 def get_dashboard_data(company=None, warehouse=None):
@@ -316,6 +333,7 @@ def get_dashboard_data(company=None, warehouse=None):
         "low_stock": _low_stock(resolved_warehouse),
         "item_data": _item_data_status(),
         "permissions": _permissions(),
+        "stock_entry_types": _stock_entry_types(),
     }
 
 

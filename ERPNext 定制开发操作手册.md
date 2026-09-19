@@ -2600,6 +2600,19 @@ frappe.ui.form.on("Sales Invoice", {
 - 允许前台盘点：收银员是否可以在 POS 做库存盘点
 - 扫码自动加购：扫条码后自动加入购物车（无需点击确认）
 
+### 16.3 Solua Home 首页库存快捷操作
+
+首页地址：`/desk/solua-home`。库存快捷入口使用 ERPNext 原生 `Stock Entry` 新建草稿，不在首页复制库存单页面。点击后由 `frappe.route_options` 同时预填 `purpose` 和 `stock_entry_type`：
+
+| 入口 | Purpose | Stock Entry Type |
+|------|---------|------------------|
+| 库存入库 | `Material Receipt` | `Material Receipt` |
+| 物料出库 | `Material Issue` | `Material Issue` |
+| 领用 | `Material Issue` | `领用` |
+| 损耗 | `Material Issue` | `损耗` |
+
+“领用”和“损耗”是长期分类，不用备注文字代替。安装/迁移钩子会幂等复用已有等价 Material Issue 类型；缺少时才创建最少的两个 `Stock Entry Type`。首页接口把实际类型名返回给按钮，因此已有 `Consumption`/`Wastage` 等价类型也能正常使用。首页按钮只打开草稿，员工必须按现有权限填写、保存和提交，测试入口不得提交真实库存单。
+
 ---
 
 ## 💡 最后提醒
