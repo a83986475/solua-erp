@@ -113,7 +113,7 @@ def before_validate_item(doc, method=None):
     1. 厂家条码校验位容错：barcode_type 填了 EAN 且校验位错误的条码，
        自动把 barcode_type 置空 → ERPNext 跳过格式校验（防重复仍在），
        否则建档会被 InvalidBarcode 拒收。
-    2. 无条码自动生成：非变体物料没有条码时，自动生成合法 EAN-13。
+    2. 无条码自动生成：非变体物料没有条码时，自动生成标签条码。
     3. 用户根据供应商实物色卡填写固定色号；系统校验后组合对外订货货号。
     """
     # 1. 校验位容错：EAN 类型条码校验位错误 → 清空 barcode_type
@@ -127,7 +127,7 @@ def before_validate_item(doc, method=None):
                 alert=True,
             )
 
-    # 2. 无条码自动生成（非变体；变体走标签条码=变体编码逻辑）
+    # 2. 无条码自动生成（仅非变体）
     # barcode_type 留空：ERPNext 只保留选项表内的类型（无 Code128），
     # 空类型跳过一切格式校验，只剩防重复检查——符合「只要条码不重复」策略；
     # 标签渲染统一 Code 128，与类型无关。
@@ -220,9 +220,34 @@ def validate_item(doc, method=None):
     if doc.item_name and re.search(r'[<>"\']', doc.item_name):
         frappe.throw(_("物料名称不能包含特殊字符（< > \" \'）"))
 
-    # 标签条码自动填充（Print Designer 用）
-    if doc.variant_of:
-        # 变体：优先自己的条码；无则用变体编码（标签打印 Code 128，扫码直接区分颜色）
+    # 颜色变体共用模板原包装条码；模板自身的 Item Barcode 子表不复制到变体。
+    attributes = doc.get("attributes") or []
+    has_color_attribute = any(row.get("attribute") == "Cor" for row in attributes)
+    if doc.variant_of and has_color_attribute:
+        template_barcodes = frappe.get_all(
+            "Item Barcode",
+            filters={"parent": doc.variant_of},
+            pluck="barcode",
+        )
+        unique_barcodes = []
+        for value in template_barcodes:
+            value = str(value or "").strip()
+            if value and value not in unique_barcodes:
+                unique_barcodes.append(value)
+
+        if len(unique_barcodes) == 1:
+            doc.custom_label_barcode = unique_barcodes[0]
+        else:
+            reason = _("没有非空 Item Barcode") if not unique_barcodes else _("有多个不同 Item Barcode")
+            frappe.msgprint(
+                _("模板 {0} {1}，无法确定颜色变体 {2} 的共享标签条码；保留当前值。").format(
+                    doc.variant_of, reason, doc.name
+                ),
+                alert=True,
+                indicator="orange",
+            )
+    elif doc.variant_of:
+        # 非颜色变体沿用既有规则。
         barcode = doc.barcodes[0].get("barcode") if doc.barcodes else None
         doc.custom_label_barcode = barcode or doc.name
     elif not doc.get("custom_label_barcode"):

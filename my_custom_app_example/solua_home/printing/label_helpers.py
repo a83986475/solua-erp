@@ -54,11 +54,8 @@ def get_barcode_img(doc, font_size=8, module_height=8):
 def _get_barcode(doc):
     """取物料的标签条码。
 
-    策略（2026-08-08 更新）：
-    - 物料自己有子表条码 → 用它（按声明的 barcode_type 渲染）
-    - 变体没有独立条码 → 用变体编码（如 CR-001-BR），code128 原样打印，
-      扫码直接定位到具体颜色，无需再选色
-    - 模板 / 其余 → 模板子表条码（同条码多色时扫码仍弹选色）
+    颜色变体优先使用继承自模板的 custom_label_barcode；模板条码保留在模板子表中，
+    扫码时仍由现有 POS 流程弹出颜色选择。
     """
     def _first_barcode(item):
         if getattr(item, "barcodes", None):
@@ -67,14 +64,19 @@ def _get_barcode(doc):
                     return row.barcode, (row.barcode_type or "").lower()
         return None, ""
 
+    variant_of = getattr(doc, "variant_of", None)
+    if variant_of:
+        label_barcode = getattr(doc, "custom_label_barcode", None)
+        if label_barcode:
+            return label_barcode, "code128"
+
     value, btype = _first_barcode(doc)
     if value:
         return value, btype
 
-    variant_of = getattr(doc, "variant_of", None)
     if variant_of:
         if doc.get("name"):
-            # 变体无独立条码 → 打印变体编码（Code 128，字母数字皆可）
+            # 无可继承标签条码时，沿用旧兜底；正常颜色变体已由 Item 校验钩子提示。
             return doc.name, "code128"
         # 兜底：doc 尚无 name 时取模板条码
         try:

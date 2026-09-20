@@ -871,6 +871,10 @@ item = frappe.get_doc({
 > ⚠️ 注意：如果使用真实 EAN 条码，ERPNext 会校验最后一位（校验码）。
 > 测试时可用 `Code128` 类型绕过校验。正式数据用实际条码即可。
 
+**生产共享条码规则（2026-09-20）**：所有 `Cor` 颜色变体共用模板的唯一非空原包装条码。原生 `Item Barcode` 只保留在模板；变体的 `custom_label_barcode` 与该值相同，禁止把同一原生条码重复添加到每个变体，也不把变体 `item_code` 当作标签条码。`solua_home.api.stock.validate_item` 在 Item 保存/创建时执行继承；模板缺条码或有多个不同条码时保留当前值并显示提示，不猜测。标签 Print Format 经 `solua_home.printing.label_helpers._get_barcode` 优先打印 `custom_label_barcode`；`solua_home.api.label_print._get_barcodes` 不再为颜色变体合成货号条码。POS 扫码由 `solua_home.api.pos.scan_barcode_for_pos` 返回模板与颜色选项，`public/js/pos_custom.js` 再打开选色弹窗。
+
+本次生产回读覆盖 7 个模板、66 个启用颜色变体（窗帘 46 个，窗帘杆 20 个）：模板条码均唯一且无跨模板冲突，已修正 66 个变体 `custom_label_barcode`；审计发现变体原生 `Item Barcode` 行为 0，因此删除数为 0、无模板例外。POS 扫码与标签搜索均对 7 个模板逐一通过。Item Price 158 条、图片、`variant_of`、颜色属性与 Bin 库存快照保持不变；窗帘杆仍为 8040 根、库存价值 2,444,640 MZN。变更前完整备份标识：`20260920_214231`。
+
 #### 6.5.3 多语言策略
 
 | 用户 | 语言设置 | 看到的内容 |
@@ -1404,7 +1408,7 @@ ssh qq 'sudo -u frappe -i bash -l -c "
 2. 保存后该颜色**全店可用**（其他款窗帘也能用）
 3. 回到需要此色的窗帘模板，attributes 加行 `Cor = Verde` → 创建变体 → 生成 `CR-003-VE`
 
-> ⚠️ 若使用真实 EAN 条码，注意 `Code128` 类型可绕过校验（见 6.5.2）。新 Variant 的条码：颜色 Variant 一般不需要独立条码（条码在模板上，扫码弹窗选色），如个别颜色需要独立条码可单独加。
+> ⚠️ 若使用真实 EAN 条码，注意 `Code128` 类型可绕过校验（见 6.5.2）。`Cor` 颜色 Variant 不添加原生 Item Barcode；其 `custom_label_barcode` 必须等于模板唯一的原包装条码。扫描仍由模板条码触发颜色选择，标签也打印该共享条码。
 
 ##### 场景 C：修改一款窗帘的颜色
 

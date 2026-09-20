@@ -70,7 +70,7 @@ def search_items_for_label(query=None, limit=20):
 
     result = []
     for item in items:
-        barcodes = _get_barcodes(item.item_code)
+        barcodes = _get_barcodes(item.item_code, bool(item.variant_of))
         item.barcodes = barcodes
         item.display_name = (
             item.custom_chinese_name
@@ -151,7 +151,7 @@ def _find_by_barcode(query):
             """, {"template": item.item_code}, as_dict=True)
             for v in variants:
                 v.stock_qty = int(v.stock_qty or 0)
-                v.barcodes = _get_barcodes(v.item_code)
+                v.barcodes = _get_barcodes(v.item_code, True)
                 v.display_name = (
                     v.custom_chinese_name or v.custom_pos_short_name
                     or v.item_name or v.item_code
@@ -162,7 +162,7 @@ def _find_by_barcode(query):
                 v.template_chinese_name = item.custom_chinese_name or ""
                 result.append(v)
         else:
-            item.barcodes = _get_barcodes(item.item_code)
+            item.barcodes = _get_barcodes(item.item_code, bool(item.variant_of))
             item.display_name = (
                 item.custom_chinese_name or item.custom_pos_short_name
                 or item.item_name or item.item_code
@@ -179,8 +179,8 @@ def _find_by_barcode(query):
     return result
 
 
-def _get_barcodes(item_code):
-    """获取物料的所有条码"""
+def _get_barcodes(item_code, is_variant=False):
+    """获取物料的原生条码和标签条码；颜色变体不把货号伪装成条码。"""
     barcodes = frappe.get_all(
         "Item Barcode",
         filters={"parent": item_code},
@@ -193,7 +193,7 @@ def _get_barcodes(item_code):
         barcodes.append({"barcode": label_bc, "barcode_type": "EAN"})
         existing.add(label_bc)
 
-    if item_code not in existing:
+    if not is_variant and item_code not in existing:
         barcodes.append({"barcode": item_code, "barcode_type": "Code128"})
 
     return barcodes
