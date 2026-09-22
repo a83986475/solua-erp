@@ -37,15 +37,25 @@ frappe = types.ModuleType("frappe")
 frappe._ = lambda text: text
 frappe.throw = fail
 frappe.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda field: field != "phone")
-frappe.db = types.SimpleNamespace(get_value=lambda dt, name, field: "COMPANY-NUIT" if dt == "Company" and field == "tax_id" else ("STORE-A" if dt=="Contact" and name=="CONTACT-A" else "888"))
+def db_get_value(dt, name, field, **kwargs):
+    if dt == "Company" and field == "tax_id":
+        return "COMPANY-NUIT"
+    if dt == "Contact" and name == "CONTACT-A":
+        return "STORE-A"
+    if dt == "Item" and kwargs.get("as_dict"):
+        return Doc(variant_of="", description="<p>Standard description</p>", custom_item_description_pt="Cortina <b>vermelha</b>")
+    return "888"
+
+
+frappe.db = types.SimpleNamespace(get_value=db_get_value)
 frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
-frappe.get_all = lambda *a, **k: []
+frappe.get_all = lambda dt, *a, **k: [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else []
 frappe.get_list = lambda *a, **k: []
 frappe.utils = types.SimpleNamespace(fmt_money=lambda value, currency: f"{value or 0:.2f} {currency}")
 sys.modules["frappe"] = frappe
 color = types.ModuleType("solua_home.printing.color_card")
-color.get_item_color_info = lambda code: {"order_code":code,"color_code":"01","color_name":"Red","image":"/red.png"}
+color.get_item_color_info = lambda code: {"order_code":code,"color_code":"01","color_name":"Red","image":"/red.png", "template_code":"STYLE", "card_url":"/colors?q=STYLE"}
 sys.modules[color.__name__] = color
 spec = importlib.util.spec_from_file_location("wholesale_candidate", ROOT / "printing/wholesale.py")
 module = importlib.util.module_from_spec(spec)
@@ -110,6 +120,10 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     assert fmt["module"] == "Solua Wholesale"
     html = env.from_string(fmt["html"]).render(doc=document)
     assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20.00 MZN" in html
+    if folder == "sales_order_wholesale_color":
+        for header in ("Artigo / 商品", "SKU / 货号", "色号 / Cor"):
+            assert header in html  # legacy documents default all three columns to visible
+        assert "6901234567892" in html and "Cortina vermelha" in html and "描述 / Descrição" in html
     assert "WRONG BILLING" not in html and "NEW ADDRESS" not in html
     option_doc=Doc(document)
     option_snapshot=json.loads(option_doc.custom_wholesale_snapshot)
@@ -122,8 +136,50 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
         rendered=env.from_string(fmt["html"]).render(doc=option_doc)
         assert ('class="photo"' in rendered)==bool(images)
         assert ('class="qr"' in rendered)==bool(qr)
+    if folder in ("sales_order_wholesale_color", "delivery_note_guia_remessa"):
+        assert "<colgroup>" not in fmt["html"]  # no reserved width for hidden columns
+        for item_name in (0, 1):
+            for sku in (0, 1):
+                for color_code in (0, 1):
+                    for description in (0, 1):
+                        option_doc.custom_print_item_name = item_name
+                        option_doc.custom_print_sku = sku
+                        option_doc.custom_print_color_code = color_code
+                        option_doc.custom_print_description = description
+                        rendered = env.from_string(fmt["html"]).render(doc=option_doc)
+                        assert ("Artigo / 商品" in rendered) == bool(item_name)
+                        assert ("SKU / 货号" in rendered) == bool(sku)
+                        assert ("色号 / Cor" in rendered) == bool(color_code)
+                        assert ("描述 / Descrição" in rendered) == bool(description)
+    if folder == "delivery_note_guia_remessa":
+        assert "table-layout:fixed" not in fmt["css"]
     env.globals["get_color_card_qr_img"]=lambda name:""
-print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; two strict Jinja HTML renders")
+# The wholesale invoice must stay an ordinary editable Jinja format, never a raw-printing one.
+invoice_folder = "sales_invoice_wholesale_color"
+invoice_fmt = json.loads((ROOT / "print_format" / invoice_folder / (invoice_folder + ".json")).read_text(encoding="utf-8"))
+assert invoice_fmt["doc_type"] == "Sales Invoice" and invoice_fmt["module"] == "Solua Home 定制"
+assert invoice_fmt["custom_format"] == 1 and invoice_fmt["standard"] == "No" and invoice_fmt["disabled"] == 0
+assert invoice_fmt["html"] and invoice_fmt["raw_printing"] == 0 and not invoice_fmt["raw_commands"]
+env.globals["_"] = lambda text: text
+env.globals["get_item_color_info"] = lambda code: Doc(order_code="STYLE-01", color_code="01", color_name="Red",
+                                                      display_name="Red curtain", image="/red.png",
+                                                      template_code="STYLE", card_url="/colors?q=STYLE")
+env.globals["get_color_card_qr_img"] = lambda name: "data:image/png;base64,QR_TEST"
+# Sales Invoice now uses the same shared data path as SO and DN, including real
+# barcode lookup and Portuguese description fallback.
+invoice = Doc(
+    doctype="Sales Invoice", name="ACC-SINV-CHECK-1", docstatus=1, company="Solua Home, Lda",
+    customer="C", customer_name="Customer", posting_date="2026-09-21", currency="MZN", grand_total=40,
+    custom_print_color_images=1, custom_print_color_qr=1, custom_print_item_name=1, custom_print_sku=1,
+    custom_print_color_code=1, custom_print_description=1,
+    items=[Doc(item_code="SH151046-01", item_name="Curtain", qty=2, rate=20, amount=40, uom="条")])
+rendered_invoice = env.from_string(invoice_fmt["html"]).render(doc=invoice)
+assert "SH151046-01" in rendered_invoice and "6901234567892" in rendered_invoice
+assert "Cortina vermelha" in rendered_invoice and "40.00 MZN" in rendered_invoice
+assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
+assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
+assert "Descrição" in rendered_invoice and "SKU / 货号" in rendered_invoice
+print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; invoice barcode/description; independent column switches")
 
 # Customer ownership and contact-address linkage fail closed.
 frappe.db.exists=lambda dt,filters:False
@@ -224,18 +280,25 @@ frappe.utils=utils
 frappe.session=types.SimpleNamespace(user="manager")
 frappe.whitelist=lambda:lambda fn:fn
 frappe.read_only=lambda:lambda fn:fn
-frappe.defaults=types.SimpleNamespace(get_user_default=lambda key:None)
+stock_settings_warehouse = "W1"
+user_default_warehouse = "W2"
+frappe.db.get_single_value = lambda dt, field: stock_settings_warehouse if (dt, field) == ("Stock Settings", "default_warehouse") else None
+frappe.defaults=types.SimpleNamespace(get_user_default=lambda key:user_default_warehouse if key=="Warehouse" else None)
 frappe.get_meta=lambda dt:types.SimpleNamespace(has_field=lambda field:field!="base_outstanding_amount")
 frappe.db.exists=lambda *a,**k:True
 role={"manager"}
 frappe.has_permission=lambda dt,ptype="read": role=={"manager"} or dt in {"Company","Warehouse","Item","Bin"}
+frappe.get_roles=lambda user=None: role
 def invoice(name,amount,outstanding=0,rate=1,**extra):
     return Doc(name=name,company="Solua Home, Lda",docstatus=1,posting_date="2026-09-15",
         base_grand_total=amount,outstanding_amount=outstanding,conversion_rate=rate,
         due_date="2026-09-14",customer="C",is_return=int(amount<0),custom_is_topup=0,**extra)
 tables={
  "Company":[Doc(name="Solua Home, Lda",default_currency="MZN")],
- "Warehouse":[Doc(name="W1",company="Solua Home, Lda",is_group=0)],
+ "Warehouse":[Doc(name="W1",company="Solua Home, Lda",is_group=0),
+              Doc(name="W2",company="Solua Home, Lda",is_group=0),
+              Doc(name="W-GROUP",company="Solua Home, Lda",is_group=1),
+              Doc(name="W-OTHER",company="Other Company",is_group=0)],
  "Sales Invoice":[invoice("SI",100,10,2),invoice("MERGED",200,20,is_consolidated=1),
                   invoice("RETURN",-25),invoice("HIDDEN",900)],
  "POS Invoice":[invoice("POS",50,5),invoice("POS-MERGED",200,20,consolidated_invoice="MERGED")],
@@ -272,14 +335,39 @@ frappe.get_all=listing
 home_spec=importlib.util.spec_from_file_location("home_candidate",ROOT/"api/home.py")
 home=importlib.util.module_from_spec(home_spec);home_spec.loader.exec_module(home)
 result=home.get_dashboard_data()
+assert result["warehouse"]=="W1"  # Stock Settings beats the user default.
+assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W2")=="W2"  # Explicit accessible warehouse wins.
+assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W-GROUP")=="W2"  # Group requests fall back safely.
+assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W-OTHER")=="W2"  # Cross-company requests are rejected.
+user_default_warehouse = "W-MISSING"
+assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W-OTHER")=="W1"  # Final fallback is an accessible leaf.
+user_default_warehouse = "W2"
 assert result["invoiced_today"]["amount"]==325  # 100+200-25+50; linked POS excluded.
 assert result["outstanding"]["amount"]==45  # 10*2 + 20 + 5; no second advance subtraction.
 assert result["sales"]["return_count"]==1
 assert home._low_stock("W1")["count"]==1
 assert home._low_stock("W1")["items"][0]["actual_qty"]==2
+# 资料准备 must name the items behind every count, not just report how many.
+item_data=home._item_data_status()
+assert item_data["state"]=="ok" and item_data["item_count"]==2
+assert item_data["checked_count"]==1 and item_data["template_count"]==1  # templates are not checked
+assert item_data["missing_image"]==1 and item_data["missing_color_code"]==0
+assert [issue["key"] for issue in item_data["issues"]]==["missing_image","missing_color_code"]
+assert [issue["field"] for issue in item_data["issues"]]==["image","custom_color_code"]
+assert item_data["issues"][0]["count"]==1 and item_data["issues"][1]["count"]==0
+assert [row["name"] for row in item_data["issues"][0]["items"]]==["RED"]
+assert item_data["issues"][0]["items"][0]["item_name"]=="Red"
+assert item_data["issues"][1]["items"]==[] and not item_data["issues"][1]["truncated"]
+# STYLE is a template: no image and no colour code is its normal state, never a finding.
+assert "STYLE" not in [row["name"] for issue in item_data["issues"] for row in issue["items"]]
+tables["Item Variant Attribute"]=[Doc(parent="RED",parenttype="Item",attribute="Cor",attribute_value="Red"),
+                                  Doc(parent="STYLE",parenttype="Item",attribute="Cor",attribute_value="Style")]
+assert home._item_data_status()["missing_color_code"]==1  # colour rows without 固定色号 are named too
+assert home._item_data_status()["issues"][1]["items"][0]["name"]=="RED"
+tables["Item Variant Attribute"]=[]
+assert home.get_dashboard_data()["item_data"]["issues"][0]["items"][0]["name"]=="RED"
 assert [r.parent for r in home._list("Item Barcode",{"barcode":"SHARED"},["parent"])]==["RED"]
 assert home.get_dashboard_data(company="Forbidden")["state"]=="no_permission"
-assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W2") is None
 tables["Bin"]=[]
 assert home._low_stock("W1")["state"]=="incomplete" and home._low_stock("W1")["count"] is None
 role.clear();role.add("warehouse")
@@ -288,7 +376,56 @@ frappe.session.user="Guest"
 assert home.get_dashboard_data()["state"]=="no_permission"
 assert home.search_items("SHARED")["state"]=="no_permission"
 assert home.get_color_variants(barcode="SHARED")["state"]=="no_permission"
-print("PASS: nonempty SI/POS merge and return 325; FX outstanding 45; warehouse role/Guest/parent Item/company/warehouse/hidden Bin isolation")
+print("PASS: nonempty SI/POS merge and return 325; FX outstanding 45; warehouse role/Guest/parent Item/company/warehouse/hidden Bin isolation; item-data drill-down names the items behind each count and skips templates")
+
+# Cashier homepage mode: POS Profile membership (never a desk role) decides it.
+tables["POS Profile User"]=[Doc(name="PPU",parent="收银方式1 - SH",user="pos1@solua.one",parenttype="POS Profile",pos_role=None)]
+tables["POS Profile"]=[Doc(name="收银方式1 - SH",disabled=0)]
+profile_disabled=0
+saved_get_value=frappe.db.get_value
+frappe.db.has_column=lambda dt,field: True
+def fake_get_value(dt,name,field=None,**kwargs):
+    if (dt,name)==("POS Profile","收银方式1 - SH"):return profile_disabled
+    if dt=="POS Profile User":
+        row=tables["POS Profile User"][0]
+        filters=name
+        if filters.get("user")!=row.user or filters.get("parent")!=row.parent:return None
+        return getattr(row,field,None)
+    return saved_get_value(dt,name,field)
+frappe.db.get_value=fake_get_value
+frappe.session.user="pos1@solua.one"
+role.clear();role.add("POS Cashier")
+assert home._pos_cashier_profile()=="收银方式1 - SH"
+cashier=home.get_dashboard_data()
+assert cashier["state"]=="ok" and cashier["home_mode"]=="pos"
+assert cashier["pos_profile"]=="收银方式1 - SH"
+assert "warehouse" not in cashier and "low_stock" not in cashier and "invoiced_today" not in cashier
+assert "orders_pending" not in cashier and "item_data" not in cashier
+assert cashier["stock_entry_types"]=={} and "permissions" in cashier
+role.add("System Manager")  # a manager assigned to the profile keeps the full homepage
+assert home._pos_cashier_profile() is None
+assert home.get_dashboard_data()["home_mode"]=="desk"
+role.discard("System Manager")
+role.add("Accounts Manager")  # any POS manager role disables the cashier view
+assert home._pos_cashier_profile() is None
+role.discard("Accounts Manager")
+# A shift supervisor (xPos POS Role Manager/Administrator) keeps the desk homepage.
+tables["POS Profile User"][0].pos_role="Manager"
+assert home._pos_cashier_profile() is None
+assert home.get_dashboard_data()["home_mode"]=="desk"
+tables["POS Profile User"][0].pos_role="Cashier"
+assert home._pos_cashier_profile()=="收银方式1 - SH"
+tables["POS Profile User"][0].pos_role=None
+profile_disabled=1  # a disabled profile no longer identifies a cashier
+assert home._pos_cashier_profile() is None
+profile_disabled=0
+frappe.session.user="another@solua.one"  # not on any profile
+assert home._pos_cashier_profile() is None
+frappe.session.user="manager"
+frappe.db.get_value=saved_get_value
+role.clear();role.add("manager")
+assert home.get_dashboard_data()["home_mode"]=="desk"
+print("PASS: cashier POS-only payload (profile membership, manager roles and disabled profiles keep the desk homepage)")
 
 # Targeted installer: exercise actual field loop twice, then injected import error.
 created_fields=set();installed_modules=set();module_inserts=0;imports=[];commits=[];rollbacks=[];module_map_refresh=[]
@@ -304,7 +441,7 @@ class InstallDoc(types.SimpleNamespace):
 def install_get_doc(arg,name=None):
     if isinstance(arg,dict):return InstallDoc(**arg)
     if arg=="Page":return InstallDoc(name="solua-home",module="Solua Wholesale")
-    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Wholesale")
+    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）" else "Solua Wholesale")
     raise AssertionError(arg)
 frappe.get_doc=install_get_doc
 frappe.get_attr=lambda name:lambda:None
@@ -329,7 +466,7 @@ installer=importlib.util.module_from_spec(install_spec);install_spec.loader.exec
 installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
-assert len(imports)==6 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
+assert len(imports)==8 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()

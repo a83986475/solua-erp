@@ -40,8 +40,11 @@ const frappe = {
   }},
   show_alert(){},msgprint(){},
 };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms.js"),"utf8"),
-  {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:{open(){}}});
+const browser = {open(){}};
+const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms.js"),"utf8"), script_scope);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options.js"),"utf8"), script_scope);
+const salesTools = browser.solua_home_sales_order_tools;
 const flush = () => new Promise(resolve=>setImmediate(resolve));
 function form(dt,status=0){
  const frm={doctype:dt,doc:{docstatus:status,items:[],set_warehouse:"W1"},buttons:[],
@@ -56,6 +59,11 @@ async function query(d,code="A"){
  const p=d.action();requests.at(-1).resolve(data);await p;
 }
 (async()=>{
+ assert.equal(salesTools.is_positive_integer("2"),true);
+ assert.equal(salesTools.is_positive_integer("2.5"),false);
+ const selection=[{include:0},{include:1},{include:0}];
+ salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.include),[1,1,1]);
+ salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.include),[0,0,0]);
  for(const dt of ["Purchase Receipt","Stock Reconciliation"]) assert.equal(form(dt,1).buttons.length,0);
  const receipt=form("Purchase Receipt");receipt.buttons[0].fn();const d=dialogs.at(-1);
  d.values.barcode="missing";let p=d.action();requests.at(-1).resolve({message:{templates:[]}});await p;
@@ -83,14 +91,18 @@ async function query(d,code="A"){
  await query(c);c.values.variant="red";
  for(const invalid of ["","1.5","-1"]){c.values.qty=invalid;await c.action();assert.equal(count.doc.items.length,0);}
  c.values.qty="0";await c.action();assert.equal(count.doc.items.length,1);assert.equal(count.doc.items[0].qty,0);
- const submitted=form("Sales Order",1);submitted.is_new=()=>false;
- submitted.fields_dict={custom_print_color_images:{},custom_print_color_qr:{}};
- submitted.set_value=async()=>{};submitted.is_dirty=()=>true;
- let save_mode;submitted.save=async mode=>{save_mode=mode;};
- handlers["Sales Order"].refresh(submitted);
- assert.equal(submitted.buttons.length,1);
- submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
- await print_dialog.action({show_images:1,show_qr:0});assert.equal(save_mode,"Update");
- submitted.buttons=[];handlers["Sales Order"].refresh(submitted);assert.equal(submitted.buttons.length,1);
+ async function assert_print_switches(dt) {
+  const submitted=form(dt,1);submitted.is_new=()=>false;
+  submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{}};
+  let saved_changes;submitted.set_value=async changes=>{saved_changes=changes;};submitted.is_dirty=()=>true;
+  let save_mode;submitted.save=async mode=>{save_mode=mode;};
+  handlers[dt].refresh(submitted);
+  assert.equal(submitted.buttons.length,1);
+  submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
+  await print_dialog.action({show_item_name:0,show_sku:1,show_color_code:0,show_description:0,show_images:1,show_qr:0});
+  assert.equal(save_mode,"Update");
+  assert.equal(JSON.stringify(saved_changes),JSON.stringify({custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0}));
+ }
+ for (const dt of ["Sales Order","Sales Invoice","Delivery Note"]) await assert_print_switches(dt);
  await flush();console.log("PASS: retry, stale responses, explicit selection, reset, item+warehouse, append/replace, integer/zero/blank, double click, submitted guards");
 })().catch(e=>{console.error(e);process.exitCode=1;});

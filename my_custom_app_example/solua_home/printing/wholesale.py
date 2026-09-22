@@ -1,12 +1,89 @@
 """Submission snapshots and read-only data for the two wholesale prints."""
 
+import html
 import json
+import re
 
 import frappe
 from frappe import _
 
 COMPANY_NAME = "Solua Home, Lda"
 COMPANY_ADDRESS_LINE = "AV. DO TRABALHO, n.º 231, Cidade de Maputo"
+
+
+def _clean_item_text(value):
+    """Return one readable line without HTML or duplicated source fields."""
+    if not value:
+        return ""
+    text = re.sub(r"<br\s*/?>", "\n", str(value), flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return " ".join(html.unescape(text).split())
+
+
+def _usable_barcode(value, item_code):
+    value = str(value or "").strip()
+    return value if value and value != str(item_code or "").strip() else ""
+
+
+def _item_master(item_code):
+    if not item_code:
+        return {}
+    fields = ["variant_of", "description"]
+    meta = frappe.get_meta("Item")
+    for field in ("custom_item_description_pt", "custom_label_barcode"):
+        if meta.has_field(field):
+            fields.append(field)
+    data = frappe.db.get_value("Item", item_code, fields, as_dict=True) or {}
+    return data if hasattr(data, "get") else {}
+
+
+def _item_barcodes(item_code):
+    rows = frappe.get_all(
+        "Item Barcode",
+        filters={"parent": item_code},
+        fields=["barcode", "barcode_type"],
+        order_by="idx asc",
+        limit_page_length=20,
+    )
+    return rows or []
+
+
+def get_item_sales_display(item_code, row_description=""):
+    """Resolve the real barcode and the single best sales description.
+
+    Variant item codes are never used as barcodes. A variant may use its own
+    native Item Barcode, otherwise its inherited custom label barcode or the
+    template's native barcode is used.
+    """
+    item = _item_master(item_code)
+    barcode = ""
+    barcode_type = ""
+    for row in _item_barcodes(item_code):
+        barcode = _usable_barcode(row.get("barcode"), item_code)
+        if barcode:
+            barcode_type = row.get("barcode_type") or ""
+            break
+    if not barcode:
+        barcode = _usable_barcode(item.get("custom_label_barcode"), item_code)
+        barcode_type = "code128" if barcode else ""
+    if not barcode and item.get("variant_of"):
+        template_code = item.get("variant_of")
+        template = _item_master(template_code)
+        for row in _item_barcodes(template_code):
+            barcode = _usable_barcode(row.get("barcode"), template_code)
+            if barcode:
+                barcode_type = row.get("barcode_type") or ""
+                break
+        if not barcode:
+            barcode = _usable_barcode(template.get("custom_label_barcode"), template_code)
+            barcode_type = "code128" if barcode else ""
+
+    description = _clean_item_text(item.get("custom_item_description_pt"))
+    if not description:
+        description = _clean_item_text(item.get("description"))
+    if not description:
+        description = _clean_item_text(row_description)
+    return {"barcode": barcode, "barcode_type": barcode_type, "description": description}
 
 
 def _value(doctype, name, field):
@@ -89,10 +166,12 @@ def _collect(doc):
     items = []
     for row in doc.get("items", []):
         color = get_item_color_info(row.item_code)
+        sales_display = get_item_sales_display(row.item_code, row.get("description"))
         items.append({
             "item_code": row.item_code, "item_name": row.get("item_name") or row.item_code,
             "order_code": color.get("order_code") or row.item_code,
             "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
+            "barcode": sales_display["barcode"], "description": sales_display["description"],
             "image": color.get("image") or "", "template_code": color.get("template_code") or "",
             "uom": row.get("uom") or row.get("stock_uom") or "",
             "qty": row.get("qty"), "rate": row.get("rate"), "amount": row.get("amount"),

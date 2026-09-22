@@ -61,7 +61,7 @@ def refresh_wholesale_module_map():
 
 
 def install_wholesale_only():
-    """Install only the reviewed wholesale page, fields and two print formats."""
+    """Install only the reviewed wholesale page, fields and three print formats."""
     import os
     from frappe.modules.import_file import import_file_by_path
     from frappe.modules import get_module_path
@@ -74,7 +74,7 @@ def install_wholesale_only():
         ensure_wholesale_module()
         add_wholesale_fields(commit=False)
         base = os.path.dirname(__file__)
-        for folder in ("sales_order_wholesale_color", "delivery_note_guia_remessa"):
+        for folder in ("sales_order_wholesale_color", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
             import_file_by_path(os.path.join(base, "print_format", folder, folder + ".json"),
                                 force=True, ignore_version=True)
         import_file_by_path(os.path.join(base, "solua_wholesale", "page", "solua_home", "solua_home.json"),
@@ -97,9 +97,13 @@ def install_wholesale_only():
         ):
             if not callable(frappe.get_attr(method)):
                 raise RuntimeError("Invalid hook: " + method)
-        for name in ("客户订单确认单（颜色版）", "Guia de Remessa"):
+        for name, expected_module in (
+            ("客户订单确认单（颜色版）", "Solua Wholesale"),
+            ("批发销售单（颜色版）", "Solua Home 定制"),
+            ("Guia de Remessa", "Solua Wholesale"),
+        ):
             fmt = frappe.get_doc("Print Format", name)
-            if not fmt.html or fmt.raw_printing or fmt.module != "Solua Wholesale":
+            if not fmt.html or fmt.raw_printing or fmt.module != expected_module:
                 raise RuntimeError("Invalid HTML print format: " + name)
         frappe.db.commit()
     except Exception:
@@ -765,6 +769,42 @@ def add_sales_color_print_fields():
             "allow_on_submit": 1,
             "description": "批发销售单打印格式开启时，显示对应款式的公开色卡二维码",
         },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_item_name",
+            "label": "销售单显示商品名称",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_qr",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_sku",
+            "label": "销售单显示 SKU/货号",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_item_name",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_code",
+            "label": "销售单显示色号",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_sku",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_description",
+            "label": "销售单显示商品描述",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_code",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
     ]
 
     for field in fields:
@@ -799,6 +839,11 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_invoice_plan", "label": "开票安排", "fieldtype": "Small Text", "insert_after": "terms"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_images", "label": "订单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
+        {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
+        {"dt": "Sales Order", "fieldname": "custom_print_sku", "label": "订单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
         {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
         {"dt": "Delivery Note", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
         {"dt": "Delivery Note", "fieldname": "custom_departure_time", "label": "实际起运时间", "fieldtype": "Datetime", "insert_after": "posting_time"},
@@ -812,6 +857,10 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_signature_date", "label": "签收日期", "fieldtype": "Date", "insert_after": "custom_signature_name"},
         {"dt": "Delivery Note", "fieldname": "custom_print_color_images", "label": "送货单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
         {"dt": "Delivery Note", "fieldname": "custom_print_color_qr", "label": "送货单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_item_name", "label": "送货单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_sku", "label": "送货单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
@@ -868,24 +917,14 @@ def add_color_pool():
         raise ValueError(f"Color pool abbreviations conflict: {dupes}")
 
     existing = {v.attribute_value for v in attr.item_attribute_values}
-    pool = dict(CURTAIN_COLOR_POOL)
     changed = False
 
-    # 更新/新增
-    for v in attr.item_attribute_values:
-        if v.attribute_value in pool:
-            new_abbr = pool[v.attribute_value]
-            if v.abbr != new_abbr:
-                v.abbr = new_abbr
-                changed = True
-            del pool[v.attribute_value]
-        else:
-            # 不在池子里的旧值移除（避免与池子冲突）
-            attr.item_attribute_values.remove(v)
-            changed = True
-
-    # 池子里新增的
-    for value, abbr in pool.items():
+    # 生产环境可能已经用数字色号（例如 09）创建了变体。
+    # 只补充缺失的颜色池值，不删除或重写任何已有值，避免触发
+    # ERPNext 对已被 Item 使用的 Item Attribute Value 的保护校验。
+    for value, abbr in CURTAIN_COLOR_POOL:
+        if value in existing:
+            continue
         attr.append("item_attribute_values", {"attribute_value": value, "abbr": abbr})
         changed = True
 
