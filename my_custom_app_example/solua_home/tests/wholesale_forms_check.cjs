@@ -63,14 +63,15 @@ async function query(d,code="A"){
 (async()=>{
 	assert.equal(salesTools.is_positive_integer("2"),true);
 	assert.equal(salesTools.is_positive_integer("2.5"),false);
- const selection=[{include:0},{include:1},{include:0}];
- salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.include),[1,1,1]);
- salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.include),[0,0,0]);
+	const selection=[{__checked:0},{__checked:1},{__checked:0}];
+	salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.__checked),[1,1,1]);
+	salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.__checked),[0,0,0]);
 	for(const dt of ["Purchase Receipt","Stock Reconciliation"]) assert.equal(form(dt,1).buttons.length,0);
 	const salesOrder = form("Sales Order");
 	salesOrder.buttons[0].fn();
 	assert.equal(dialogs.at(-1).label, "查询颜色");
 	const salesColor = dialogs.at(-1);
+	salesColor.values.default_qty=4;
 	salesColor.values.barcode="TPL";salesColor.fields_dict.barcode.$input.events.input();
 	let salesLookup=salesColor.action();
 	requests.at(-1).resolve({message:{has_template:true,variants:[
@@ -79,9 +80,15 @@ async function query(d,code="A"){
 	]}});
 	await salesLookup;
 	assert.equal(salesColor.fields_dict.variant_items.df.data.length,2);
-	salesColor.fields_dict.variant_select_all.$input.events.click();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.qty),[4,4]);
+	salesColor.fields_dict.variant_select_all.$input.events["click.solua"]();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.__checked),[1,1]);
+	salesColor.fields_dict.variant_invert.$input.events["click.solua"]();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.__checked),[0,0]);
+	salesColor.fields_dict.variant_invert.$input.events["click.solua"]();
 	salesColor.fields_dict.variant_items.df.data[0].qty=2;
 	salesColor.fields_dict.variant_items.df.data[1].qty=3;
+	salesColor.fields_dict.variant_items.df.data[0].__checked=1;
 	const batchAdd=salesColor.action();
 	requests.at(-1).resolve({message:{rows:[
 		{item_code:"red",item_name:"Red",description:"Red desc",uom:"条",stock_uom:"条",rate:430,price_list_rate:430,warehouse:"W1",qty:2,custom_item_barcode:"BAR-RED"},

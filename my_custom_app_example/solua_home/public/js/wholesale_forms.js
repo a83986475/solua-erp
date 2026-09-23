@@ -14,8 +14,13 @@
 		const number = Number(value);
 		return Number.isFinite(number) && Number.isInteger(number) && number > 0;
 	};
-	const set_table_selection = (rows, value) => rows.forEach((row) => { row.include = value ? 1 : 0; });
-	const invert_table_selection = (rows) => rows.forEach((row) => { row.include = row.include ? 0 : 1; });
+	const set_table_selection = (rows, value) => rows.forEach((row) => {
+		row.__checked = value ? 1 : 0;
+	});
+	const invert_table_selection = (rows) => rows.forEach((row) => {
+		const checked = row.__checked;
+		row.__checked = checked ? 0 : 1;
+	});
 	if (typeof window !== "undefined") window.solua_home_sales_order_tools = { is_positive_integer, set_table_selection, invert_table_selection };
 
 	const sales_order_context = (frm, warehouse) => ({
@@ -217,6 +222,7 @@
 			title: is_receipt ? __("按色扫码收货") : is_sales_order ? __("销售开单选颜色") : __("按色扫码盘点"),
 			fields: [
 				{ fieldname: "barcode", label: __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
+				...(is_sales_order ? [{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, hidden: 1, description: __("加入所选颜色时的初始数量，可在表格中逐行调整") }] : []),
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },
 				...(is_sales_order ? [
@@ -224,7 +230,6 @@
 					{ fieldname: "variant_invert", label: __("反选"), fieldtype: "Button", hidden: 1 },
 				] : []),
 				...(is_sales_order ? [{ fieldname: "variant_items", label: __("可选颜色（可多选）"), fieldtype: "Table", hidden: 1, cannot_add_rows: true, cannot_delete_rows: true, in_place_edit: true, data: [], fields: [
-					{ fieldname: "include", label: __("加入"), fieldtype: "Check", in_list_view: 1 },
 					{ fieldname: "item_code", label: __("货号"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
 					{ fieldname: "color_code", label: __("Cor/色号"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
 					{ fieldname: "item_name", label: __("商品"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
@@ -256,6 +261,7 @@
 				dialog.set_df_property(field, "hidden", 1);
 			}
 			if (is_sales_order) {
+				dialog.set_df_property("default_qty", "hidden", 1);
 				dialog.fields_dict.variant_items.df.data = [];
 				dialog.set_df_property("variant_items", "hidden", 1);
 				dialog.set_df_property("variant_select_all", "hidden", 1);
@@ -277,7 +283,9 @@
 
 		const add_selected_rows = async () => {
 			if (busy) return;
-			const selected = (dialog.fields_dict.variant_items.df.data || []).filter((row) => row.include);
+			const default_qty = Number(dialog.get_value("default_qty"));
+			if (!is_positive_integer(default_qty)) return frappe.msgprint(__("默认数量必须为正整数"));
+			const selected = (dialog.fields_dict.variant_items.df.data || []).filter((row) => row.__checked);
 			const invalid = selected.filter((row) => !is_positive_integer(row.qty));
 			if (!selected.length) return frappe.msgprint(__("请至少选择一种颜色"));
 			if (invalid.length) return frappe.msgprint(__("数量必须为正整数"));
@@ -297,6 +305,17 @@
 				dialog.fields_dict.barcode.$input.focus();
 			} finally { busy = false; }
 		};
+		const bind_sales_order_selection = () => {
+			if (!is_sales_order) return;
+			dialog.fields_dict.variant_select_all.$input?.off("click.solua").on("click.solua", () => {
+				set_table_selection(dialog.fields_dict.variant_items.df.data, true);
+				dialog.fields_dict.variant_items.grid?.refresh();
+			});
+			dialog.fields_dict.variant_invert.$input?.off("click.solua").on("click.solua", () => {
+				invert_table_selection(dialog.fields_dict.variant_items.df.data);
+				dialog.fields_dict.variant_items.grid?.refresh();
+			});
+		};
 
 		const show_variants = (data) => {
 			variants = is_sales_order && data.has_template ? (data.variants || []) : (data.templates || []).flatMap((group) => group.variants || []);
@@ -305,15 +324,18 @@
 				return;
 			}
 			if (is_sales_order && data.has_template) {
-				const rows = variants.map((row) => ({ ...row, include: 0, qty: 1 }));
+				const default_qty = is_positive_integer(dialog.get_value("default_qty")) ? Number(dialog.get_value("default_qty")) : 1;
+				const rows = variants.map((row) => ({ ...row, __checked: 0, qty: default_qty }));
 				dialog.fields_dict.variant_items.df.data = rows;
 				dialog.fields_dict.variant_items.grid?.refresh();
+				dialog.set_df_property("default_qty", "hidden", 0);
 				dialog.set_df_property("variant_items", "hidden", 0);
 				dialog.set_df_property("variant_select_all", "hidden", 0);
 				dialog.set_df_property("variant_invert", "hidden", 0);
 				dialog.set_df_property("variant", "hidden", 1);
 				dialog.set_df_property("qty", "hidden", 1);
 				dialog.set_df_property("duplicate_mode", "hidden", 1);
+				bind_sales_order_selection();
 				dialog.set_primary_action(__("加入所选颜色"), add_selected_rows);
 				return;
 			}
@@ -354,17 +376,6 @@
 				if (current_request === request_id && !variants.length) dialog.set_primary_action(__("查询颜色"), lookup);
 			}
 		};
-		if (is_sales_order) {
-			dialog.fields_dict.variant_select_all.$input?.on("click", () => {
-				set_table_selection(dialog.fields_dict.variant_items.df.data, true);
-				dialog.fields_dict.variant_items.grid?.refresh();
-			});
-			dialog.fields_dict.variant_invert.$input?.on("click", () => {
-				invert_table_selection(dialog.fields_dict.variant_items.df.data);
-				dialog.fields_dict.variant_items.grid?.refresh();
-			});
-		}
-
 		const add_row = async () => {
 			if (busy) return;
 			const item_code = dialog.get_value("variant");
