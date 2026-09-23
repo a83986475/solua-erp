@@ -131,7 +131,6 @@ def after_install():
     configure_pos_tax()
     ensure_solua_stock_entry_types()
     sync_standard_print_formats()
-    disable_standard_sales_order_image_format()
     sync_standard_pages()
     add_member_system_fields()
     frappe.db.commit()
@@ -140,38 +139,6 @@ def after_install():
 def after_migrate():
     """每次迁移后执行"""
     after_install()
-
-
-def disable_standard_sales_order_image_format():
-    """Keep the obsolete standard Sales Order format out of print choices."""
-    target = "Sales Order with Item Image"
-    custom = "客户订单确认单（颜色版）"
-    target_record = frappe.db.get_value(
-        "Print Format", target, ["doc_type", "standard", "disabled"], as_dict=True
-    )
-    if not target_record:
-        return
-    if target_record.doc_type != "Sales Order" or target_record.standard not in (1, "1", "Yes"):
-        raise RuntimeError("Unexpected Print Format: " + target)
-
-    custom_record = frappe.db.get_value(
-        "Print Format", custom, ["doc_type", "disabled"], as_dict=True
-    )
-    if not custom_record or custom_record.doc_type != "Sales Order" or custom_record.disabled:
-        raise RuntimeError("Required enabled Sales Order Print Format is unavailable: " + custom)
-
-    if frappe.get_meta("Sales Order").default_print_format == target:
-        frappe.make_property_setter({
-            "doctype": "Sales Order",
-            "doctype_or_field": "DocType",
-            "property": "default_print_format",
-            "property_type": "Link",
-            "value": custom,
-        })
-        frappe.clear_cache(doctype="Sales Order")
-
-    if not target_record.disabled:
-        frappe.db.set_value("Print Format", target, "disabled", 1, update_modified=False)
 
 
 def sync_standard_print_formats():
