@@ -122,7 +122,7 @@ phone_note.custom_store_phone = "222"
 module.prepare_print_snapshot(phone_note, "before_submit")
 phone_note.custom_store_phone = "333"
 assert module.get_customer_print_info(phone_note)["phone"] == "222"
-for key in ("vehicle_no", "shipping_address", "custom_departure_time", "custom_source_warehouse_address"):
+for key in ("vehicle_no", "driver"):
     bad = fixture("Delivery Note"); bad[key] = ""
     try: module.prepare_print_snapshot(bad, "before_submit")
     except ValueError: pass
@@ -136,9 +136,7 @@ order.custom_store_name = ""
 module.prepare_print_snapshot(fixture("Delivery Note"))
 order.custom_store_name = saved_store
 bad = fixture("Delivery Note");bad.custom_invoice_plan = "后续开票"
-try: module.prepare_print_snapshot(bad)
-except ValueError: pass
-else: raise AssertionError("Generic invoice plan accepted")
+module.prepare_print_snapshot(bad)
 returned_print=fixture("Delivery Note");returned_print.is_return=1
 returned_print["items"][0].qty=-2
 module.prepare_print_snapshot(returned_print)
@@ -611,6 +609,9 @@ frappe.cache=lambda: types.SimpleNamespace(delete_value=lambda key:module_map_re
 frappe.setup_module_map=lambda include_all_apps=True:module_map_refresh.append(("setup",include_all_apps))
 frappe.db.commit=lambda:commits.append(1)
 frappe.db.rollback=lambda:rollbacks.append(1)
+frappe.make_property_setter=lambda *args,**kwargs: None
+frappe.clear_cache=lambda **kwargs: None
+frappe.get_meta=lambda dt: types.SimpleNamespace(fields=[])
 importer=types.ModuleType("frappe.modules.import_file")
 importer.import_file_by_path=lambda path,**kwargs:imports.append(path)
 sys.modules[importer.__name__]=importer

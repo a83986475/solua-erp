@@ -375,8 +375,7 @@ def prepare_print_snapshot(doc, method=None):
             "客户名称": customer["name"], "客户门店": customer["store"],
             "客户收货地址": customer["address"], "客户收货地址记录": customer["address_name"],
             "门店联系人": customer["contact"], "门店电话": customer["phone"],
-            "门店联系人记录": contact_name,
-            "起运时间": transport["departure_time"], "仓库具体地址": transport["source_address"],
+            "门店联系人记录": contact_name, "司机主档": doc.get("driver"),
             "车牌": transport["vehicle_no"], "司机姓名": transport["driver_name"], "司机电话": transport["driver_phone"],
         }
         missing = [label for label, value in required.items() if not str(value or "").strip()]
@@ -385,19 +384,6 @@ def prepare_print_snapshot(doc, method=None):
         names = sorted({r.get("against_sales_order") for r in doc.get("items", []) if r.get("against_sales_order")})
         if not names:
             frappe.throw(_("Guia 必须关联销售订单"))
-        for name in names:
-            order = frappe.get_doc("Sales Order", name)
-            # 2026-09-23 用户要求关闭：客户/门店/收货地址一致性校验（本项目自定义，非 Frappe 自带）。
-            # 送货联系人一致性仍保留。
-            if order.get("contact_person") != contact_name:
-                frappe.throw(_("送货联系人与所选门店订单不一致"))
-        linked_invoices = frappe.get_all("Sales Invoice Item", filters={"delivery_note": doc.name}, pluck="parent")
-        has_invoice = bool(linked_invoices and frappe.db.exists(
-            "Sales Invoice", {"name": ["in", linked_invoices], "docstatus": 1}))
-        if not has_invoice:
-            plan = data["invoice_plan"].strip()
-            if len(plan) < 8 or plan in ("按订单维护", "各订单分别维护", "请按后续安排开票", "后续开票", "未维护"):
-                frappe.throw(_("尚未开票，请填写具体开票时间或触发条件及对应订单安排"))
     doc.custom_wholesale_snapshot = json.dumps(data, ensure_ascii=False, default=str)
     return data
 

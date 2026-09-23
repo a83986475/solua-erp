@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import json
+
 import frappe
 
 
@@ -868,17 +870,21 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
-        {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
+        {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "contact_info"},
         {"dt": "Delivery Note", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
-        {"dt": "Delivery Note", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
-        {"dt": "Delivery Note", "fieldname": "custom_departure_time", "label": "实际起运时间", "fieldtype": "Datetime", "insert_after": "posting_time"},
-        {"dt": "Delivery Note", "fieldname": "custom_source_warehouse_address", "label": "发货仓库地址", "fieldtype": "Small Text", "insert_after": "company_address_display", "description": "公司与仓库目前同址：AV. DO TRABALHO, n.º 231, Cidade de Maputo；如以后分仓请在单据上维护当次地址"},
-        {"dt": "Delivery Note", "fieldname": "custom_driver_phone", "label": "司机电话", "fieldtype": "Data", "insert_after": "driver_name"},
-        {"dt": "Delivery Note", "fieldname": "custom_box_count", "label": "箱数", "fieldtype": "Int", "insert_after": "transporter_info", "description": "适用时填写；不适用留空"},
+        {"dt": "Delivery Note", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "shipping_address"},
+        {"dt": "Delivery Note", "fieldname": "custom_departure_time", "label": "实际起运时间（可选）", "fieldtype": "Datetime", "insert_after": "custom_driver_phone"},
+        {"dt": "Delivery Note", "fieldname": "custom_source_warehouse_address", "label": "发货仓库地址（可选）", "fieldtype": "Small Text", "insert_after": "custom_departure_time", "description": "公司与仓库目前同址：AV. DO TRABALHO, n.º 231, Cidade de Maputo；如以后分仓请在单据上维护当次地址"},
+        {"dt": "Delivery Note", "fieldname": "custom_driver_phone", "label": "司机电话", "fieldtype": "Data", "fetch_from": "driver.cell_number", "read_only": 1, "insert_after": "driver_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_section", "label": "开票资料", "fieldtype": "Section Break", "insert_after": "custom_source_warehouse_address"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_info", "label": "关联销售订单与开票状态", "fieldtype": "HTML", "insert_after": "custom_delivery_billing_section"},
+        {"dt": "Delivery Note", "fieldname": "custom_invoice_plan", "label": "开票安排（可选）", "fieldtype": "Small Text", "insert_after": "per_billed"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_signoff_section", "label": "签收资料", "fieldtype": "Section Break", "insert_after": "custom_invoice_plan"},
+        {"dt": "Delivery Note", "fieldname": "custom_box_count", "label": "箱数", "fieldtype": "Int", "insert_after": "custom_delivery_signoff_section", "description": "适用时填写；不适用留空"},
         {"dt": "Delivery Note", "fieldname": "custom_pallet_count", "label": "托盘数", "fieldtype": "Int", "insert_after": "custom_box_count", "description": "适用时填写；不适用留空"},
-        {"dt": "Delivery Note", "fieldname": "custom_delivery_notes", "label": "差异/退货备注", "fieldtype": "Small Text", "insert_after": "instructions"},
-        {"dt": "Delivery Note", "fieldname": "custom_invoice_plan", "label": "开票安排", "fieldtype": "Small Text", "insert_after": "custom_delivery_notes"},
-        {"dt": "Delivery Note", "fieldname": "custom_signature_name", "label": "签收姓名", "fieldtype": "Data", "insert_after": "custom_invoice_plan"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_notes", "label": "差异/退货备注", "fieldtype": "Small Text", "insert_after": "custom_pallet_count"},
+        {"dt": "Delivery Note", "fieldname": "custom_signature_name", "label": "签收姓名", "fieldtype": "Data", "insert_after": "custom_delivery_notes"},
         {"dt": "Delivery Note", "fieldname": "custom_signature_date", "label": "签收日期", "fieldtype": "Date", "insert_after": "custom_signature_name"},
         {"dt": "Delivery Note", "fieldname": "custom_print_color_images", "label": "送货单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
         {"dt": "Delivery Note", "fieldname": "custom_print_color_qr", "label": "送货单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
@@ -895,8 +901,54 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
     ]
     for field in fields:
-        if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+        existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
+        if not existing:
             frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
+        elif field["dt"] == "Delivery Note":
+            updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+
+    for field_name, prop, value, prop_type in (
+        ("address_and_contact_tab", "label", "送货与开票", "Data"),
+        ("contact_info", "label", "客户门店", "Data"),
+        ("contact_info", "insert_after", "custom_delivery_missing_summary", "Data"),
+        ("shipping_address_section", "insert_after", "custom_store_phone", "Data"),
+        ("transporter_info", "label", "运输资料", "Data"),
+        ("transporter_info", "insert_after", "custom_customer_order_no", "Data"),
+        ("shipping_address_name", "insert_after", "shipping_address_section", "Data"),
+        ("vehicle_no", "fieldtype", "Link", "Data"),
+        ("vehicle_no", "options", "Vehicle", "Data"),
+        ("vehicle_no", "insert_after", "transporter", "Data"),
+        ("driver", "insert_after", "vehicle_no", "Data"),
+        ("driver_name", "insert_after", "driver", "Data"),
+        ("per_billed", "insert_after", "custom_delivery_billing_info", "Data"),
+    ):
+        frappe.make_property_setter({
+            "doctype": "Delivery Note", "doctype_or_field": "DocField", "fieldname": field_name,
+            "property": prop, "property_type": prop_type, "value": value,
+        })
+
+    frappe.clear_cache(doctype="Delivery Note")
+    order = [field.fieldname for field in frappe.get_meta("Delivery Note").fields]
+    delivery_fields = [
+        "transporter_info", "transporter", "vehicle_no", "driver", "driver_name",
+        "custom_driver_phone", "custom_departure_time", "custom_source_warehouse_address",
+        "lr_no", "delivery_trip", "col_break34", "transporter_name", "lr_date",
+        "custom_delivery_billing_section", "custom_delivery_billing_info", "per_billed",
+        "custom_invoice_plan", "custom_delivery_signoff_section", "custom_box_count",
+        "custom_pallet_count", "custom_delivery_notes", "custom_signature_name", "custom_signature_date",
+    ]
+    present = [name for name in delivery_fields if name in order]
+    for name in present:
+        order.remove(name)
+    if "company_contact_person" in order:
+        position = order.index("company_contact_person") + 1
+        order[position:position] = present
+        frappe.make_property_setter({
+            "doctype": "Delivery Note", "doctype_or_field": "DocType",
+            "property": "field_order", "value": json.dumps(order),
+        })
     if commit:
         frappe.db.commit()
 

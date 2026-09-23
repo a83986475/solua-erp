@@ -67,6 +67,58 @@ frappe.provide("solua_home.item_list_metrics");
 		});
 	}
 
+	function add_bulk_price_button(listview) {
+		listview.page.add_inner_button(__("批量修改物料价格"), () => {
+			const preview_price_update = async (values) => {
+				if (!values.item_code || !values.price_list || !values.price || values.price <= 0) return;
+				const response = await frappe.call({
+					method: "solua_home.api.item_price_bulk.preview",
+					args: { item_code: values.item_code, price_list: values.price_list },
+					freeze: true,
+					freeze_message: __("正在读取物料和当前价格…"),
+				});
+				const plan = response.message;
+				const escape = frappe.utils.escape_html;
+				const rows = plan.variants.map((item) => `<tr><td>${escape(item.item_code)}</td><td>${escape(item.item_name || "")}</td><td>${item.old_rate == null ? __("缺价，将新建") : `${escape(item.old_rate)} ${escape(plan.currency)}`}</td><td>${escape(item.uom)}</td></tr>`).join("");
+				const blocked = plan.blocked.map((item) => `<li>${escape(item.item_code)}：${escape(item.reason)}</li>`).join("");
+				dialog.fields_dict.preview.$wrapper.html(
+					`<p>${__("目标：{0}（{1} 条物料）；价目表：{2}；币种：{3}", [escape(plan.item_code), plan.variants.length, escape(plan.price_list), escape(plan.currency)])}</p>` +
+					(blocked ? `<div class="text-danger">${__("发现价格记录歧义，禁止更新：")}<ul>${blocked}</ul></div>` : "") +
+					`<div style="max-height:280px;overflow:auto"><table class="table table-bordered"><thead><tr><th>${__("货号")}</th><th>${__("名称")}</th><th>${__("当前价格")}</th><th>${__("单位")}</th></tr></thead><tbody>${rows}</tbody></table></div>`
+				);
+				if (blocked) return;
+				dialog.set_primary_action(__("确认更新 {0} 条物料价格", [plan.variants.length]), async () => {
+					const result = await frappe.call({
+						method: "solua_home.api.item_price_bulk.apply",
+						args: { item_code: values.item_code, price_list: values.price_list, new_rate: values.price },
+						freeze: true,
+						freeze_message: __("正在更新物料价格…"),
+					});
+					frappe.show_alert({ message: __("已更新 {0} 条物料价格", [result.message.updated]), indicator: "green" });
+					dialog.set_value("item_code", "");
+					dialog.fields_dict.preview.$wrapper.empty();
+					dialog.set_primary_action(__("预览物料"), preview_price_update);
+					dialog.fields_dict.item_code.set_focus();
+					listview.refresh();
+				});
+			};
+			const dialog = new frappe.ui.Dialog({
+				title: __("修改物料价格"),
+				fields: [
+					{ fieldname: "item_code", label: __("普通物料或物料模板"), fieldtype: "Link", options: "Item", reqd: 1,
+						get_query: () => ({ filters: { disabled: 0 } }) },
+					{ fieldname: "price_list", label: __("价目表"), fieldtype: "Link", options: "Price List", reqd: 1,
+						get_query: () => ({ filters: { selling: 1, enabled: 1 } }) },
+					{ fieldname: "price", label: __("新价格"), fieldtype: "Currency", reqd: 1 },
+					{ fieldname: "preview", fieldtype: "HTML" },
+				],
+				primary_action_label: __("预览物料"),
+				primary_action: preview_price_update,
+			});
+			dialog.show();
+		});
+	}
+
 	const previous = frappe.listview_settings["Item"] || {};
 	const previous_onload = previous.onload;
 
@@ -78,6 +130,7 @@ frappe.provide("solua_home.item_list_metrics");
 			pin_column_widths(listview);
 			try {
 				add_refresh_button(listview);
+				add_bulk_price_button(listview);
 			} catch (error) {
 				// 列表页面结构变化时不影响其它功能
 				console.warn("solua_home: 刷新按钮未挂载", error);

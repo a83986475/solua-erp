@@ -43,9 +43,10 @@ assert.equal(applied.description, 220, "computed 900px must be capped");
 assert.equal(applied.custom_rate_retail, 110, "columns not yet rendered still get a width");
 assert.equal(applied.item_name, undefined, "columns without a configured width stay automatic");
 
-// The refresh button calls the whitelisted backend and reloads the list.
-assert.equal(buttons.length, 1);
+// The refresh and bulk-price buttons are both registered on the Item list.
+assert.equal(buttons.length, 2);
 assert(buttons[0].label, "刷新库存与售价");
+assert(buttons[1].label, "批量修改物料价格");
 buttons[0].action();
 assert.equal(calls.at(-1).method, "solua_home.item_metrics.refresh_all_item_metrics");
 return Promise.resolve().then(() => {

@@ -12,7 +12,7 @@ class Dialog {
     for (const f of options.fields) {
       this.values[f.fieldname] = f.default ?? "";
       const field = {...f,df:{...f},$input:input(),$wrapper:{html(){},empty(){}}};
-      if (f.fieldtype === "Table") field.grid={refresh(){}};
+      if (f.fieldtype === "Table") field.grid={get data(){return field.df.data || [];},get_selected_children(){return this.data.filter(row=>row.__checked);},refresh(){}};
       this.fields_dict[f.fieldname] = field;
     }
     dialogs.push(this);
@@ -32,7 +32,7 @@ class Dialog {
 }
 const rows = new Map();
 const frappe = {
-  ui:{Dialog, form:{on(dt, value){handlers[dt]=value;}}},
+  ui:{Dialog, form:{on(dt, value){handlers[dt]={...(handlers[dt] || {}),...value};}}},
   utils:{escape_html:String},
   call(){return new Promise((resolve,reject)=>requests.push({resolve,reject}));},
   model:{async set_value(dt,name,key,value){
@@ -133,7 +133,8 @@ async function query(d,code="A"){
   submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
   await print_dialog.action({show_item_name:0,show_sku:1,show_color_code:0,show_cor:1,show_description:0,show_ordered_before:0,show_images:1,show_qr:0});
   assert.equal(save_mode,"Update");
-  const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_cor:1,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};
+  const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};
+  if(dt === "Sales Invoice") expected.custom_print_cor=1;
   if(dt === "Delivery Note") expected.custom_print_ordered_before=0;
   const stable=value=>JSON.stringify(Object.fromEntries(Object.entries(value).sort()));
   assert.equal(stable(saved_changes),stable(expected));
