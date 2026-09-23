@@ -3585,3 +3585,13 @@ Frappe 的列表列宽不是配置项：每次重绘时 `render_list()` 会按**
 - DB 写入用独立脚本（含 `frappe.db.commit()`）：upsert 两个格式 + 设默认格式；回读确认 `拣货单（颜色版）`/`批发销售单（颜色版）新版` 都在、旧版未动、`Pick List.default_print_format = 拣货单（颜色版）`。
 - **进程新鲜度**：文件 14:24:05 写入，gunicorn master + 5 workers 与两个后台 worker 14:27:48 启动（晚于文件），无需再重启。
 - 11 个测试全绿；手册与发布白名单同步。
+
+### 19.21 2026-09-23 物料批量改价：普通物料预览的 dict 属性错误
+
+物料列表的「批量修改物料价格」支持两种目标：选择普通在售物料时只处理该 Item；选择启用模板时预览并处理其启用、可销售变体。共用计划函数 `_get_plan()` 中，模板分支的 `frappe.get_all()` 返回字典式记录，普通物料分支也手动构造普通 Python 字典。若写成 `item.name`，普通物料会在预览时触发 `AttributeError: 'dict' object has no attribute 'name'`，还没进入价格写入步骤。
+
+#### 开发经验
+
+- `frappe.get_doc()` 返回 Document，可按属性访问；`frappe.get_all()` 的结果及代码手动构造的记录应按 mapping 访问。混合两类来源时，统一用 `item["name"]`、`row["currency"]` 等键访问，避免只在普通物料或模板路径出错。
+- 复用同一计划函数的分支都要覆盖：至少分别验证普通物料和模板变体预览；价格记录要覆盖无记录、新建计划和唯一现有记录更新计划。预览错误必须发生在任何写入之前。
+- 本次修复已在生产部署，普通物料与模板路径的隔离回归检查通过。生产文件 SHA256：`5c9319bda15cb7dc17de81441d8ae4d93a12dd4835fe0fbd32e3fc1b2dc17c77`；变更前代码副本：`sites/erp.solua.one/private/code-backups/20260923-bulk-variant-price/item_price_bulk.py.v2.before-dict-fix`。只重启服务并清缓存，未跑迁移、未更改任何 Item Price 数据。
