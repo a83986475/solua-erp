@@ -12,6 +12,7 @@
 .solua-home-card-label { color: #65727a; font-size: 12px; }
 .solua-home-card-value { font-size: 20px; font-weight: 600; margin: 9px 0 3px; }
 .solua-home-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.solua-home-columns-single { grid-template-columns: 1fr; }
 .solua-home-search { display: flex; gap: 8px; margin-bottom: 12px; }
 .solua-home-search input { flex: 1; }
 .solua-home-list-row { display: flex; width: 100%; justify-content: space-between; gap: 12px; border: 0; border-bottom: 1px solid #eef0f1; background: transparent; padding: 10px 2px; text-align: left; }
@@ -21,5 +22,24 @@
 .solua-home-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .solua-home-action-group { border-top: 1px solid #eef0f1; padding-top: 12px; margin-top: 12px; }
 .solua-home-action-group:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-.solua-home-action-group h4 { margin: 0 0 8px; font-size: 13px; color: #607078; }
+.solua-home-action-group h4, .solua-home-group-title { margin: 0 0 8px; font-size: 13px; color: #607078; }
+button.solua-home-group-title-link { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; font-weight: 600; color: #2a6f97; cursor: pointer; }
+button.solua-home-group-title-link:hover, button.solua-home-group-title-link:focus { color: #1b4e6b; text-decoration: underline; }
+button.solua-home-group-title-link:focus-visible { outline: 2px solid #c59a45; outline-offset: 2px; }
+.solua-home-group-arrow { font-size: 14px; line-height: 1; }
+.solua-home-action[data-view="list"] { color: #37474f; }
+.solua-home-issue-summary { color: #77838b; font-size: 12px; margin-bottom: 6px; }
+.solua-home-issue { border-top: 1px solid #eef0f1; }
+.solua-home-issue:first-of-type { border-top: 0; }
+.solua-home-issue-head { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; padding: 10px 2px; text-align: left; cursor: pointer; }
+.solua-home-issue-head:hover { background: #fcfaf6; }
+.solua-home-issue-label { font-weight: 600; color: #37474f; white-space: nowrap; }
+.solua-home-issue-label b { color: #b3261e; }
+.solua-home-issue-note { flex: 1; color: #77838b; font-size: 12px; overflow-wrap: anywhere; }
+.solua-home-issue-arrow { color: #77838b; transition: transform 0.15s ease; }
+.solua-home-issue-head.solua-home-issue-open .solua-home-issue-arrow { transform: rotate(90deg); }
+.solua-home-issue-body { display: none; padding: 0 0 8px 12px; }
+.solua-home-issue-body.solua-home-issue-open { display: block; }
+.solua-home-issue-ok { display: flex; justify-content: space-between; gap: 12px; padding: 10px 2px; color: #77838b; font-size: 13px; }
+.solua-home-issue-list { color: #2a6f97; }
 @media (max-width: 800px) { .solua-home-header, .solua-home-columns { display: block; } .solua-home-header-actions { justify-content: flex-start; margin-top: 12px; } .solua-home-cards { grid-template-columns: repeat(2, 1fr); } .solua-home-section { padding: 12px; } }

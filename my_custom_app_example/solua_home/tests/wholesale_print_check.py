@@ -27,7 +27,7 @@ def fail(message):
 
 
 reads = []
-order = Doc(customer="C", shipping_address_name="STORE-A", custom_store_name="A",contact_person="CONTACT-A")
+order = Doc(customer="C", shipping_address_name="STORE-A", custom_store_name="A", custom_store_phone="111", contact_person="CONTACT-A")
 def get_doc(dt, name):
     reads.append((dt, name))
     return order if dt == "Sales Order" else Doc()
@@ -38,6 +38,8 @@ frappe._ = lambda text: text
 frappe.throw = fail
 frappe.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda field: field != "phone")
 def db_get_value(dt, name, field, **kwargs):
+    if dt == "Sales Order":
+        return order.get(field)
     if dt == "Company" and field == "tax_id":
         return "COMPANY-NUIT"
     if dt == "Contact" and name == "CONTACT-A":
@@ -47,7 +49,12 @@ def db_get_value(dt, name, field, **kwargs):
     return "888"
 
 
-frappe.db = types.SimpleNamespace(get_value=db_get_value)
+set_value_calls = []
+def db_set_value(dt, name, fields):
+    set_value_calls.append((dt, name, dict(fields)))
+    if dt == "Sales Order":
+        order.update(fields)
+frappe.db = types.SimpleNamespace(get_value=db_get_value, set_value=db_set_value)
 frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
 frappe.get_all = lambda dt, *a, **k: [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else []
@@ -66,7 +73,7 @@ def fixture(dt):
     return Doc(doctype=dt, name="CHECK-1", docstatus=0, company="Solua Home, Lda", customer="C",
         customer_name="Customer", tax_id="CUSTOMER-NUIT", shipping_address_name="STORE-A",
         shipping_address="Store address", address_display="WRONG BILLING", contact_display="Person",
-        contact_mobile="999", contact_person="CONTACT-A", custom_store_name="A", custom_invoice_plan="订单 CHECK-1 在签收后次日开票",
+        contact_mobile="999", contact_person="CONTACT-A", custom_store_name="A", custom_store_phone="", custom_invoice_plan="订单 CHECK-1 在签收后次日开票",
         custom_source_warehouse_address=module.COMPANY_ADDRESS_LINE, custom_departure_time="2026-09-15 10:00:00",
         driver_name="Driver", vehicle_no="ABC", driver="D", custom_driver_phone="",
         currency="MZN", grand_total=20, posting_date="2026-09-15", transaction_date="2026-09-15",
@@ -76,31 +83,56 @@ def fixture(dt):
 
 
 so = fixture("Sales Order")
+so.custom_store_phone = "111"
 so.driver = so.driver_name = so.vehicle_no = ""
 module.prepare_print_snapshot(so, "before_submit")
 assert json.loads(so.custom_wholesale_snapshot)["company"]["nuit"] == "COMPANY-NUIT"
 assert module.get_customer_print_info(so)["address"] == "Store address"
+assert module.get_customer_print_info(so)["phone"] == "111"
+legacy_so = Doc(so)
+legacy_snapshot = json.loads(so.custom_wholesale_snapshot)
+for legacy_item in legacy_snapshot["items"]:
+    legacy_item["barcode"] = ""
+    legacy_item["description"] = ""
+legacy_so.custom_wholesale_snapshot = json.dumps(legacy_snapshot)
+legacy_display = module.get_wholesale_print_data(legacy_so)["items"][0]
+assert legacy_display["barcode"] == "6901234567892"
+assert legacy_display["description"] == "Cortina vermelha"
+assert json.loads(legacy_so.custom_wholesale_snapshot)["items"][0]["barcode"] == ""
 dn = fixture("Delivery Note")
 module.prepare_print_snapshot(dn, "before_submit")
 stored = dn.custom_wholesale_snapshot
 dn.shipping_address = "NEW ADDRESS"
 dn.driver_name = "NEW DRIVER"
 dn["items"][0].item_name = "NEW ITEM"
+dn.custom_store_phone = "222"
 dn.docstatus = 1
 reads.clear()
 assert module.get_wholesale_print_data(dn)["items"][0]["item_name"] == "Curtain"
 assert module.get_customer_print_info(dn)["address"] == "Store address"
+assert module.get_customer_print_info(dn)["phone"] == "999"  # snapshot froze the contact fallback
 assert module.get_driver_phone(dn) == "888"
 assert dn.custom_wholesale_snapshot == stored and not reads
+
+# A submitted Delivery Note keeps an explicit store phone frozen in its print snapshot.
+phone_note = fixture("Delivery Note")
+phone_note.custom_store_phone = "222"
+module.prepare_print_snapshot(phone_note, "before_submit")
+phone_note.custom_store_phone = "333"
+assert module.get_customer_print_info(phone_note)["phone"] == "222"
 for key in ("vehicle_no", "shipping_address", "custom_departure_time", "custom_source_warehouse_address"):
     bad = fixture("Delivery Note"); bad[key] = ""
     try: module.prepare_print_snapshot(bad, "before_submit")
     except ValueError: pass
     else: raise AssertionError("Missing mandatory value accepted: " + key)
+# 2026-09-23 客户/门店一致性校验已按用户要求关闭：门店不同不再拦截。
 bad = fixture("Delivery Note");bad.custom_store_name = "B"
-try: module.prepare_print_snapshot(bad)
-except ValueError: pass
-else: raise AssertionError("Different store accepted")
+module.prepare_print_snapshot(bad, "before_submit")
+# 订单漏填门店时以送货单为准，不再拦截提交。
+saved_store = order.custom_store_name
+order.custom_store_name = ""
+module.prepare_print_snapshot(fixture("Delivery Note"))
+order.custom_store_name = saved_store
 bad = fixture("Delivery Note");bad.custom_invoice_plan = "后续开票"
 try: module.prepare_print_snapshot(bad)
 except ValueError: pass
@@ -111,8 +143,33 @@ module.prepare_print_snapshot(returned_print)
 returned_snapshot=module.get_wholesale_print_data(returned_print)["items"][0]
 assert returned_snapshot["qty"]==-2 and returned_snapshot["remaining_qty"] is None
 
+# 表格底部的总数量：空快照/缺行/字符串数字都不能破坏打印
+assert module.get_print_total_qty({"items": [{"qty": 2}, {"qty": None}, {"qty": 0.5}]}) == 2.5
+assert module.get_print_total_qty({"items": [{"qty": "3"}, {}]}) == 3
+assert module.get_print_total_qty({"items": []}) == 0 and module.get_print_total_qty(None) == 0
+
+# 拣货单：明细在 locations 子表，行要补色号/条码/描述，底部给需求与已拣合计
+pick = Doc(doctype="Pick List", name="PL-CHECK-1", docstatus=1, company="Solua Home, Lda", purpose="Delivery",
+           customer="C", customer_name="Customer", status="Completed", creation="2026-09-23 09:15:00",
+           locations=[Doc(item_code="RED", item_name="Curtain", qty=2, picked_qty=2, uom="条",
+                          warehouse="W1", sales_order="SO-1", description="<p>row desc</p>"),
+                      Doc(item_code="BLUE", item_name="", qty=1.5, picked_qty=0, uom="条",
+                          warehouse="W1", sales_order="", description="")])
+pick_data = module.get_pick_list_print_data(pick)
+assert pick_data["total_qty"] == 3.5 and pick_data["total_picked"] == 2, pick_data
+assert pick_data["customer"] == "Customer" and pick_data["purpose"] == "Delivery"
+assert pick_data["items"][0]["barcode"] == "6901234567892" and pick_data["items"][0]["color_code"] == "01"
+assert pick_data["items"][0]["description"] == "Cortina vermelha"
+assert pick_data["items"][0]["sales_order"] == "SO-1" and pick_data["items"][1]["item_name"] == "BLUE"
+empty_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-2", docstatus=1, locations=[]))
+assert empty_pick["items"] == [] and empty_pick["total_qty"] == 0 and empty_pick["total_picked"] == 0
+assert module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-3", docstatus=1))["total_qty"] == 0
+
 env = Environment(undefined=StrictUndefined)
 env.globals.update(frappe=frappe, get_wholesale_print_data=module.get_wholesale_print_data,
+                  get_print_total_qty=module.get_print_total_qty,
+                  get_solua_print_css=module.get_solua_print_css,
+                  get_pick_list_print_data=module.get_pick_list_print_data,
                   get_delivery_invoice_names=lambda name: [], get_color_card_qr_img=lambda name: "")
 for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia_remessa",dn)):
     fmt = json.loads((ROOT / "print_format" / folder / (folder + ".json")).read_text(encoding="utf-8"))
@@ -125,6 +182,9 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
             assert header in html  # legacy documents default all three columns to visible
         assert "6901234567892" in html and "Cortina vermelha" in html and "描述 / Descrição" in html
     assert "WRONG BILLING" not in html and "NEW ADDRESS" not in html
+    # 明细表格最下面一行是总数量（fixture 只有一行 qty=2）
+    assert "Total Qty / 总数量" in html
+    assert "</td><td style='text-align:right'><b>2</b></td>" in html, folder
     option_doc=Doc(document)
     option_snapshot=json.loads(option_doc.custom_wholesale_snapshot)
     option_snapshot["items"][0]["template_code"]="STYLE"
@@ -155,9 +215,12 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
         assert "table-layout:fixed" not in fmt["css"]
     env.globals["get_color_card_qr_img"]=lambda name:""
 # The wholesale invoice must stay an ordinary editable Jinja format, never a raw-printing one.
-invoice_folder = "sales_invoice_wholesale_color"
+# 重构版销售单格式与生产上的旧版（批发销售单（颜色版））并存，所以仓库文件名/记录名都是新的
+invoice_folder = "sales_invoice_wholesale_color_v2"
 invoice_fmt = json.loads((ROOT / "print_format" / invoice_folder / (invoice_folder + ".json")).read_text(encoding="utf-8"))
-assert invoice_fmt["doc_type"] == "Sales Invoice" and invoice_fmt["module"] == "Solua Home 定制"
+# module 必须是真实存在的 Module Def（本 app 只有 Solua Wholesale），否则建记录会被链接校验拦下
+assert invoice_fmt["doc_type"] == "Sales Invoice" and invoice_fmt["module"] == "Solua Wholesale"
+assert invoice_fmt["name"] == "批发销售单（颜色版）新版", "重构版不能占用旧版记录名"
 assert invoice_fmt["custom_format"] == 1 and invoice_fmt["standard"] == "No" and invoice_fmt["disabled"] == 0
 assert invoice_fmt["html"] and invoice_fmt["raw_printing"] == 0 and not invoice_fmt["raw_commands"]
 env.globals["_"] = lambda text: text
@@ -179,7 +242,24 @@ assert "Cortina vermelha" in rendered_invoice and "40.00 MZN" in rendered_invoic
 assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
 assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
 assert "Descrição" in rendered_invoice and "SKU / 货号" in rendered_invoice
-print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; invoice barcode/description; independent column switches")
+assert "Total Qty / 总数量" in rendered_invoice
+assert "</td><td style='text-align:right'><b>2</b></td>" in rendered_invoice
+# 拣货单打印格式：标准格式没有总数量，这份新格式有
+pick_fmt = json.loads((ROOT / "print_format/pick_list_color/pick_list_color.json").read_text(encoding="utf-8"))
+assert pick_fmt["doc_type"] == "Pick List" and pick_fmt["module"] == "Solua Wholesale"
+assert pick_fmt["custom_format"] == 1 and pick_fmt["standard"] == "No" and pick_fmt["disabled"] == 0
+assert pick_fmt["raw_printing"] == 0 and not pick_fmt["raw_commands"]
+rendered_pick = env.from_string(pick_fmt["html"]).render(doc=pick)
+assert "Pick List / 拣货单" in rendered_pick and "{%" not in rendered_pick
+for header in ("SKU / 货号", "色号 / Cor", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
+    assert header in rendered_pick, header
+assert "Total Qty / 总数量" in rendered_pick
+assert "<b>3.5</b>" in rendered_pick and "<b>2</b>" in rendered_pick
+assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
+assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
+assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
+assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=2))
+print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; invoice barcode/description; independent column switches; pick list totals")
 
 # Customer ownership and contact-address linkage fail closed.
 frappe.db.exists=lambda dt,filters:False
@@ -226,6 +306,77 @@ utils.cint = lambda value: int(value or 0)
 sys.modules["frappe.utils"] = utils
 stock_spec = importlib.util.spec_from_file_location("stock_candidate", ROOT / "api/stock.py")
 stock = importlib.util.module_from_spec(stock_spec);stock_spec.loader.exec_module(stock)
+sys.modules["solua_home.api.stock"] = stock
+
+# Delivery Notes created from one Sales Order inherit the editable store phone;
+# a value already entered on the Delivery Note wins.
+copy_note = fixture("Delivery Note")
+copy_note.custom_store_phone = ""
+stock.validate_delivery_note(copy_note)
+assert copy_note.custom_store_phone == "111"
+override_note = fixture("Delivery Note")
+override_note.custom_store_phone = "222"
+stock.validate_delivery_note(override_note)
+assert override_note.custom_store_phone == "222"
+# 订单漏填的门店/电话/开票安排由送货单回填，只补空、不覆盖。
+set_value_calls.clear()
+order.custom_store_name = ""
+order.custom_store_phone = ""
+order.custom_invoice_plan = ""
+backfill_note = fixture("Delivery Note")
+backfill_note.custom_store_phone = "222"
+stock.validate_delivery_note(backfill_note)
+assert set_value_calls and set_value_calls[0][:2] == ("Sales Order", "SO-1")
+assert order.custom_store_name == "A" and order.custom_store_phone == "222"
+assert order.custom_invoice_plan == "订单 CHECK-1 在签收后次日开票"
+set_value_calls.clear()
+compat_queries = []
+def compatibility_sql(query, args, **kwargs):
+    compat_queries.append((query, args))
+    if "tabSales Order Item" in query:
+        return [Doc(parent="SO-1", item_code="RED", stock_qty=20)]
+    return [[6]]
+frappe.db.sql = compatibility_sql
+dn_format = json.loads((ROOT / "print_format" / "delivery_note_guia_remessa" / "delivery_note_guia_remessa.json").read_text(encoding="utf-8"))
+def render_delivery(rows, ordered_before=None):
+    document = fixture("Delivery Note")
+    document.docstatus = 1
+    document.custom_wholesale_snapshot = None
+    document.items = rows
+    if ordered_before is not None:
+        document.custom_print_ordered_before = ordered_before
+    data = module.get_wholesale_print_data(document)
+    return env.from_string(dn_format["html"]).render(doc=document), data
+
+unlinked = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
+               custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
+html, data = render_delivery([unlinked])
+assert "订购 / 此前已交付" not in html and data["has_order_linkage"] is False
+linked = Doc(item_code="RED", item_name="Curtain", qty=2, rate=1, amount=2, uom="条",
+             against_sales_order="SO-1", so_detail="SOI-1", conversion_factor=2,
+             custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
+html, data = render_delivery([linked])
+assert "订购 / 此前已交付" in html and data["items"][0]["ordered_qty"] == 10
+assert data["items"][0]["delivered_before_qty"] == 3 and data["items"][0]["remaining_qty"] == 5
+html, _ = render_delivery([linked], ordered_before=0)
+assert "订购 / 此前已交付" not in html
+missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
+                   against_sales_order="SO-1", conversion_factor=1,
+                   custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
+html, data = render_delivery([missing_link])
+assert "订购 / 此前已交付" in html and "—" in html and data.get("delivery_quantity_error")
+mixed = Doc(item_code="BLUE", item_name="Blue", qty=1, rate=1, amount=1, uom="条",
+            custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
+html, data = render_delivery([linked, mixed])
+assert "订购 / 此前已交付" in html and data["items"][1]["ordered_qty"] is None
+assert data.get("delivery_quantity_error")
+history_result = stock.get_delivery_snapshot_quantities(
+    Doc(name="CURRENT-DN", is_return=0, items=[Doc(item_code="RED", qty=2, conversion_factor=2,
+         against_sales_order="SO-1", so_detail="SOI-1")]), lock=False, strict=True)
+assert history_result[0]["ordered_qty"] == 10 and history_result[0]["delivered_before_qty"] == 3
+assert history_result[0]["remaining_qty"] == 5
+assert "d.docstatus=1" in compat_queries[-1][0] and "d.name<>%s" in compat_queries[-1][0]
+print("PASS: delivery first/second batch, conversion factor, current/cancelled exclusion; read-only zero recovery; missing linkage; manual column switch")
 queries = []
 def sql(query, args, **kwargs):
     queries.append(query)
@@ -353,7 +504,7 @@ assert item_data["state"]=="ok" and item_data["item_count"]==2
 assert item_data["checked_count"]==1 and item_data["template_count"]==1  # templates are not checked
 assert item_data["missing_image"]==1 and item_data["missing_color_code"]==0
 assert [issue["key"] for issue in item_data["issues"]]==["missing_image","missing_color_code"]
-assert [issue["field"] for issue in item_data["issues"]]==["image","custom_color_code"]
+assert [issue["field"] for issue in item_data["issues"]]==["image","Cor"]
 assert item_data["issues"][0]["count"]==1 and item_data["issues"][1]["count"]==0
 assert [row["name"] for row in item_data["issues"][0]["items"]]==["RED"]
 assert item_data["issues"][0]["items"][0]["item_name"]=="Red"
@@ -362,8 +513,8 @@ assert item_data["issues"][1]["items"]==[] and not item_data["issues"][1]["trunc
 assert "STYLE" not in [row["name"] for issue in item_data["issues"] for row in issue["items"]]
 tables["Item Variant Attribute"]=[Doc(parent="RED",parenttype="Item",attribute="Cor",attribute_value="Red"),
                                   Doc(parent="STYLE",parenttype="Item",attribute="Cor",attribute_value="Style")]
-assert home._item_data_status()["missing_color_code"]==1  # colour rows without 固定色号 are named too
-assert home._item_data_status()["issues"][1]["items"][0]["name"]=="RED"
+assert home._item_data_status()["missing_color_code"]==0  # native Cor is the current colour source
+assert home._item_data_status()["issues"][1]["items"]==[]
 tables["Item Variant Attribute"]=[]
 assert home.get_dashboard_data()["item_data"]["issues"][0]["items"][0]["name"]=="RED"
 assert [r.parent for r in home._list("Item Barcode",{"barcode":"SHARED"},["parent"])]==["RED"]

@@ -1,12 +1,6 @@
 // solua_home: Item 模板的颜色库存汇总面板。
 
 frappe.ui.form.on("Item", {
-	custom_color_code(frm) {
-		if (!frm.fields_dict.custom_order_code || !frm.doc.variant_of || frm.doc.custom_order_code) return;
-		const colorCode = String(frm.doc.custom_color_code || "").trim();
-		if (colorCode) frm.set_value("custom_order_code", `${frm.doc.variant_of}-${colorCode}`);
-	},
-
 	refresh(frm) {
 		if (frm.is_new() || !frm.doc.has_variants) return;
 

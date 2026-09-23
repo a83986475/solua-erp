@@ -174,35 +174,9 @@ def validate_item(doc, method=None):
     if doc.item_code and len(doc.item_code) < 3:
         frappe.throw(_("物料编码长度不能少于3位"))
 
-    if frappe.db.has_column("Item", "custom_color_code") and doc.get("custom_color_code"):
-        import re
-        color_code = str(doc.custom_color_code).strip()
-        if not re.fullmatch(r"\d+", color_code):
-            frappe.throw(_("固定色号必须是数字，例如 1、2 或 01、02"))
-        doc.custom_color_code = color_code
-
-        if doc.variant_of:
-            if (
-                frappe.db.has_column("Item", "custom_order_code")
-                and not doc.get("custom_order_code")
-            ):
-                doc.custom_order_code = f"{doc.variant_of}-{color_code}"
-
-            existing_color = frappe.db.get_value(
-                "Item",
-                {
-                    "variant_of": doc.variant_of,
-                    "custom_color_code": color_code,
-                    "name": ["!=", doc.name],
-                },
-                "name",
-            )
-            if existing_color:
-                frappe.throw(
-                    _("款式 {0} 的固定色号 {1} 已被物料 {2} 使用").format(
-                        doc.variant_of, color_code, existing_color
-                    )
-                )
+    # custom_color_code is retired UI data. Native Item Variant Attribute.Cor
+    # owns current color identity; preserve the old field but never validate,
+    # generate, or deduplicate new items from it.
 
     if frappe.db.has_column("Item", "custom_order_code") and doc.get("custom_order_code"):
         existing = frappe.db.get_value(
@@ -271,39 +245,74 @@ def validate_delivery_note(doc, method=None):
     # Keep the selected store/order identifiers on the delivery snapshot when
     # a note is created from a Sales Order; standard address/contact fields are
     # still the source of the full address and contact details.
-    order_names = {row.get("against_sales_order") for row in doc.items if row.get("against_sales_order")}
+    order_names = {row.get("against_sales_order") for row in (doc.get("items") or []) if row.get("against_sales_order")}
     order_name = next(iter(order_names)) if len(order_names) == 1 else None
     if doc.get("docstatus") == 0 and order_name and not doc.get("custom_wholesale_snapshot"):
-        for fieldname in ("custom_store_name", "custom_customer_order_no", "custom_invoice_plan"):
+        for fieldname in ("custom_store_name", "custom_store_phone", "custom_customer_order_no", "custom_invoice_plan"):
             if not doc.get(fieldname) and frappe.get_meta("Delivery Note").has_field(fieldname):
                 value = frappe.db.get_value("Sales Order", order_name, fieldname)
                 if value:
                     setattr(doc, fieldname, value)
+
+    # 订单漏填门店/开票安排时，以送货单已填值回填订单（只补空，不覆盖）。
+    # 否则下次开单还会因为「订单门店为空」再次报不一致。
+    if order_name and frappe.get_meta("Sales Order").has_field("custom_store_name"):
+        filled = {
+            fieldname: doc.get(fieldname)
+            for fieldname in ("custom_store_name", "custom_store_phone",
+                              "custom_customer_order_no", "custom_invoice_plan")
+            if doc.get(fieldname) and not frappe.db.get_value("Sales Order", order_name, fieldname)
+        }
+        if filled:
+            frappe.db.set_value("Sales Order", order_name, filled)
 
     # Native stock-ledger validation handles UOM, serial/batch and warehouse
     # quantities atomically on submit. Do not compare sales UOM against Bin or
     # recheck already deducted stock on a submitted print-option Update.
 
 
-def prepare_delivery_snapshot(doc, method=None):
-    """Freeze per-order quantities in the delivery UOM under order-line locks."""
+def get_delivery_snapshot_quantities(doc, lock=False, strict=True):
+    """Resolve order quantities without writing the document.
+
+    ``strict`` is used by save/submit validation; printing uses ``False`` so
+    old documents can be rendered read-only without inventing zero values.
+    """
     if doc.get("is_return"):
-        return
+        return []
     prior = {}
-    for item in sorted(doc.items, key=lambda row: row.get("so_detail") or ""):
+    resolved = []
+    rows_value = doc.get("items") if hasattr(doc, "get") else None
+    rows_value = rows_value or getattr(doc, "items", None) or []
+    rows = list(enumerate(rows_value))
+    for index, item in sorted(rows, key=lambda pair: pair[1].get("so_detail") or ""):
         detail = item.get("so_detail")
         order_name = item.get("against_sales_order")
-        if not detail or not order_name:
+        if not detail and not order_name:
             continue
+        if not detail or not order_name:
+            message = "送货行缺少销售订单行关联，订购/此前已交付无法可靠恢复"
+            if strict:
+                frappe.throw(_(message))
+            resolved.append({"index": index, "error": message})
+            continue
+        suffix = " FOR UPDATE" if lock else ""
         order = frappe.db.sql(
-            "SELECT parent, item_code, stock_qty FROM `tabSales Order Item` WHERE name=%s FOR UPDATE",
+            "SELECT parent, item_code, stock_qty FROM `tabSales Order Item` WHERE name=%s" + suffix,
             (detail,), as_dict=True,
         )
         if not order or order[0].parent != order_name or order[0].item_code != item.item_code:
-            frappe.throw(_("送货行与销售订单行不匹配"))
+            message = "送货行与销售订单行不匹配，订购/此前已交付无法可靠恢复"
+            if strict:
+                frappe.throw(_(message))
+            resolved.append({"index": index, "error": message})
+            continue
         factor = flt(item.get("conversion_factor") if item.get("conversion_factor") is not None else 1)
         if factor <= 0:
-            frappe.throw(_("单位换算系数必须大于0"))
+            message = "单位换算系数必须大于0，订购/此前已交付无法可靠恢复"
+            if strict:
+                frappe.throw(_(message))
+            resolved.append({"index": index, "error": message})
+            continue
         if detail not in prior:
             prior[detail] = flt(frappe.db.sql(
                 """SELECT COALESCE(SUM(i.stock_qty),0) FROM `tabDelivery Note Item` i
@@ -313,11 +322,32 @@ def prepare_delivery_snapshot(doc, method=None):
             )[0][0])
         delivered = flt(item.qty) * factor
         if prior[detail] + delivered > flt(order[0].stock_qty) + 0.000001:
-            frappe.throw(_("本次送货超过销售订单剩余数量：{0}").format(item.item_code))
-        item.custom_ordered_qty = flt(order[0].stock_qty) / factor
-        item.custom_delivered_before_qty = prior[detail] / factor
-        item.custom_remaining_qty = max(flt(order[0].stock_qty) - prior[detail] - delivered, 0) / factor
+            message = "本次送货超过销售订单剩余数量：{0}".format(item.item_code)
+            if strict:
+                frappe.throw(_(message))
+            resolved.append({"index": index, "error": message})
+            continue
+        resolved.append({
+            "index": index,
+            "ordered_qty": flt(order[0].stock_qty) / factor,
+            "delivered_before_qty": prior[detail] / factor,
+            "remaining_qty": max(flt(order[0].stock_qty) - prior[detail] - delivered, 0) / factor,
+        })
         prior[detail] += delivered
+    return resolved
+
+
+def prepare_delivery_snapshot(doc, method=None):
+    """Populate the per-order quantities before draft save and submit."""
+    if doc.get("is_return") or doc.get("docstatus") in (1, 2):
+        return
+    for result in get_delivery_snapshot_quantities(doc, lock=True, strict=True):
+        if "error" in result:
+            continue
+        item = doc.items[result["index"]]
+        item.custom_ordered_qty = result["ordered_qty"]
+        item.custom_delivered_before_qty = result["delivered_before_qty"]
+        item.custom_remaining_qty = result["remaining_qty"]
 
 
 def auto_create_item_price(doc, method=None):

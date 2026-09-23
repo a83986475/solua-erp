@@ -121,6 +121,7 @@ def after_install():
     add_color_card_fields()
     add_sales_color_print_fields()
     add_wholesale_fields()
+    add_print_settings_fields()
     configure_item_variant_settings()
     add_discount_approval_field()
     add_company_discount_settings()
@@ -699,7 +700,7 @@ def add_variant_custom_fields():
 
 
 def add_color_card_fields():
-    """为颜色变体补充固定色号、对外货号和公开发布开关。"""
+    """为颜色变体补充色卡字段；固定色号保留数据但暂时停用。"""
     fields = [
         {
             "dt": "Item",
@@ -708,6 +709,9 @@ def add_color_card_fields():
             "fieldtype": "Data",
             "insert_after": "custom_pos_short_name",
             "depends_on": "eval:doc.variant_of",
+            "hidden": 1,
+            "read_only": 1,
+            "in_list_view": 0,
             "description": "本款内固定的数字色号，例如 01、02；一旦使用不重新分配",
         },
         {
@@ -731,7 +735,16 @@ def add_color_card_fields():
 
     for field in fields:
         try:
-            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+            existing = frappe.db.get_value(
+                "Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}, "name"
+            )
+            if existing:
+                if field["fieldname"] == "custom_color_code":
+                    # Retire the duplicate entry point without clearing historical values.
+                    frappe.db.set_value("Custom Field", existing, {
+                        "hidden": 1, "read_only": 1, "in_list_view": 0,
+                    }, update_modified=False)
+            else:
                 frappe.get_doc({
                     "doctype": "Custom Field",
                     **field,
@@ -832,6 +845,7 @@ def add_wholesale_fields(commit=True):
         for dt in ("Sales Order", "Delivery Note")
     ] + [
         {"dt": "Sales Order", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
+        {"dt": "Sales Order", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
         {"dt": "Sales Order", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
         {"dt": "Sales Order", "fieldname": "custom_payment_method", "label": "付款方式", "fieldtype": "Select", "options": "\n先款\n货到付款（COD）\n赊账\n定金+尾款", "insert_after": "payment_terms_template"},
         {"dt": "Sales Order", "fieldname": "custom_deposit_amount", "label": "定金金额", "fieldtype": "Currency", "insert_after": "custom_payment_method", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
@@ -845,6 +859,7 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
         {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
         {"dt": "Delivery Note", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
         {"dt": "Delivery Note", "fieldname": "custom_departure_time", "label": "实际起运时间", "fieldtype": "Datetime", "insert_after": "posting_time"},
         {"dt": "Delivery Note", "fieldname": "custom_source_warehouse_address", "label": "发货仓库地址", "fieldtype": "Small Text", "insert_after": "company_address_display", "description": "公司与仓库目前同址：AV. DO TRABALHO, n.º 231, Cidade de Maputo；如以后分仓请在单据上维护当次地址"},
@@ -861,6 +876,9 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_print_sku", "label": "送货单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
         {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
         {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_ordered_before", "label": "送货单显示订购/此前已交付", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_current_remaining", "label": "送货单显示本次/剩余", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_ordered_before"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
@@ -870,6 +888,35 @@ def add_wholesale_fields(commit=True):
             frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
     if commit:
         frappe.db.commit()
+
+
+def add_print_settings_fields():
+    """Add the single global font/density control used by Solua Print Formats."""
+    fields = [
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_font_size",
+            "label": "Solua 打印基础字号（pt）",
+            "fieldtype": "Int",
+            "default": "10",
+            "description": "Solua 自定义打印格式的基础字号，允许 8–14 pt",
+            "insert_after": "print_uom_after_quantity",
+        },
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_density",
+            "label": "Solua 打印密度",
+            "fieldtype": "Select",
+            "options": "紧凑\n标准",
+            "default": "紧凑",
+            "description": "紧凑减少行间距；标准增加可读空间",
+            "insert_after": "custom_solua_print_font_size",
+        },
+    ]
+    for field in fields:
+        if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+            frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
+    frappe.db.commit()
 
 
 # 窗帘颜色池（Cor 属性）：全部常用颜色 + 唯一缩写

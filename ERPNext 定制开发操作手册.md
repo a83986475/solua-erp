@@ -28,6 +28,12 @@
 > - 记录本地 xPos 条码搜索的根因与修复：改用本地精确条码查询，离线扫码不再依赖在线回退
 > - 补充部署路径、旧 `app.asar` 备份、验证结果和后续待办，避免把旧安装包或明文密钥当成最新版本
 
+> 🔄 **2026-09-21 变更记录：首页交货单入口、销售单打印格式可编辑化、打印格式停用、单据类型列表瘦身**
+> - 首页新增顶部「销售与交货」组：新建交货单（空白新建）+ 按销售订单开交货单（对话框选已确认且未全交的销售订单，调 `make_delivery_note` 后直接打开交货单）；原「订单与客户」组不再重复放置新建交货单
+> - 「批发销售单（颜色版）」由 `raw_commands` + `raw_printing=1` 转为 `html` 模板 + `raw_printing=0`：此前打印下拉不显示该格式、预览/PDF 按钮被隐藏、编辑界面 HTML 为空，用户无法自行编辑
+> - 停用 4 个多余销售单打印格式（Tax Invoice / Simplified Tax Invoice / Detailed Tax Invoice / Sales Auditing Voucher），保留 Standard、with Item Image、Return、PD Format v2（详见 19.10）
+> - `/desk/doctype` 列表默认只显示在用模块：隐藏 19 个用不上的模块（Manufacturing/Projects/Assets/CRM/Website/Workflow 等，共 257 个 DocType），提供「显示全部单据类型」按钮；删表风险高（核心单据大量 Link 引用、升级会被重建），故不做任何 DocType 删除（详见 19.11）
+
 > 🔄 **2026-09-15 变更记录：补充生产物料基础数据与颜色属性操作**
 > - 定向创建缺失的 Item Group：`窗帘`、`窗帘杆`、`地板革`
 > - 定向创建缺失的 UOM：`根`、`卷`；并将既有 UOM `条` 修正为只允许整数
@@ -3005,6 +3011,8 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 
 颜色属性的新增值采用现有葡萄牙语命名和缩写规则，例如 `Azul Escuro / AZ-E`、`Azul Claro / AZ-C`；`Branco`、`Preto` 不增加派生值。写入后回读结果：总值 44、颜色名称唯一、缩写唯一、黑白派生值为 0。
 
+**物料组确认（2026-09-19）**：`窗帘成品` 是历史导入时使用的 Item Group，现已删除。成品窗帘统一使用 `窗帘`，不再使用 `窗帘成品`；本次窗帘导入草稿按 `窗帘` 填写。
+
 **验证与边界：**
 
 - 验证路径：`ssh qq` → `sudo -u frappe` → `/home/frappe/frappe-bench` → `bench --site erp.solua.one console`。
@@ -3133,3 +3141,447 @@ A: Electron 版通过系统打印 API 直连。检查：① 打印机已连接�
 - [ ] 清理 09-02 R2 留下的 3 张已取消发票及对应开班/关班单据，并用最终状态脚本复核零残留
 - [ ] 将同步服务账号从排障用全角色兜底收敛到专用最小权限角色
 - [ ] 新门店按当前 ZIP 做 Hub/Till 安装验收：局域网、断网缓存、恢复同步、收银员登录和条码扫码各测一遍
+
+### 19.5 2026-09-18 生产仓库树与库存转移回读
+
+本节是 2026-09-18 对生产站点 `erp.solua.one` 的最新回读，涉及仓库、库位和 POS Profile 的内容以本节为准。生产公司为 **Solua Home, Lda**，地址为 **AV. DO TRABALHO, n.º 231, Cidade de Maputo**，NUIT 为 **402216468**。
+
+当前仓库树如下：
+
+```text
+Warehouse - SH（组节点，父 All Warehouses - SH）
+├─ Receiving - SH（实际库存节点，默认入库/待验收区）
+├─ Dispatch - SH（实际库存节点，待配送区）
+├─ Zone A - SH（组节点，窗帘）
+│  ├─ A-R01-S01 - SH
+│  ├─ A-R01-S02 - SH
+│  └─ A-R02-S01 - SH
+├─ Zone B - SH（组节点，窗帘杆）
+└─ Zone C - SH（组节点，地板革）
+```
+
+20 个正库存物料已通过正式 Material Transfer 单 **MAT-STE-2026-00003** 从 `Stores - SH` 转入 `Receiving - SH`，合计 **8040 根**，库存价值 **2,444,640 MZN**；转移前后数量和价值一致。`Receiving - SH` 已设为 Stock Settings 默认仓库，20 个变体的默认仓库也为 `Receiving - SH`。
+
+POS Profile「收银方式1 - SH」已改为 `Stores - SH`；`Finished Goods - SH` 已停用；`Stores - SH` 保留原名，不重命名。旧仓库不删除。组节点不能直接存库存；后续仓库分配必须使用 Material Transfer，不得直接做库存调整。变更前已完成生产备份，本文只记录单据号和回读事实，不记录密钥或完整备份内容。
+
+后续操作：按“区域－货架－层”建立实际库位并张贴库位条码；货架分配完成后，再从 `Receiving - SH` 转移到末级库位。在此之前不使用 POS 进行正式销售。
+
+### 19.6 2026-09-19 窗帘杆物料统一回读
+
+生产 `erp.solua.one` 的窗帘杆范围为 4 个模板和 20 个颜色变体，覆盖 2 米/3 米单杆和双杆。中文 `item_name`、`description` 保留；英文和葡语资料写入以下 Item 自定义字段，字段可供 Print Format、API 和报表直接调用：
+
+| 用途 | 实际 fieldname | Label |
+|------|----------------|-------|
+| 颜色缩写完整货号（备用） | `custom_color_abbreviation_item_code` | Color Abbreviation Item Code |
+| 英文品名 | `custom_item_name_en` | English Item Name |
+| 英文描述 | `custom_item_description_en` | English Item Description |
+| 葡语品名 | `custom_item_name_pt` | Portuguese Item Name |
+| 葡语描述 | `custom_item_description_pt` | Portuguese Item Description |
+
+正式颜色后缀规则已由 ERP `Cor` 属性和用户确认的实物色卡共同核定：`1 = Vermelha / Red Antique`、`2 = Bronze Antigo / Antique Bronze`、`3 = Prateado / Silver`、`4 = Dourado / Gold`、`5 = Preto / Black`。因此 12 个旧缩写变体已使用 Frappe 原生 `frappe.rename_doc` 完成：`PT → 3`、`DR → 4`、`PR → 5`；旧的 12 个完整缩写货号保存在 `custom_color_abbreviation_item_code`。没有使用 SQL 直接改名，也没有发生目标编码冲突。
+
+变更后独立回读：24 个 Item（4 模板、20 变体）、20 条 Standard Selling 售价、4 个模板条码、20 个变体图片、40 个 Bin；20 个变体均保持 `disabled=0` 且 `is_sales_item=1`。库存为 **8040 根**、库存价值 **2,444,640 MZN**，与变更前一致；未修改 Item Price、Bin、Warehouse 或条码。审计导出（含 Item、属性、条码、价格和 Bin 明细）保存在本地 `outputs/curtain_rod_item_normalization_20260919/`，生产变更前完整备份已完成并校验。
+
+### 19.7 2026-09-21 窗帘变体、色卡与库存最终回读
+
+生产现有 **64 个启用、可销售、非模板窗帘 Item**：8 款普通 Item，加 4 款模板下的 56 个颜色变体。四款模板及变体数量为：`SH151046` 10 色、`SH151060` 10 色、`SH151107` 18 色、`SH151114` 18 色。56 个变体的 `custom_swatch_image` 均非空；ERP 色卡文件采用完整变体货号命名。批量导入时直接用文件名（去扩展名）匹配 Item 即可，不再重复建立人工映射表；上传必须直接关联目标 Attach Image 字段，并按 `attached_to_field`、`file_url` 做幂等检查，避免生成重复 File 关联。
+
+`SH151060` 原先被误建为普通 Item。生产现状已修正为模板：旧记录保留为停用的 `SH151060-LEGACY`，库存为 0；新模板 `SH151060` 下有 `04、06、07、09、11、13、14、15、16、20` 十个变体，每个在 `Receiving - SH` 存 70 条，单位估值 `334.157142857 MZN`，合计 **700 条、233,910 MZN**。不要删除 LEGACY 或直接改库存账；后续类似修正应保留历史物料，并使用 ERPNext 原生库存单据转移价值。
+
+全部窗帘库存最终回读为 **28,370 条、7,253,131 MZN**，位于 `Receiving - SH`。其中 8 款不分色商品继续使用普通 Item；只有有明确色卡和固定色号的款式使用模板/变体。
+
+### 19.8 窗帘四级价格表规则与修正结果
+
+窗帘价格必须使用下列固定映射；不能把 Home Store 价写入 `Standard Selling`：
+
+| 业务含义 | ERP Price List |
+|---|---|
+| 成本价 | `Standard Buying` |
+| Home Store 价 | `Wholesale Selling 3` |
+| 批发价 | `Wholesale Selling` |
+| 建议零售价 | `Standard Selling` |
+
+2026-09-21 已通过 Frappe `Item Price` DocType 修正全部 64 个在售窗帘：新增 64 条 `Wholesale Selling 3`，更新 64 条 `Standard Selling`；原有 `Standard Buying` 与 `Wholesale Selling` 经核对正确，未改动。回读为四张价目表各 64 条、共 256 条，货币均为 MZN、UOM 均为“条”，零异常。建议零售价区间按项目既定规则取最高值。变更前完整备份位于生产站点 `private/backups/20260921_085807-erp_solua_one-*`。
+
+价格批量维护的最小安全流程：精确枚举启用且可销售的非模板 Item；排除停用/LEGACY；备份；使用 DocType API 仅写差异；最后逐物料回读价格表、金额、货币和 UOM。禁止直接 SQL 写入 Item Price。
+
+### 19.9 智能体执行与验收规则
+
+- 独立任务可能把“向主任务汇报”误解为再次调用 `send_message_to_thread`。经验收类任务不要让智能体互相转发；主任务直接读取其最终记录。
+- “已发送指令”不等于“已执行”。生产变更只有在备份存在、DocType 写入完成、生产回读通过后才能报告完成。
+- 一个智能体只承担一个单一目标。生成色卡、上传附件、转换模板、调整库存、修正价格应分别说明边界，避免旧任务中的“禁止上传”和新任务中的“导入生产”互相冲突。
+- 汇报中的记录数必须标明对象。例如“30 条价格记录”表示 10 个变体乘 3 张价目表，不是库存 30 条。
+
+### 19.10 2026-09-21 首页交货单入口、销售单打印格式可编辑化
+
+本次共三处变更，均已在生产 `erp.solua.one` 定向部署并回读；未执行 `migrate`、`after_install` 或 `after_migrate`。部署前完成站点备份（`20260921_225733-erp_solua_one-*`，含数据库/公开/私有文件），变更前的两份文件保存在 `sites/erp.solua.one/private/backups/20260921-sales-invoice-print/`。
+
+#### ① 首页「销售与交货」组
+
+首页快捷操作顶部新增独立分组（原「订单与客户」组内的新建交货单已移入，不再重复）：
+
+| 入口 | 行为 | 权限 |
+|---|---|---|
+| 新建交货单 | `frappe.new_doc("Delivery Note")` 空白新建 | 交货单 create 权限 |
+| 按销售订单开交货单 | 弹窗选销售订单（仅列 `docstatus=1`、`per_delivered<100`、状态未关闭）→ 调 `erpnext.selling.doctype.sales_order.sales_order.make_delivery_note` → 直接打开生成的交货单 | 交货单 create 权限 |
+| 销售单格式（标签打印组） | 打开 Print Format「批发销售单（颜色版）」；格式不存在时回退到按 Sales Invoice 过滤的打印格式列表 | Print Format read 权限 |
+
+#### ② 批发销售单（颜色版）改为可编辑格式
+
+问题：该格式把模板存放在 `raw_commands`、`html` 为空且 `raw_printing=1`。Frappe 因此按“原始打印格式”处理：`Print Settings.enable_raw_printing=0` 时不出现在打印格式下拉、打印页隐藏预览/PDF 按钮、编辑界面 HTML 为空 → 用户无法自行编辑。
+
+修复：模板移入 `html`、`raw_commands` 清空、`raw_printing=0`（`custom_format=1`、`standard=No` 不变）。源码同步修正 `my_custom_app_example/solua_home/print_format/sales_invoice_wholesale_color/sales_invoice_wholesale_color.json`，并加入 `tests/release_whitelist.txt`，避免 `after_migrate` 的 `sync_standard_print_formats()` 再次导入回原始打印态。
+
+回读（生产）：`html_len=2835`、`raw_commands_len=0`、`raw_printing=0`、`disabled=0`。真实数据渲染验证：取在售变体 `SH151046-09`（Standard Selling 900 MZN/条），开启图片与二维码两个开关后渲染 2570 字符，含颜色图与色卡二维码各 1 处，无未解析的 Jinja 标记。现在可在「打印格式」界面直接编辑该模板。
+
+#### ③ 停用多余销售单打印格式
+
+按“只停用不删除”处理，保留可随时恢复：
+
+| 格式 | 处理 | 依据 |
+|---|---|---|
+| Tax Invoice / Simplified Tax Invoice / Detailed Tax Invoice | 停用（原已停用） | ERPNext 印度税务区域格式，无任何引用 |
+| Sales Auditing Voucher | 本次停用 | 未作为默认、未被引用 |
+| Sales Invoice Standard / with Item Image / Return / Sales Invoice PD Format v2 / 批发销售单（颜色版） | 保留启用 | 标准回退、退货与既有发票版式 |
+
+无任何 DocType 设置 `default_print_format`，故停用不会影响现有打印入口。
+
+#### 验证与复现
+
+```bash
+node  my_custom_app_example/solua_home/tests/wholesale_page_check.cjs
+python my_custom_app_example/solua_home/tests/wholesale_print_check.py
+```
+
+- 页面测试新增断言：顶部「销售与交货」组位置、新建交货单仅出现一次、弹窗过滤条件（`docstatus=1`、`per_delivered<100`、状态排除 Closed/Completed/Cancelled）、`make_delivery_note` 调用与随后打开交货单、销售单格式入口路由。
+- 打印测试新增断言：发票格式必须是 `html` 非空、`raw_printing=0`、`raw_commands` 为空、模块与 doc_type 正确，并完成一次严格 Jinja 渲染（真实生产数据渲染已在服务端另行执行）。
+- 部署校验：本地与生产两份文件 SHA256 一致（`solua_home.js` = `1b08bda9…9406`，格式 JSON = `294a2026…db3e`）。
+
+遗留：真实浏览器里点「按销售订单开交货单」生成交货单、以及自行编辑打印格式后的预览，仍需在登录会话中人工过一遍。
+
+### 19.11 2026-09-21 单据类型（DocType）列表瘦身
+
+需求：`/desk/doctype` 里有很多用不上的 ERPNext 单据类型，希望看不到它们。
+
+#### 为什么不删除
+
+生产共有 **833 个 DocType**；“用不上的模块”几乎都被核心单据以 Link 字段引用（删表会导致 Link 指向不存在的 DocType、报表/钩子报错）：
+
+| 候选模块 | DocType 数 | 被引用的位置（部分） |
+|---|---|---|
+| Manufacturing | 48 | Item / 采购与销售明细 → **BOM**；Stock Entry → Work Order、Job Card；Material Request → Work Order；Pick List → Work Order |
+| Projects | 15 | **Project** 被 GL Entry、Sales/Purchase Invoice、Payment Entry、Stock Entry、Delivery Note、Budget、Journal Entry 等 20+ 个核心单据引用 |
+| Assets | 26 | Item → Asset Category；Sales/Purchase/POS Invoice Item → Asset；Serial No → Asset |
+| Subcontracting | 13 | Purchase Receipt → Subcontracting Receipt；Stock Entry → Subcontracting Order |
+| Website / CRM / Email / Integrations | 38 / 28 / 17 / 24 | 销售单据 → UTM Campaign/Medium/Source；Customer → Lead/Opportunity；System Settings / DocType → Email Template；Company → Campaign |
+| Quality Management | 16 | 采购/收货/制造链路 |
+
+另外，ERPNext 升级会重新安装 App 自带的 DocType，删了也会回来。因此结论：**不删除、不停用任何 DocType，只在列表默认隐藏**。
+
+#### 做了什么
+
+新增 `solua_home/public/js/doctype_module_filter.js`，通过 `hooks.py` 的 `doctype_list_js` 注册到 DocType 列表（Frappe 先加载 core 的 `doctype_list.js`，再由钩子追回我们的文件，因此只做追加合并，不会覆盖 `primary_action` / `new_doctype_dialog`）：
+
+| 行为 | 实现 |
+|---|---|
+| 默认只显示在用模块 | `frappe.listview_settings["DocType"].filters` 返回 `[["module", "not in", HIDDEN_MODULES]]`（列表上方显示为可手动删除的筛选条件） |
+| 一键显示全部 | 列表右上角按钮「显示全部单据类型 / 只看常用模块」，选择记在浏览器（localStorage），切换后刷新列表 |
+| 兼容与兵底 | 若列表实例在读取 settings 之后才构造，则在 `ListView.prototype.setup_defaults` 补一次筛选（幂等，不重复添加，只对 DocType 生效） |
+
+隐藏的 19 个模块：`Assets、Automation、Bulk Transaction、CRM、EDI、ERPNext Integrations、Integrations、LMS、Maintenance、Manufacturing、Projects、Quality Management、Regional、Shopping Cart、Subcontracting、Support、Telephony、Website、Workflow`。
+
+保持可见：`Accounts、Stock、Selling、Buying、Setup、Core、Desk、Contacts、Custom、Printing、Email、Communication、Geo、Utilities、Portal、X POS`。
+
+下拉效果：列表从 833 条减为显示 576 条（隐藏 257 条），数据库与字段完全未动。
+
+#### 部署与回读
+
+- 变更前备份：站点 `20260921_225733-erp_solua_one-*`；旧 `hooks.py` 存于 `sites/erp.solua.one/private/backups/20260921-sales-invoice-print/hooks.py.before`。
+- 上线的两个文件（已去 CRLF 保持生产 LF 布局）：`apps/solua_home/public/js/doctype_module_filter.js`（SHA256 `35021449…0407`）、`apps/solua_home/hooks.py`（SHA256 `b1a95efb…592b`）；与备份逐行对比（忽略换行）仅新增 `doctype_list_js` 的 DocType 条目。
+- 回读：`frappe.get_hooks("doctype_list_js")` 已含 `DocType`；用 `frappe.desk.form.meta.FormMeta("DocType").load_assets()` 组装出的 `__list_js` 为 7415 字节，含我们的模块筛选与「显示全部单据类型」按钮，且 core 的 `new_doctype_dialog` / `primary_action` 仍在。执行了 `bench --site erp.solua.one clear-cache`（hooks 缓存），未跑 migrate。
+- 隔离测试：`node my_custom_app_example/solua_home/tests/doctype_module_filter_check.cjs`（验证默认筛选、核心设置保留、切换持久化、兵底幂等、不影响其他 DocType）。
+
+遗留：真实浏览器里登录后打开 `/desk/doctype` 确认筛选生效与按钮位置（生产回读只能证明脚本被下发）。
+
+> 注：本节“隐藏 19 个模块”的做法已被 **19.13** 替代（改为显式白名单，并覆盖打印格式的“单据类型”下拉框），下文模块清单不再生效，只作历史记录。
+
+### 19.12 2026-09-21 首页「常用功能」改为模块分组 + 工作区入口
+
+需求：首页快捷操作只有「新建销售单 / 新建交货单」这类新建入口，缺「查看」类；希望标题区就是进入大板块的入口，下面才是常用功能（例如标题「销售」下有销售订单、POS 销售单等）。
+
+#### 结构
+
+「快捷操作」更名为 **常用功能**，从 6 个平铺分组改为 6 个模块分组，**分组标题本身是可点击按钮**，点击进入对应工作区（`frappe.router.slug(工作区名)` → `frappe.set_route(slug)`，即 `/desk/selling` 这类 URL）；组内每个功能区分**新建**（`data-new-doc`）与**查看**（`data-view="list"`，进入列表）。分组标题若拿不到工作区权限，则退回该模块的首个列表页。
+
+| 分组（标题可点，跳工作区） | 组内功能 |
+|---|---|
+| **销售** → Selling | 新建销售订单 / 销售订单 / 新建交货单 / 按销售订单开交货单 / 交货单 / 销售发票 / POS 销售单 / 报价单 / 客户门店 / 优惠促销管理 |
+| **库存** → Stock | 新建物料 / 物料列表 / 库存入库 / 物料出库 / 领用 / 损耗 / 出入库记录 / 手机扫码盘点 / 盘点单 / 仓库与库位 |
+| **采购** → Buying | 新建采购订单 / 采购订单 / 采购收货 / 收货记录 / 采购发票 / 供应商 |
+| **财务** → Invoicing | 销售发票 / 采购发票 / 新建收款单 / 收付款单 |
+| **打印与标签**（标题 → 打印格式列表） | 打印设置 / 打印设计 / 销售单格式 / 标签打印 |
+| **其他入口**（不可点） | POS交班 / 公开色卡 / xPos 收银台 |
+
+原「订单与客户」组撤销：新建销售订单、客户/门店并入「销售」；供应商并入「采购」；采购收货从「库存管理」移到「采购」；优惠/促销从独立分组并入「销售」；xPos 入口更名为「xPos 收银台」。
+
+每个分组与每条功能都按权限显示：`api/home.py` 的 `_permissions()` 从 17 个标志位扩到 33 个，新增 `read_sales_order / read_delivery_note / read_sales_invoice / read_pos_invoice / read_quotation / read_stock_entry / read_warehouse / new_purchase_order / read_purchase_order / read_purchase_receipt / read_purchase_invoice / new_payment_entry / read_payment_entry / read_stock_reconciliation（已有）/ read_purchase_receipt` 等；某分组内一条可见功能都没有时整个分组不渲染。收银员 `pos1@solua.one` 实测可见销售、交货、POS 销售单、客户、仓库等，看不到库存/打印/采购下单（其角色确无权限）。
+
+#### 部署与回读
+
+- 三个文件（均为 LF、字节与本地一致）：`api/home.py`（SHA256 `1b2622fd…a022`，含另一处此前未提交的 `_resolve_warehouse` 修正：改为 Stock Settings 默认仓优先、用户默认仓兜底）、`solua_wholesale/page/solua_home/solua_home.js`（`aacb59b1…1fa1`）、同目录 `solua_home.css`（`d98e4ae6…966c`）。
+- 变更前文件备份在 `sites/erp.solua.one/private/backups/20260921-homepage-actions/`（`home.py.before` / `solua_home.js.before` / `solua_home.css.before`）；未跑 migrate，只 `bench --site erp.solua.one clear-cache`。
+- 回读方式（重要）：Desk Page 的脚本**不是**静态资源 URL，而是 `frappe/core/doctype/page/page.py:load_assets()` 从 `get_module_path(module)/page/<scrub(page)>/` 读取后内联返回，所以 `/assets/solua_home/solua_wholesale/page/...` 返回 404 属正常现象。正确回读是 `frappe.get_doc("Page","solua-home").load_assets()`：脚本 18330 字符（=文件 19394 字节 UTF-8），含 `data-workspace` 模板、`open_workspace`、`data-view="list"`，CSS 含 `.solua-home-group-title-link`。
+- 工作区可用性回读：`Selling / Stock / Buying / Invoicing` 四个 Workspace 均 public 且无角色限制，出现在 boot 的 workspace pages 中。
+- 隔离测试：`tests/wholesale_page_check.cjs` 断言 41 个功能标签、四个工作区入口、`data-view=list` 必须走列表而不新建单据、工作区缺失时退回列表；`wholesale_forms_check.cjs`、`wholesale_print_check.py`、`shared_barcode_check.py`、`doctype_module_filter_check.cjs` 全绿。
+
+遗留：真实浏览器登录后点一次分组标题（应进入对应工作区）与「查看」按钮（应进入列表而非空白新建单）确认体验（服务端回读只能证明脚本已下发）。
+
+### 19.13 2026-09-21 单据类型改为白名单（67 项），并覆盖打印格式下拉框
+
+需求：“还是太多”；并指出真正常用的入口不是 `/desk/doctype` 列表，而是**编辑打印格式时「单据类型」的下拉框**。
+
+关键发现：19.11 的做法（`frappe.listview_settings["DocType"].filters`）**只影响列表页**，对 Link 字段的下拉搜索完全没有效果；而且 833 → 576 的模块筛选仍然太宽。
+
+#### 做法：一份显式白名单，两处生效
+
+`public/js/doctype_module_filter.js` 从“隐藏模块”改为**显式白名单 `IN_USE_DOCTYPES`**，同一份清单同时服务两处：
+
+| 位置 | 实现 | 切换按钮 |
+|---|---|---|
+| `/desk/doctype` 列表 | `listview_settings["DocType"].filters` 返回 `[["name", "in", 白名单]]` | 右上角「显示全部单据类型 / 只看常用单据类型」（刷新列表） |
+| 打印格式表单 `doc_type` 下拉 | `hooks.py` 新增 `doctype_js = {"Print Format": "public/js/doctype_module_filter.js"}`，在 `onload/refresh` 里 `frm.set_query("doc_type", () => ({ filters: { name: ["in", 白名单] } }))` | 表单按钮同样切换，**即时生效不刷新**（切换后 `refresh_field("doc_type")`） |
+
+切换状态按浏览器记忆（`localStorage` 键 `solua_home_doctype_show_all`），开关打开时两处都放开为全部 800+ 个单据类型；只改“筛选条件/下拉候选”，不删除、不停用、不修改任何 DocType、字段或数据。
+
+白名单共 **67 项**（按用途分组，增减只需改 JS 里这一张表）：
+
+| 用途 | 单据类型 |
+|---|---|
+| 销售与交货 | Quotation、Sales Order、Delivery Note、Sales Invoice、POS Invoice、POS Opening Entry、POS Closing Entry、Pick List、Vehicle |
+| 采购 | Request for Quotation、Purchase Order、Purchase Receipt、Purchase Invoice |
+| 收付款与总账 | Payment Entry、Journal Entry |
+| 商品与库存 | Item、Item Price、Price List、Item Group、Item Attribute、Warehouse、UOM、Stock Entry、Stock Entry Type、Stock Reconciliation |
+| 客户/供应商/地址 | Customer、Customer Group、Supplier、Supplier Group、Sales Person、Territory、Address、Contact |
+| 公司与价格 | Company、Currency、Country、Mode of Payment、Payment Term、Payment Terms Template、Sales/Purchase Taxes and Charges Template、Tax Category、Cost Center、Pricing Rule |
+| 打印与系统 | Letter Head、Print Format、Print Heading、Print Style、Report、DocType、Custom Field、Property Setter、Workspace、User、Role、File、Data Import |
+| X POS 与自建单据 | POS Profile、POS Opening Shift、POS Closing Shift、POS Cash Movement、POS Offer、POS Coupon、XPOS Branding Settings、Scale Barcode Settings、Product Bundle Definition、Retail Settings |
+
+效果：列表与下拉从“可见 472 个（含子表共 833）”缩到 **67 个**。
+
+#### 部署与回读
+
+- 备份：`sites/erp.solua.one/private/backups/20260921-doctype-scope/`（`hooks.py.before`、`doctype_module_filter.js.before`）。
+- 上线两个文件（均为 LF）：`apps/solua_home/public/js/doctype_module_filter.js`（SHA256 `bd621ad7…e426`）、`apps/solua_home/hooks.py`（`50b32d65…a80e`）；hooks 与备份逐行比对（忽略换行）**仅新增** `doctype_js["Print Format"]` 一行与注释改写。
+- 回读：`frappe.get_hooks("doctype_js")["Print Format"]` 已含本文件（与 print_designer 的 `print_format.js` 并存；后者不设置 `doc_type` 查询，无冲突）；白名单 67 项在该站**全部存在**且无子表；`FormMeta("Print Format").load_assets().__js`（11628 字节）含 `set_query("doc_type"`；`FormMeta("DocType").load_assets().__list_js`（9971 字节）含 `["name", "in"` 与切换按钮，core 的 `new_doctype_dialog` 仍在。未跑 migrate，只 `clear-cache`。
+- 隔离测试：重写 `tests/doctype_module_filter_check.cjs`（白名单内容与规模、列表筛选、表单 `doc_type` 查询与切换、核心设置不被替换、幂等兵底），其余 3 个 node 测试与 2 个 python 测试保持全绿。
+
+遗留：需在浏览器确认列表与打印格式下拉的实际效果；要加/删某个单据类型时只改 `IN_USE_DOCTYPES` 一处（后续可考虑把它做成 `Retail Settings` 里可配置的清单）。
+
+### 19.14 2026-09-21 收银员首页 = 只有 POS（POS-only 模式）
+
+需求：“收银员只有使用pos的权限”。
+
+#### 先查清的事实
+
+| 项目 | 生产现状 |
+|---|---|
+| pos1/pos2/pos_manager 的 Frappe 角色 | **Accounts User + POS Cashier + Sales User**（并非 POS-only） |
+| 「POS Cashier」角色本身 | 只有 POS Opening/Closing Entry 的 Custom DocPerm（read/write/create/submit），无其它 DocPerm；单靠它无法新建 POS Invoice（POS Invoice 的 create/submit 只给 Accounts Manager/User） |
+| xPos 桌面端鑴权 | API Key/Secret（同步身份 `xpos_sync@solua.one` 持 XPOS Sync 角色）；开单/改单全部 `ignore_permissions`，收银员自身角色不参与 |
+| 收银员身份判定 | POS Profile 的 `applicable_for_users`（POS Profile User 子表），xPos 的 `resolve_pos_actor` / `is_pos_cashier` / POS Role 都基于它 |
+| 收银方式1 - SH | 成员：pos1、pos2、pos_manager、Administrator；`pos_role`：pos1/pos2 空（xPos 默认 Cashier）、pos_manager=Manager；`is_cashier` 三人都是 0 |
+
+结论：桌面上“能看到什么”与 xPos 能否开单无关，因此首页按“是否 POS Profile 收银员”切换即可，**不动任何角色与数据**。
+
+#### 做了什么
+
+- 后端 `api/home.py` 新增 `_pos_cashier_profile()`：当前用户不是 Guest/Administrator → 不具备 POS_MANAGER_ROLES（System/POS/Accounts/Sales/Stock Manager）→ 属于某个未停用的 POS Profile 的 `applicable_for_users` → 其 xPos POS Role 不在 (Manager/Administrator/Supervisor) 内。命中时 `get_dashboard_data()` 直接返回 `home_mode: "pos"` 的**最小载荷**（只含 company/currency/query_time/pos_profile/permissions），不跑开票额、未收款、待交付、逾期应收、库存预警、商品资料等聚合查询。
+- 前端页面：收到 `home_mode == "pos"` 时隐藏「经营概览」「待处理」「资料准备」三块（`data-section` 开关），副标题改为「收银台 · 销售单与交班」，分组标题改为「收银」，只渲染三个入口：**开始收银（xPos）/ POS交班 / POS 销售单**；「商品查找」（查价）保留，双栏变单栏。
+- 管理岗与主管不受影响：Administrator、System/Sales/Accounts/Stock Manager、以及 xPos POS Role=Manager 的 `pos_manager` 都继续看到完整首页。
+
+#### 部署与回读
+
+- 备份：`sites/erp.solua.one/private/backups/20260921-pos-cashier-home/`。上线三个文件（均 LF）：`api/home.py`（SHA256 `dd285228…9076`）、`solua_wholesale/page/solua_home/solua_home.js`（`f7a7e5ce…14ca`）、同目录 `solua_home.css`（`c10b8d49…5fcf`）；未跑 migrate，只 `clear-cache`。
+- 回读：`get_dashboard_data()` 对 pos1/pos2 返回 `home_mode=pos`（8 个键，无任何业务字段），对 pos_manager/Administrator/xpos_sync 返回 `home_mode=desk`（18 个键）；`Page("solua-home").load_assets()` 的脚本含 `pos_actions` / `data-section` / 收银入口，CSS 含单栏规则。
+- 隔离测试：`wholesale_page_check.cjs` 新增收银员场景（只显示收银入口、隐藏 13 个业务入口、三块面板 toggle、标题变「收银」、显示收银台名、管理员再次加载后恢复完整布局）；`wholesale_print_check.py` 新增 `_pos_cashier_profile()` 判定链（经理角色、主管 POS Role、停用 Profile、非成员）。
+
+#### 遗留（需业务确认）
+
+1. pos1/pos2 仍带着 **Sales User 与 Accounts User** 角色。若要让账面上真正“只有 POS 权限”，需去掉这两个角色、只留 POS Cashier；xPos 桌面端不受影响（走同步身份 + `ignore_permissions`），但网页端手工新建 POS/销售发票、看客户、以及内置网页收银台会失效。动之前建议备份角色并在收银机上跑一单验收。
+2. 同步账号 `xpos_sync@solua.one` 当前挂 47 个角色（含 System Manager）——它是收银机的 API Key 身份，权限过大，比收银员更值得收敛。
+3. POS Profile User 的 `is_cashier` 对 pos1/pos2 未勾选；当前 xPos 的结算校验跑在同步身份（System Manager）上所以不受影响，但一旦收敛同步账号就会开始拦截，届时要给收银员勾上 `is_cashier`。
+
+### 19.15 本地销售订单条码、描述与打印显示开关（2026-09-22）
+
+本地实现，尚未部署生产：
+
+- 销售订单明细增加只读字段 `custom_item_barcode`，显示真实商品条码；变体没有独立条码时读取模板条码，绝不使用 `item_code` 冒充。
+- 明细标准 `description` 优先写入 `custom_item_description_pt`，为空时清理 HTML 后回退 Item 标准描述。
+- 「客户订单确认单（颜色版）」每行显示条码和描述。
+- 销售订单打印按钮的「打印选项」增加三个独立开关：商品名称、SKU/货号、色号；默认全部开启。隐藏项目会从表格中移除，剩余列使用自动布局，不保留空列。
+- `tests/sales_order_item_display_check.py` 覆盖模板条码继承、葡语描述回退、标准描述回退和禁止使用货号；`wholesale_print_check.py` 覆盖三个开关的 8 种组合。
+
+### 19.16 2026-09-22 资料准备改为“点名清单 + 定向跳转”
+
+需求：“商品资料：缺图片 4 · 缺固定色号 8 … 点击跳转到物料清单了，还是不知道问题是什么”。
+
+#### 问题
+
+首页「资料准备」只回传两个计数，行本身跳的是**未加筛选**的物料列表，用户看到的仍是全部 92 条物料，无法知道是哪几条、缺什么。
+
+#### 做了什么
+
+- 后端 `_item_data_status()`（`api/home.py`）不再只算数字：每个检查项都带上 `field`（要补的字段）、`hint`（一句话说明）以及**受影响物料清单** `items`（`name / item_name / item_group / variant_of`，上限 `ITEM_ISSUE_ROW_LIMIT = 200`，超出置 `truncated`）。颜色属性名抽成常量 `COLOR_ATTRIBUTE = "Cor"`。原有 `missing_image` / `missing_color_code` / `item_count` 字段保持不变，向后兼容。
+- **检查范围只含单品/变体**（业务确认）：模板（`has_variants=1`）本身没有唯一商品图和唯一色号，是正常状态，不计入任何检查。新增 `checked_count`（参与检查的单品/变体数）与 `template_count`（被跳过的模板数）。
+- 前端「资料准备」重写为可展开的问题清单：每行显示「检查项 + 条数 + 说明 + 前 3 个物料号」，点标题就地展开，展开后**每条物料是一行按钮，直接打开该物料表单**；底部「在物料列表中只看这 N 条」用 `data-filters` 深链，落到**只含这些物料**的列表（`frappe.route_options = {name: ["in", [...]]}`，超过 200 条或 `truncated` 时退回普通列表）。计数为 0 的检查显示「已齐全 ✓」，不再制造“0 个问题”的噪音。
+- 样式新增 `.solua-home-issue*` 规则（展开箭头旋转、物料行为蓝色链接、已齐全行灰字）。
+
+#### 生产回读（2026-09-22）
+
+- 备份 `sites/erp.solua.one/private/backups/20260922-homepage-issue-drilldown/`（同一目录下的 `*.before` 已被第二版覆盖为前一版内容）；最终上线 `api/home.py`（`bb0cd7ad…8f8b`）、`solua_wholesale/page/solua_home/solua_home.js`（`6053d872…b86e`）、同目录 `solua_home.css`（`d9ab79db…34e7`，未再变），本地↔生产 SHA256 逐一致；未跑 migrate，只 `clear-cache`。（注意 `apps/solua_home/solua_home` 是指向 app 根目录自身的软链接，因此只有一套文件。）
+- 首版上线后回读发现两个检查项命中的全部是模板（缺图片 4 = 4 个杆模板；缺固定色号 8 = 上述 4 个杆模板 + 4 个窗帘模板 `SH151046`/`SH151060`/`SH151107`/`SH151114`）。业务确认“模板就是无图无色号的，不是错误”，因此第二版把范围限定为单品/变体。
+- 限定后回读：`item_count=92`、`checked_count=84`、`template_count=8`、`missing_image=0`、`missing_color_code=0` —— 两个检查项都显示「已齐全 ✓」，模板不再被报为问题；页面上方的汇总行会写明“共 92 条启用物料，其中 84 条单品/变体参与检查，模板 8 条不计”。
+- `Page("solua-home").load_assets()` 回读：脚本含 `data-issue-toggle` / `data-issue-body` / `data-filters` / `render_item_data`，CSS 含 `.solua-home-issue-head` 等规则。
+- 测试：`wholesale_page_check.cjs` 新增场景（面板写明检查总数、每条检查点名物料、展开按钮切换、`data-filters` 深链设置 `route_options` 并跳列表、坏 JSON 退回普通列表；顺手让测试用的 `__()` 支持 `{0}` 插值与 jQuery 式 `toggleClass`）；`wholesale_print_check.py` 新增 `_item_data_status()` 断言（状态/计数/检查项顺序/`field`/`items` 命名/`truncated`）。
+
+#### 结论
+
+- 两项检查现在只对**单品/变体**报数：模板有无图片、有无色号都不再算问题。若以后想改变这个口径（例如要求模板也必须有家族图），只需把 `sellable = [row for row in items if not int(row.get("has_variants") or 0)]` 这行的过滤条件改掉。
+
+### 19.17 2026-09-22 物料列表显示「当前库存」与四档售价
+
+需求：“物料页面，怎么能够显示当前的库存和不同的售价？”
+
+#### 为什么原来看不到
+
+- 列表里的「库存/价格」列取的是 ERPNext 自带字段 `total_projected_qty` / `standard_rate`，本站在库数据全写在 `Bin`、价格全写在 `Item Price`，这两个字段一直是 **0**，所以看着像没数据。
+- 另一个坑：列表列的**顺序与可见数量**由 `List View Settings`（名称 = `Item`）的 `fields` JSON 控制，前端再按屏宽只显示 4 / 6 / 10 列（`≤1366px → 4`、`1367–1919px → 6`、`≥1920px → 10`）。所以只把字段加上 `in_list_view` 并不够，旧列已经占满了可见位。
+
+#### 做了什么
+
+- 新模块 `item_metrics.py`：把真实数据镜像到 6 个只读 Item 字段（`Currencies`/`Float`，都勾了列表可见）：
+
+| 字段 | 含义 | 来源 |
+|---|---|---|
+| `custom_stock_qty` | 当前库存（各在用叶子仓库 `Bin.actual_qty` 合计） | 汇总 `tabBin`，排除 `is_group=1` 与 `disabled=1` 的仓库 |
+| `custom_variant_stock_qty` | 变体库存合计（仅模板） | 模板下所有变体的库存 |
+| `custom_rate_cost` | 成本价 | 价目表 `Standard Buying` |
+| `custom_rate_home` | Home Store 价 | `Wholesale Selling 3` |
+| `custom_rate_wholesale` | 批发价 | `Wholesale Selling` |
+| `custom_rate_retail` | 建议零售价 | `Standard Selling` |
+
+- 取价规则：只认**不带客户/供应商**的价目表行；同一档有多行时优先本位计量单位，再优先新的 `valid_from`（价格字段保留 2 位小数，原值仍在 `Item Price`）。
+- 刷新时机（`hooks.py`）：库存类单据（Stock Entry / Stock Reconciliation / Purchase Receipt / Purchase Invoice / Delivery Note / Sales Invoice / POS Invoice）的 `on_submit` 与 `on_cancel`；`Item Price` 的 `on_update`/`after_delete`；`Item` 的 `on_update`。变体变动时会连带重算其模板的合计。**注意钩子必须挂在父单据上**：Bin 的写入发生在 `make_sl_entries → update_entries_after → update_bin`，即 SLE 提交之后，所以挂 Stock Ledger Entry 会读到旧值。
+- 只在数值真变化时才写库（`update_modified=False`，不扰动物料的修改时间）；另有 `refresh_all_item_metrics()`（白名单方法，限 System/Stock/Item/Sales/Accounts Manager）+ 物料列表右上角**「刷新库存与售价」**按钮（`public/js/item_list_metrics.js`，经 `doctype_list_js["Item"]` 下发）与每日兜底任务（`tasks.daily_tasks`）供批量导入/补记后手动对齐。
+- 列顺序：把「物料名称 / 状态 / 当前库存 / 成本价 / 批发价 / 建议零售价 / Home Store 价 / 变体库存合计」排到 `List View Settings(Item)` 的最前面，其余旧列（SPU/订货货号/标签条码/固定色号/估值价/色卡图/图片/分组/POS简称/描述）保留在后面（在列表右上角列设置里依旧可勾选、拖动）。原列顺序备份在 `sites/erp.solua.one/private/backups/20260922-item-metrics/item-list-columns.before.json`，如需回滚把它写回 `List View Settings(Item).fields` 即可。
+- 旧列 `valuation_rate` 原本标着「成本价」但本期一直是 0/入库估值，已改名为「估值价（入库估值，非采购成本）」，真正的采购成本看新的「成本价」。
+
+#### 生产回读（2026-09-22）
+
+- 备份 `sites/erp.solua.one/private/backups/20260922-item-metrics/`（`hooks.py` / `tasks.py` / 列顺序 JSON）；上线 `item_metrics.py`（`86a9df98…b0e2`）、`public/js/item_list_metrics.js`（`e179d162…f7e4`）、`hooks.py`（`68defcce…96de`）、`tasks.py`（`1f6cea36…86e1`），本地↔生产 SHA256 逐一致；未跑 migrate（只清了缓存）。
+- 建字段 + 首次回填：93 条物料全部重算；抽查 `SH151060-10`（库存 70 / 成本 334.16 / Home 430 / 批发 480 / 零售 900）、`SH151121`（1500 / 366.12 / 520 / 570 / 1280）、杆变体 `SH151169-3MD-1`（60 / 只有零售 660）、模板 `SH151060`（自身 0、变体合计 700）均正确；全库库存合计 **36,410** 与 Bin 一致，85 条有零售价、65 条有批发价与成本价。
+- 钩子实测：把 `SH151060-01` 的库存镜偺值故意写成 0，再拿真实单据 `MAT-STE-2026-00004` 跑一遍 `on_stock_voucher_change`，值恢复为 70，且未触及不在该单据里的物料。
+- `frappe.get_hooks` 回读：8 个单据均为 `on_submit`/`on_cancel` 接入 `solua_home.item_metrics.on_stock_voucher_change`，`after_migrate` 已加上 `solua_home.item_metrics.after_migrate`（迁移时自动补字段并重算）；`FormMeta("Item").load_assets().__list_js` 含刷新按钮脚本。
+- 隔离测试：新增 `tests/item_metrics_check.py`（四档价目表映射、本位 UOM 优先、跳过客户专属价、只汇总叶子仓库、模板变体合计、变动才写库、钩子入参、字段创建幂等、权限门禁）与 `tests/item_list_metrics_check.cjs`（列宽覆盖不会被框架算出的值拉宽、保留其他 app 的 `onload`/设置、刷新按钮调用后端并重拉列表、缺少 `apply_column_widths` 时不报错）。
+- 列宽上线：`public/js/item_list_metrics.js`（`859497c7…20b0`），变更前文件备份在同目录 `item_list_metrics.js.before`；回读 `FormMeta("Item").__list_js` 含 `COLUMN_WIDTHS`、`apply_column_widths`、刷新按钮。
+
+#### 列宽（2026-09-22 补充）
+
+Frappe 的列表列宽不是配置项：每次重绘时 `render_list()` 会按**单元格文字长度**算宽度（`textLength * 10 / 1.3`，空的单元格按 22.5 字算 = 约 173px，图片列也是这么被撑宽的），存进 `this.column_max_widths`，再由 `apply_column_widths()` 写成行内 `width` / `flex: 1 0 <px>`。这张表只会“变大不会变小”，所以长文本列（描述、订货货号）和空值列都会偏宽。
+
+因此 `public/js/item_list_metrics.js` 里加了一张列宽表并在 `onload` 把实例的 `apply_column_widths` 包了一层：每次重绘后先把表里的值写回 `column_max_widths` 再交给原方法。好处是仍然走框架自己的机制（不写 `!important`、不依赖 DOM 结构），列宽在首次加载、刷新、改列设置后都生效；不同版本缺这个方法时会自动跳过，不影响页面。
+
+当前生效的列宽（单位 px，改这一个表即可）：库存/变体库存 110/130、成本价 110、Home Store 价 120、批发价 110、建议零售价 110、固定色号 90、订货货号 130、SPU 120、标签条码 150、POS简称 110、物料分组 100、估值价 120、描述 220、图片/色卡图 90。
+
+#### 使用提示
+
+- 列表右上角「⚙ / 列设置」（Column Settings）可以勾选/拖动显示哪些列，新列已在候选里；只想要几个就取消其它勾选。
+- 「当前库存」是各在用仓库**合计**；要按仓库/货架看，打开物料表单的 Bin/库存明细，或看模板的颜色库存明细。
+- 物料的实际库存挂在**变体**上，所以模板行的「当前库存」为 0 是正常的，看旁边的「变体库存合计」。
+- 杆类目前只有 `Standard Selling` 一张价目表，因此杆的成本/批发/Home Store 三列是空的——补价后列会自动出现数字。
+
+### 19.18 2026-09-23 交货单提交受阻：门店比对放宽 + 订单反向回填
+
+**现象**：`MAT-DN-2026-00001` 提交时连续被拦（“关联订单客户/门店/收货地址不一致” → 修完撞“尚未开票”）。
+
+**根因**：`printing/wholesale.py::prepare_print_snapshot`（DN `before_submit`）要求 `SO.custom_store_name == DN.custom_store_name`，但 `api/stock.py::validate_delivery_note` 只做 **SO → DN 单向补空**，SO 门店永远为空 → 两边必不一致；生产上此前 0 张已提交 DN，该校验第一次真正生效就拦住第一单。叠加 `custom_invoice_plan` 为空触发第二条规则。
+
+**修复**（两文件已上线，SHA：`wholesale.py 2bdbb503…bf69b0`、`stock.py 05cafbea…e646de`，备份在 `backups/20260923-dn-store-invoice-fix/`）：
+1. 门店比对放宽：**SO 门店为空时以 DN 为准**，只有两边都填且不同才报“不一致”（拆单防线保留）；比较前 `.strip()` 防空格误判。
+2. 反向回填：DN 保存时把 `custom_store_name/phone/customer_order_no/invoice_plan` 中 **订单侧为空** 的字段用 DN 值补上（只补空、不覆盖），下次开单不会再撞同一坑。
+3. 数据修复：DN `custom_invoice_plan` = 「本单交货签收后开票」（规则要求 ≥8 字且非占位词，用户口述的“交货签收后开票”只 7 字，补足字数保留原意）。
+
+**验证**：`wholesale_print_check.py` 新增断言（SO 门店空 → 不拦；回填只补空不覆盖、`set_value` 只写 Sales Order）。先在事务内试提交成功并回滚（不落库），随后**正式提交 `MAT-DN-2026-00001` 成功**：docstatus=1、状态 To Bill、64 行、64 条 Stock Ledger Entry（`Receiving - SH` 出库）、打印快照冻结 `store=1 店` / `invoice_plan=本单交货签收后开票` / 64 行明细，SO `SAL-ORD-2026-00011` 三字段（门店/电话/开票安排）已由反向回填补齐。
+
+**部署注意**：gunicorn 是 `--preload` 常驻进程，Python 改动必须重启才生效；`bench restart` 会因 frappe 用户无 sudo 权限卡在内部 `sudo supervisorctl`，实际可用做法：`sudo -u frappe -i bash -c "kill -TERM <gunicorn 主进程 PID>"`（supervisor `autorestart=true` 会自动拉起，勿动 redis——session 在里面）。重启后 `ping` 200、新 PID 时间戳晚于文件 mtime 即可确认已加载新代码。
+
+**注意**：开票安排是业务必填（≥8 字、非“后续开票/未维护”等占位词），除非该 DN 已有已提交销售发票关联。
+
+### 19.19 2026-09-23 单据明细「总数量」与「导出表格」（Excel / CSV）
+
+**需求**：① 销售订单 / 销售单 / 交货单 / 拣货单最下面都要显示总数量；② 这四张单据都要能“以表格格式导出”；③ 关闭“关联订单客户/门店/收货地址不一致，请拆分送货单”这条自定义校验。
+
+#### 三处总数量
+
+| 位置 | 实现 | 说明 |
+|---|---|---|
+| 打印表格底部 | 三个打印格式的 `<tfoot>` 新增一行 `Total Qty / 总数量`，值来自新 jinja helper `get_print_total_qty(p)` | 列数与开关联动（`show_images/item_name/sku/color_code/description/ordered_before`），不受列勾选影响 |
+| 单据表单明细底部 | `public/js/document_table_export.js` 在 `refresh` 时往明细 grid 里插一行 `共 N 行 · 总数量 X · 明细金额合计 Y`（拣货单无金额），并包一层 `grid.refresh` 让增删改后自动更新 | 未保存的新单据也显示 |
+| 导出表格最后一行 | `api/export.py::_total_row` 按选中的列给 `数量/已拣数量/订购数量/此前已交付/剩余数量/金额` 求和 | Excel 里可直接求和 |
+
+`get_print_total_qty(data)`（`printing/wholesale.py`）对空快照、缺行、字符串数字都安全，快照与实时数据通用；打印格式里用 `{{ get_print_total_qty(p) }}`，已注册到 `hooks.jinja.methods`。
+
+#### 导出表格（Excel / CSV）
+
+- 后端：`api/export.py`（`@frappe.whitelist()`）：`get_export_options(doctype)` 给出可用列/默认勾选/格式；`export_document_table(doctype, name, columns, fmt, include_header, include_total)` 下载文件。白名单只有这四张单据，并且要 `has_permission(..., "read")`；`fmt=xlsx`（`build_xlsx_response`）或 `csv`（`provide_binary_file` + **UTF-8 BOM**，Excel 打开中文不乱码）。
+- 列与打印表格一致：序号、货号、商品名称、订货货号、色号、颜色、条码、描述、数量、单位、单价、金额、仓库（交货单另有订购/此前已交付/剩余，拣货单有已拣数量）。数量与金额以**数字**写入，Excel 能直接求和；货号/色号/条码/描述复用打印用的 `get_wholesale_print_data` 与 `get_item_sales_display`。
+- 前端：`public/js/document_table_export.js` 给四张单据在「打印」分组加「导出表格」按钮 → 弹窗勾选列 + 是否含抬头/合计行 → 「导出 Excel」/「导出 CSV」按钮打开 `/api/method/solua_home.api.export.export_document_table?...` 直接下载。
+- 注册方式：`hooks.doctype_js`（值可以是**列表**，与其它 app 的脚本合并），不留会需要 `bench build` 的 `app_include_js`。
+
+**拣货单的坑**：ERPNext 拣货单的明细子表是 **`locations`（Pick List Item）**，不是 `items`；前端与后端都按 `Pick List → locations` 取行，否则导出为空、底部总数量永远是 0。
+
+#### 关闭“拆分送货单”校验
+
+`printing/wholesale.py::prepare_print_snapshot` 里客户/门店/收货地址一致性检查整段注释掉（用户确认非自家规则、可关），**送货联系人一致性**仍然保留；`wholesale_print_check.py` 对应断言改为“门店不同不再拦截”。本次随同一批文件一起上线。
+
+#### 部署与回读（2026-09-23）
+
+- 备份 `sites/erp.solua.one/private/backups/20260923-doc-table-export/`（`hooks.py` / `wholesale.py` / 三个打印格式 JSON / 首次上线版 `export.py`、`document_table_export.js`）。
+- 上线：`api/export.py`（`d7fba12b…81e4`）、`public/js/document_table_export.js`（`933e8fa6…b58d`）、`hooks.py`（`31762fb3…4545`）、`printing/wholesale.py`（`de63337b…3ec3`）、`print_format/sales_order_wholesale_color.json`（`af83c4f5…7fbc`）、`print_format/delivery_note_guia_remessa.json`（`2f5693cf…3cae`），本地↔生产 SHA256 逐一致；未跑 migrate。
+- **销售单（Sales Invoice）打印格式例外的处理**：生产上的「批发销售单（颜色版）」html 比仓库里的版本旧（生产 2835 字、仓库 3736 字，仓库那版是另一条线的重构），所以**没有覆盖**，而是就地插入总数量行（用 `{% set ns = namespace(qty=0) %}` 循环求和，因为旧模板里没有 `p`）：DB 2835 → 3166，同步写回线上文件。
+- DB 记录同步：`客户订单确认单（颜色版）` 4154 → 4407、`Guia de Remessa` 5303 → 5592、`批发销售单（颜色版）` 2835 → 3166。
+- 回读：`frappe.get_hooks("doctype_js")` 四个单据都带 `document_table_export.js`；`hooks.jinja.methods` 含 `get_print_total_qty`；`FormMeta(<doctype>).as_dict()["__js"]` 里能看到脚本源码；`frappe.get_print("Sales Order", "SAL-ORD-2026-00011", print_format="客户订单确认单（颜色版）")` 与 `Guia de Remessa`（`MAT-DN-2026-00001`）渲染结果含 `Total Qty / 总数量` 且数字 = 1120（64 行合计，与 `doc.items` 独立求和一致）；销售单模板用假单据渲染出 `3.5`。
+- 导出载荷：销售订单 CSV（BOM + 抬头 + 合计行 `1120 / 458550`）、交货单 XLSX（openpyxl 打开、16 列、合计行）；拣货单用内存单据验证取行（含 `已拣数量`）。HTTP 冒烟：`/api/method/solua_home.api.export.*` 对 Guest 返回 **403**（路由存在、需要登录），登录用户点按钮即可下载。
+- 隔离测试：新增 `tests/document_export_check.py`（列定义/列过滤与顺序、抬头与合计行、单选列时标签不吃掉数字、CSV 的 BOM+CRLF、XLSX 载荷、拣货单 locations、白名单与权限）与 `tests/document_table_export_check.cjs`（四个单据注册、底部行数与总数量、grid 重绘不重复插入、导出弹窗列勾选与 xlsx/csv 链接、空选提示、无 grid 表单不报错）；`wholesale_print_check.py` 增加 `get_print_total_qty` 与“渲染出的打印 HTML 含总数量行”断言。11 个测试全绿。
+
+**两个踩坑记录（下次别再踩）**
+
+1. **独立 python 脚本改数据必须 `frappe.db.commit()`**：`frappe.db.set_value` 在脚本末尾能看到自己的写入，但进程退出时整个事务回滚——本次打印格式第一次“上线成功”其实没有落库，回读才发现（`raw sql` 里没有新行）。
+2. **改 `hooks.py` 必须重启 gunicorn/worker**（`--preload` 常驻进程会缓存 hooks 与已导入的 python 模块）；`bench restart` 会卡在 `sudo supervisorctl`，用 `kill -TERM <gunicorn 主进程>` 让 supervisor 自动拉起（勿动 redis）。另外 `scp` 到 /tmp 的目录要 `chmod 755`，否则 frappe 用户读不到（umask 会让目录变成 744）。
+
+### 19.20 2026-09-23 拣货单打印格式 + 批发销售单（颜色版）新版
+
+#### 拣货单（颜色版）——新格式，纸面带总数量
+
+- 新建 `print_format/pick_list_color/pick_list_color.json`（doc_type=Pick List，module=Solua Wholesale，自定义 HTML+A4 CSS）。明细取 **`locations`**（与导出/表单同一套取数 `get_pick_list_print_data(doc)`，`printing/wholesale.py`），列：序号/图片/商品/SKU/色号/条码/描述/仓库/已拣数量/数量/单位/来源单据，底部 `Total Qty / 总数量` 两行（数量与已拣数量）。
+- DB 记录名「拣货单（颜色版）」，并把 **DocType(Pick List).default_print_format** 指向它——原标准格式 `Pick List`（Stock 模块）保留未动，可随时切回。
+- 回读：内存拣货单渲染 1610 字节，总数量行、`7.5/6.5` 合计、条码/描述、草稿提示「非正式凭证」全部在；`get_print_format` 解析 ok。
+
+#### 批发销售单（颜色版）新版——另一条线的重构版，以新名字上线
+
+- 仓库里的重构版（含图片/色卡列开关）以 **「批发销售单（颜色版）新版」** 建进 DB（`print_format/sales_invoice_wholesale_color_v2/sales_invoice_wholesale_color_v2.json`，module=Solua Wholesale）；**旧「批发销售单（颜色版）」一字未动**，用户在打印弹窗里自行选择用哪个。
+- 回读：渲染 1360 字节、总数量行 `3.5`、色卡列标题齐全、无残留 `{%`。
+- 测试断言：`wholesale_print_check.py` 含 v2 文件存在、名称与 doc_type、module=Solua Wholesale、渲染含总数量行。
+
+#### 生产踩坑：挂了不存在 Module 的打印格式会直接打不开
+
+- 全库扫描发现旧「批发销售单（颜色版）」module=**「Solua Home 定制」**，而 Module Def 里只有 `Solua Wholesale`（modules.txt 也是）。`frappe.www.printview.get_print_format` 会 `frappe.get_cached_value("Module Def", module, "custom")` → **DoesNotExistError**，即打印时直接报错。已把该格式 module 修到 `Solua Wholesale` 并清缓存；全库仅此一条坏记录，修后五张自定义格式全部解析 ok。
+- 排查提醒：**Print Format 的 module 必须指向真实存在的 Module Def**；modules.txt 只列了 `Solua` 和 `Wholesale` 两个词，实际 Module Def 名是拼接的 `Solua Wholesale`。
+
+#### 部署与回读（2026-09-23）
+
+- 备份 `sites/erp.solua.one/private/backups/20260923-print-formats/`（hooks.py、wholesale.py 改动前副本）。
+- 上线 4 个文件：`hooks.py`（jinja methods 增 `get_pick_list_print_data`、`get_print_total_qty`）、`printing/wholesale.py`、`print_format/pick_list_color.json`、`print_format/sales_invoice_wholesale_color_v2.json`；除 hooks.py 因**换行符 CRLF/LF 差异** SHA 不同（内容一致）外其余逐一致。
+- DB 写入用独立脚本（含 `frappe.db.commit()`）：upsert 两个格式 + 设默认格式；回读确认 `拣货单（颜色版）`/`批发销售单（颜色版）新版` 都在、旧版未动、`Pick List.default_print_format = 拣货单（颜色版）`。
+- **进程新鲜度**：文件 14:24:05 写入，gunicorn master + 5 workers 与两个后台 worker 14:27:48 启动（晚于文件），无需再重启。
+- 11 个测试全绿；手册与发布白名单同步。

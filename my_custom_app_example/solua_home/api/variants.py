@@ -25,7 +25,7 @@ def get_template_variants(template_item):
         "image", "custom_swatch_image", "stock_uom", "disabled",
         "item_group", "brand",
     ]
-    for fieldname in ["custom_color_code", "custom_order_code"]:
+    for fieldname in ["custom_order_code"]:
         if frappe.db.has_column("Item", fieldname):
             fields.append(fieldname)
 

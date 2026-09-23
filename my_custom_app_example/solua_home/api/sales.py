@@ -3,6 +3,8 @@
 # 销售模块的自定义验证和事件处理
 # ============================
 
+import csv
+import io
 import json
 import re
 from decimal import Decimal, InvalidOperation
@@ -305,7 +307,8 @@ def _parse_table_rows(table):
     if has_header:
         missing = [label for field, label in (("item_code", "货号/SKU"), ("qty", "数量")) if field not in header]
         if missing:
-            return [], [{"row": 1, "item_code": "", "error": "缺少列：" + "、".join(missing)}]
+            actual = "、".join(str(value) for value in rows[0])
+            return [], [{"row": 1, "item_code": "", "error": f"缺少列：{'、'.join(missing)}；实际表头：{actual}。支持：货号/SKU、数量"}]
         code_index, qty_index = header["item_code"], header["qty"]
         warehouse_index = header.get("warehouse")
         data_rows = rows[1:]
@@ -316,7 +319,8 @@ def _parse_table_rows(table):
         data_rows = rows
         start_row = 1
     else:
-        return [], [{"row": 1, "item_code": "", "error": "未识别到货号/SKU和数量列"}]
+        actual = "、".join(str(value) for value in rows[0])
+        return [], [{"row": 1, "item_code": "", "error": f"未识别到有效列；实际表头：{actual}。支持：货号/SKU、数量"}]
 
     parsed = []
     for row_number, row in enumerate(data_rows, start=start_row):
@@ -337,16 +341,74 @@ def _read_order_table(file_url):
         frappe.throw(_("只支持 CSV、XLSX 或 XLS 文件"))
     content = file_doc.get_content()
     if extension == "csv":
-        from frappe.utils.csvutils import read_csv_content
-
-        return read_csv_content(content)
+        text, encoding = _decode_csv_content(content)
+        table, delimiter = _parse_csv_text(text, encoding)
+        return table, {"encoding": encoding, "delimiter": repr(delimiter)}
     from frappe.utils.xlsxutils import read_xlsx_file_from_attached_file
 
     if extension == "xlsx":
-        return read_xlsx_file_from_attached_file(fcontent=content)
+        return read_xlsx_file_from_attached_file(fcontent=content), None
     from frappe.utils.xlsxutils import read_xls_file_from_attached_file
 
-    return read_xls_file_from_attached_file(content)
+    return read_xls_file_from_attached_file(content), None
+
+
+def _parse_csv_text(text, encoding):
+    try:
+        delimiter = csv.Sniffer().sniff(text[:8192], delimiters=",;\t").delimiter
+    except csv.Error:
+        first_line = next(iter(text.splitlines()), "")
+        counts = {char: first_line.count(char) for char in ",;\t"}
+        delimiter = max(counts, key=counts.get) if counts and max(counts.values()) else ","
+    try:
+        table = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    except csv.Error as exc:
+        frappe.throw(_("CSV 格式错误（编码：{0}，分隔符：{1}）：{2}").format(encoding, repr(delimiter), str(exc)))
+    if table:
+        table[0] = [str(value).strip().lstrip("\ufeff").strip() for value in table[0]]
+    return table, delimiter
+
+
+def _decode_csv_content(content):
+    if isinstance(content, str):
+        text = content
+        if _has_upload_headers(text):
+            return text, "UTF-8 text"
+        # Some file readers decode GBK bytes as Windows-1250 text before this
+        # parser receives them. Recover the original bytes only when the
+        # round-trip produces both required upload headers.
+        try:
+            recovered = content.encode("cp1250").decode("gb18030")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            recovered = ""
+        if recovered and _has_upload_headers(recovered):
+            return recovered, "GB18030/GBK (recovered from Windows-1250 text)"
+        content = content.encode("utf-8")
+    try:
+        text = content.decode("utf-8-sig")
+        encoding = "UTF-8 BOM" if content.startswith(b"\xef\xbb\xbf") else "UTF-8"
+    except UnicodeDecodeError:
+        try:
+            text = content.decode("gb18030")
+            encoding = "GB18030/GBK"
+        except UnicodeDecodeError:
+            frappe.throw(_("CSV 解码失败（已尝试 UTF-8 和 GB18030/GBK）；文件内容不是受支持的编码。"))
+    return text, encoding
+
+
+def _has_upload_headers(text):
+    try:
+        delimiter = csv.Sniffer().sniff(text[:8192], delimiters=",;\t").delimiter
+    except csv.Error:
+        first_line = next(iter(text.splitlines()), "")
+        counts = {char: first_line.count(char) for char in ",;\t"}
+        delimiter = max(counts, key=counts.get) if counts and max(counts.values()) else ","
+    try:
+        header = next(csv.reader([next(iter(text.splitlines()), "")], delimiter=delimiter))
+    except (csv.Error, StopIteration):
+        return False
+    keys = {_header_key(value.strip().lstrip("\ufeff")) for value in header}
+    return "item_code" in keys and "qty" in keys
 
 
 def _sales_context(context):
@@ -488,8 +550,12 @@ def _resolve_sales_rows(rows, context, strict=True):
 @frappe.whitelist()
 def preview_sales_order_upload(file_url, context=None):
     """Parse an attached CSV/XLSX/XLS and return an unsaved enriched preview."""
-    table = _read_order_table(file_url)
+    table, source_info = _read_order_table(file_url)
     parsed, errors = _parse_table_rows(table)
+    if source_info and errors:
+        actual = "、".join(str(value) for value in table[0]) if table else "（空）"
+        for error in errors:
+            error["error"] = f"{error['error']}（实际表头：{actual}；编码：{source_info['encoding']}；分隔符：{source_info['delimiter']}；支持：货号/SKU、数量）"
     result = _resolve_sales_rows(parsed, context, strict=True)
     result["errors"] = errors + result["errors"]
     result["summary"]["errors"] = len(result["errors"])
@@ -519,6 +585,45 @@ def preview_sales_order_rows(rows, context=None):
 
 
 @frappe.whitelist()
+def get_sales_order_color_variants(barcode, context=None):
+    """Return one shared-barcode template's sellable variants with native order details."""
+    from solua_home.api.home import get_color_variants
+
+    context = _sales_context(context)
+    result = get_color_variants(barcode=barcode, barcode_only=True)
+    if result.get("state") != "ok":
+        return {"state": result.get("state") or "no_data", "templates": [], "variants": []}
+
+    rows = []
+    errors = []
+    template_groups = result.get("templates") or []
+    has_template = any(group.get("template", {}).get("has_variants") for group in template_groups)
+    warehouse = context.get("set_warehouse") or None
+    for group in template_groups:
+        for variant in group.get("variants") or []:
+            row, row_errors = _resolve_sales_item(
+                {"item_code": variant.get("item_code"), "qty": 1, "warehouse": warehouse},
+                context,
+                strict=False,
+            )
+            if row:
+                row["name"] = variant.get("name") or variant.get("item_code")
+                row["color_code"] = variant.get("color_code") or row.get("color_code") or ""
+                row["color"] = variant.get("color") or row.get("color") or ""
+                row["image"] = variant.get("image") or row.get("image") or ""
+                row["status"] = "；".join(error["error"] for error in row_errors) if row_errors else ""
+                rows.append(row)
+            errors.extend(row_errors)
+    return {
+        "state": "ok" if rows else "no_data",
+        "has_template": has_template,
+        "templates": template_groups,
+        "variants": rows,
+        "errors": errors,
+    }
+
+
+@frappe.whitelist()
 def search_sales_order_items(context=None, filters=None):
     """Search selectable stock items and show live Bin/prices for an order."""
     context = _sales_context(context)
@@ -531,7 +636,7 @@ def search_sales_order_items(context=None, filters=None):
     if filters.get("template"):
         item_filters["variant_of"] = filters.template
     fields = ["name", "item_name", "item_group", "variant_of", "has_variants", "disabled", "is_stock_item"]
-    for field in ("custom_order_code", "custom_color_code", "custom_swatch_image", "image"):
+    for field in ("custom_order_code", "custom_swatch_image", "image"):
         if frappe.get_meta("Item").has_field(field):
             fields.append(field)
     query = str(filters.get("search") or "").strip()

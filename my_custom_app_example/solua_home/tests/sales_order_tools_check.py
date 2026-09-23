@@ -93,10 +93,51 @@ module._native_sales_item_details = native_details
 module._display_price = lambda _code, _context, price_list, warehouse=None: 480 if price_list == "Wholesale Selling" else 430
 frappe.get_all = lambda doctype, **_kwargs: [masters["GOOD"]] if doctype == "Item" else []
 
+home_api = types.ModuleType("solua_home.api.home")
+home_api.get_color_variants = lambda **_kwargs: {
+    "state": "ok", "templates": [{"template": {"has_variants": 1}, "variants": [
+        {"name": "GOOD", "item_code": "GOOD", "color_code": "01", "color": "Red"},
+        {"name": "NO-PRICE", "item_code": "NO-PRICE", "color_code": "02", "color": "Blue"},
+    ]}],
+}
+sys.modules["solua_home.api.home"] = home_api
+
 parsed, parse_errors = module._parse_table_rows([
     ["SKU", "数量"], ["GOOD", 2], ["GOOD", 3], ["NO-PRICE", 1], ["GOOD", 0]
 ])
 assert parsed[0]["qty"] == 5 and len(parse_errors) == 1 and "正整数" in parse_errors[0]["error"]
+
+# Regress the uploaded workbook export itself, then the supported CSV variants.
+real_csv = Path(r"C:\Users\Yang\Desktop\Solua\home store sales order.csv").read_bytes()
+text, encoding = module._decode_csv_content(real_csv)
+table, delimiter = module._parse_csv_text(text, encoding)
+parsed_csv, errors_csv = module._parse_table_rows(table)
+assert encoding == "GB18030/GBK" and delimiter == ","
+assert not errors_csv and len(parsed_csv) == len(table) - 1
+assert parsed_csv[0]["item_code"] == "SH151060-01" and parsed_csv[0]["qty"] == 10
+assert parsed_csv[1]["item_code"] == "SH151060-02" and parsed_csv[1]["qty"] == 10
+
+# Reproduce Frappe returning CP1250-decoded GBK as Unicode text.
+mojibake = "\u8d27\u53f7,\u6570\u91cf\nSH151060-01,10".encode("gb18030").decode("cp1250")
+recovered_text, recovered_encoding = module._decode_csv_content(mojibake)
+recovered_table, _ = module._parse_csv_text(recovered_text, recovered_encoding)
+recovered_rows, recovered_errors = module._parse_table_rows(recovered_table)
+assert "recovered from Windows-1250" in recovered_encoding
+assert not recovered_errors and recovered_rows[0]["item_code"] == "SH151060-01" and recovered_rows[0]["qty"] == 10
+
+for content, expected_delimiter, encoding_label in (
+    ("\ufeff \u8d27\u53f7 ; \u6570\u91cf \r\nSH151060-01;10".encode("utf-8"), ";", "UTF-8 BOM"),
+    ("\u8d27\u53f7\t\u6570\u91cf\nSH151060-02\t10".encode("utf-8-sig"), "\t", "UTF-8 BOM"),
+):
+    csv_text, detected_encoding = module._decode_csv_content(content)
+    variant_table, variant_delimiter = module._parse_csv_text(csv_text, detected_encoding)
+    variant_rows, variant_errors = module._parse_table_rows(variant_table)
+    assert (detected_encoding, variant_delimiter) == (encoding_label, expected_delimiter), (detected_encoding, variant_delimiter)
+    assert not variant_errors and variant_rows[0]["item_code"].startswith("SH151060-")
+
+bad_table, _ = module._parse_csv_text("\u54c1\u540d,\u4ef6\u6570\nSH151060-01,10", "UTF-8")
+_, bad_errors = module._parse_table_rows(bad_table)
+assert "\u5b9e\u9645\u8868\u5934\uff1a\u54c1\u540d\u3001\u4ef6\u6570" in bad_errors[0]["error"] and "\u8d27\u53f7/SKU\u3001\u6570\u91cf" in bad_errors[0]["error"]
 
 context = {
     "company": "Solua Home, Lda", "customer": "Customer A", "price_list": "Wholesale Selling 3",
@@ -121,4 +162,7 @@ paste = module.preview_sales_order_paste("货号\t数量\nGOOD\t2\nGOOD\t1", jso
 assert paste["summary"] == {"valid": 1, "errors": 0} and paste["rows"][0]["qty"] == 3
 search = module.search_sales_order_items(json.dumps(context), json.dumps({"warehouse": "Receiving - SH", "in_stock": 1}))
 assert len(search["items"]) == 1 and search["items"][0]["available_qty"] == 7
+color_rows = module.get_sales_order_color_variants("TPL-BAR", json.dumps(context))
+assert color_rows["has_template"] and [row["color_code"] for row in color_rows["variants"]] == ["01", "02"]
+assert color_rows["variants"][0]["rate"] == 100 and "当前销售价格表" in color_rows["variants"][1]["status"]
 print("PASS: upload aliases/merge, native pricing context, exception summary, live Bin available quantity")

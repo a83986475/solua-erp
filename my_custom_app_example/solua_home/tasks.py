@@ -12,6 +12,9 @@ def daily_tasks():
     """每日执行的任务"""
     check_overdue_invoices()
     check_low_stock_items()
+    # 库存列兜底：历史单据补记/重算后镜像值可能落后，每天对齐一次
+    from solua_home.item_metrics import refresh_all_items
+    refresh_all_items()
     frappe.log_error("每日任务执行完毕", "solua_home 定时任务")
 
 

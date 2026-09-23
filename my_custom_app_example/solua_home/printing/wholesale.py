@@ -6,9 +6,71 @@ import re
 
 import frappe
 from frappe import _
+from markupsafe import Markup
 
 COMPANY_NAME = "Solua Home, Lda"
 COMPANY_ADDRESS_LINE = "AV. DO TRABALHO, n.º 231, Cidade de Maputo"
+
+
+def _print_setting(name, default):
+    """Read one global Solua print setting without making printing fragile."""
+    try:
+        value = frappe.db.get_single_value("Print Settings", name)
+    except Exception:
+        value = None
+    return value if value not in (None, "") else default
+
+
+def get_solua_print_css():
+    """Shared print CSS; settings are read at render time for preview and PDF."""
+    try:
+        font_size = max(8, min(14, int(float(_print_setting("custom_solua_print_font_size", 10)))))
+    except (TypeError, ValueError):
+        font_size = 10
+    density = str(_print_setting("custom_solua_print_density", "紧凑")).strip().lower()
+    compact = density not in {"标准", "standard", "normal"}
+    line_height = "1.12" if compact else "1.35"
+    cell_padding = "3px 4px" if compact else "6px 6px"
+    block_margin = "7px" if compact else "12px"
+    return Markup("""
+<style id="solua-print-shared">
+:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; }}
+.print-format, .print-format * {{ box-sizing: border-box; }}
+.print-format {{ font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }}
+.print-format h1, .print-format h2, .print-format h3 {{ line-height: 1.15; }}
+.print-format table {{ width: 100%; border-collapse: collapse; }}
+.print-format th, .print-format td {{ padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); }}
+.print-format th {{ white-space: normal; }}
+.print-format .num {{ text-align: right; white-space: nowrap; }}
+.print-format .col-sku, .print-format .col-barcode, .print-format .col-uom,
+.print-format .col-qty, .print-format .col-rate, .print-format .col-amount,
+.print-format .col-traceability {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.print-format .col-sku {{ min-width: 24mm; width: 24mm; }}
+.print-format .col-barcode {{ min-width: 30mm; width: 30mm; }}
+.print-format .col-qty {{ min-width: 17mm; width: 17mm; }}
+.print-format .col-uom {{ min-width: 10mm; width: 10mm; }}
+.print-format .col-rate, .print-format .col-amount {{ min-width: 22mm; width: 22mm; }}
+.print-format .col-description {{ min-width: 34mm; overflow-wrap: anywhere; word-break: break-word; }}
+.print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
+.print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
+.print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
+@media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
+</style>
+""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin))
+
+
+def validate_print_settings(doc, method=None):
+    """Keep the global print controls inside the supported range."""
+    if doc.doctype != "Print Settings":
+        return
+    try:
+        font_size = int(float(doc.get("custom_solua_print_font_size") or 10))
+    except (TypeError, ValueError):
+        frappe.throw(_("打印基础字号必须是 8 到 14 pt 的整数"))
+    if not 8 <= font_size <= 14:
+        frappe.throw(_("打印基础字号必须在 8 到 14 pt 之间"))
+    if doc.get("custom_solua_print_density") not in (None, "", "紧凑", "标准", "compact", "standard"):
+        frappe.throw(_("打印密度只能选择紧凑或标准"))
 
 
 def _clean_item_text(value):
@@ -128,7 +190,7 @@ def get_customer_print_info(doc):
         "address_name": doc.get("shipping_address_name") or "",
         "store": doc.get("custom_store_name") or "",
         "contact": doc.get("contact_display") or "",
-        "phone": doc.get("contact_mobile") or doc.get("contact_phone") or "",
+        "phone": doc.get("custom_store_phone") or doc.get("contact_mobile") or doc.get("contact_phone") or "",
     }
 
 
@@ -158,6 +220,64 @@ def get_delivery_invoice_names(delivery_note):
         return []
     return frappe.get_list("Sales Invoice", filters={"name": ["in", parents], "docstatus": 1},
                            pluck="name", limit_page_length=0)
+
+
+def _sum_qty(rows, key):
+    """空值安全的数量求和；整数就不带小数点，方便直接打在纸上。"""
+    total = 0.0
+    for row in rows or []:
+        try:
+            total += float(row.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+    return int(total) if float(total).is_integer() else round(total, 6)
+
+
+def get_print_total_qty(data):
+    """打印表格底部的总数量；快照与实时数据都适用。"""
+    return _sum_qty((data or {}).get("items") or [], "qty")
+
+
+def get_pick_list_rows(doc):
+    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述。"""
+    from solua_home.printing.color_card import get_item_color_info
+
+    rows = []
+    for row in doc.get("locations") or []:
+        item_code = row.get("item_code")
+        color = get_item_color_info(item_code) or {}
+        display = get_item_sales_display(item_code, row.get("description"))
+        rows.append({
+            "item_code": item_code,
+            "item_name": row.get("item_name") or item_code,
+            "order_code": color.get("order_code") or item_code,
+            "color_code": color.get("color_code") or "",
+            "color": color.get("color_name") or "",
+            "barcode": display.get("barcode") or "",
+            "description": display.get("description") or "",
+            "image": color.get("image") or "",
+            "template_code": color.get("template_code") or "",
+            "qty": row.get("qty"),
+            "picked_qty": row.get("picked_qty"),
+            "uom": row.get("uom") or row.get("stock_uom") or "",
+            "warehouse": row.get("warehouse") or "",
+            "sales_order": row.get("sales_order") or "",
+        })
+    return rows
+
+
+def get_pick_list_print_data(doc):
+    """拣货单打印数据：行 + 需求数量/已拣数量合计。"""
+    rows = get_pick_list_rows(doc)
+    return {
+        "items": rows,
+        "total_qty": _sum_qty(rows, "qty"),
+        "total_picked": _sum_qty(rows, "picked_qty"),
+        "company": doc.get("company") or "",
+        "purpose": doc.get("purpose") or "",
+        "customer": doc.get("customer_name") or doc.get("customer") or "",
+        "source": doc.get("work_order") or doc.get("material_request") or "",
+    }
 
 
 def _collect(doc):
@@ -198,6 +318,21 @@ def _collect(doc):
     }
 
 
+def _recover_sales_order_item_display(doc, data):
+    """Fill only missing legacy snapshot display values without writing back."""
+    if doc.doctype != "Sales Order":
+        return
+    for index, row in enumerate(doc.get("items") or []):
+        if index >= len(data.get("items", [])):
+            break
+        item = data["items"][index]
+        display = get_item_sales_display(row.item_code, row.get("description"))
+        if not item.get("barcode"):
+            item["barcode"] = display["barcode"]
+        if not item.get("description"):
+            item["description"] = display["description"]
+
+
 def prepare_print_snapshot(doc, method=None):
     """before_submit: validate Guia, set JSON on the document; no DB writes."""
     if doc.doctype not in ("Sales Order", "Delivery Note"):
@@ -236,9 +371,8 @@ def prepare_print_snapshot(doc, method=None):
             frappe.throw(_("Guia 必须关联销售订单"))
         for name in names:
             order = frappe.get_doc("Sales Order", name)
-            if (order.customer != doc.customer or order.get("shipping_address_name") != customer["address_name"]
-                    or order.get("custom_store_name") != customer["store"]):
-                frappe.throw(_("关联订单客户/门店/收货地址不一致，请拆分送货单"))
+            # 2026-09-23 用户要求关闭：客户/门店/收货地址一致性校验（本项目自定义，非 Frappe 自带）。
+            # 送货联系人一致性仍保留。
             if order.get("contact_person") != contact_name:
                 frappe.throw(_("送货联系人与所选门店订单不一致"))
         linked_invoices = frappe.get_all("Sales Invoice Item", filters={"delivery_note": doc.name}, pluck="parent")
@@ -252,11 +386,81 @@ def prepare_print_snapshot(doc, method=None):
     return data
 
 
+def _has_nonzero(value):
+    try:
+        return abs(float(value or 0)) > 0.000001
+    except (TypeError, ValueError):
+        return False
+
+
+def _recover_delivery_quantities(doc, data):
+    """Read-only compatibility for old/draft delivery notes with zero fields."""
+    if doc.get("is_return"):
+        data["has_order_linkage"] = False
+        data["has_ordered_before"] = False
+        return
+    rows = doc.get("items") or []
+    references = [bool(row.get("against_sales_order") or row.get("so_detail")) for row in rows]
+    data["has_order_linkage"] = any(references)
+    data["has_ordered_before"] = any(
+        index < len(data.get("items", [])) and references[index] and (
+            _has_nonzero(data["items"][index].get("ordered_qty"))
+            or _has_nonzero(data["items"][index].get("delivered_before_qty"))
+        )
+        for index in range(len(rows))
+    )
+    errors = []
+    # A fully populated snapshot is authoritative. Only all-zero linked rows
+    # take the read-only recovery path for legacy/draft documents.
+    stale = data["has_order_linkage"] and not data["has_ordered_before"]
+    incomplete = []
+    for index, row in enumerate(rows):
+        if references[index] and (not row.get("against_sales_order") or not row.get("so_detail")):
+            incomplete.append(index)
+    if stale:
+        from solua_home.api.stock import get_delivery_snapshot_quantities
+
+        resolved = get_delivery_snapshot_quantities(doc, lock=False, strict=False)
+        by_index = {result["index"]: result for result in resolved}
+        for index, item in enumerate(data.get("items", [])):
+            result = by_index.get(index)
+            if result and "error" not in result:
+                item.update({key: result[key] for key in ("ordered_qty", "delivered_before_qty", "remaining_qty")})
+            elif index < len(references) and references[index]:
+                item.update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+                errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    for index in incomplete:
+        if index < len(data.get("items", [])):
+            data["items"][index].update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+            errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    if data["has_order_linkage"]:
+        for index, linked in enumerate(references):
+            if not linked and index < len(data.get("items", [])):
+                data["items"][index].update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+                errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    if errors:
+        data["delivery_quantity_error"] = "以下行缺少完整销售订单关联，订购/此前已交付无法可靠恢复：" + "、".join(dict.fromkeys(errors))
+    data["has_ordered_before"] = any(
+        index < len(data.get("items", [])) and references[index] and (
+            _has_nonzero(data["items"][index].get("ordered_qty"))
+            or _has_nonzero(data["items"][index].get("delivered_before_qty"))
+        )
+        for index in range(len(rows))
+    )
+
+
 def get_wholesale_print_data(doc):
     frozen = _snapshot(doc)
-    if frozen:
-        return frozen
     # Legacy prints are visibly identified; never write/backfill while printing.
-    data = _collect(doc)
-    data["legacy"] = doc.get("docstatus") != 0
+    data = frozen or _collect(doc)
+    _recover_sales_order_item_display(doc, data)
+    if doc.doctype == "Delivery Note":
+        _recover_delivery_quantities(doc, data)
+        data["has_traceability"] = any(
+            str(item.get(key) or "").strip()
+            for item in data.get("items", [])
+            for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
+        )
+    if not frozen:
+        data["legacy"] = doc.get("docstatus") != 0
     return data

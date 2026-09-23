@@ -1,6 +1,7 @@
 // Native-form helpers for wholesale color receiving and mobile stock counting.
 (() => {
 	const variant_api = "solua_home.api.home.get_color_variants";
+	const sales_order_color_api = "solua_home.api.sales.get_sales_order_color_variants";
 	const sales_order_item_display_api = "solua_home.api.sales.get_sales_order_item_display";
 	const sales_order_upload_api = "solua_home.api.sales.preview_sales_order_upload";
 	const sales_order_paste_api = "solua_home.api.sales.preview_sales_order_paste";
@@ -218,6 +219,21 @@
 				{ fieldname: "barcode", label: __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },
+				...(is_sales_order ? [
+					{ fieldname: "variant_select_all", label: __("全选"), fieldtype: "Button", hidden: 1 },
+					{ fieldname: "variant_invert", label: __("反选"), fieldtype: "Button", hidden: 1 },
+				] : []),
+				...(is_sales_order ? [{ fieldname: "variant_items", label: __("可选颜色（可多选）"), fieldtype: "Table", hidden: 1, cannot_add_rows: true, cannot_delete_rows: true, in_place_edit: true, data: [], fields: [
+					{ fieldname: "include", label: __("加入"), fieldtype: "Check", in_list_view: 1 },
+					{ fieldname: "item_code", label: __("货号"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+					{ fieldname: "color_code", label: __("Cor/色号"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+					{ fieldname: "item_name", label: __("商品"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+					{ fieldname: "available_qty", label: __("可用库存"), fieldtype: "Float", read_only: 1, in_list_view: 1 },
+					{ fieldname: "rate", label: __("当前售价"), fieldtype: "Currency", read_only: 1, in_list_view: 1 },
+					{ fieldname: "qty", label: __("数量"), fieldtype: "Int", default: 1, in_list_view: 1 },
+					{ fieldname: "warehouse", label: __("仓库"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+					{ fieldname: "status", label: __("状态"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+				] }] : []),
 				{ fieldname: "qty", label: is_receipt ? __("收货数量（正整数）") : is_sales_order ? __("销售数量（正整数）") : __("本次实盘数量（可为 0）"), fieldtype: "Data", hidden: 1 },
 				{ fieldname: "warehouse", label: __("明确仓库"), fieldtype: "Link", options: "Warehouse", default: frm.doc.set_warehouse || frm.doc.last_scanned_warehouse || "", reqd: 1 },
 				...(is_receipt ? [{ fieldname: "rate", label: __("最终单位成本"), fieldtype: "Currency", hidden: 1, min: 0.0001, description: __("直接输入外部算好的最终成本，不在系统内分摊到岸费用") }] : []),
@@ -230,6 +246,7 @@
 		let request_id = 0;
 		let busy = false;
 		let selected_barcode = "";
+		const bind_variant_change = () => dialog.fields_dict.variant.$input?.off("change.solua").on("change.solua", render_preview);
 		const reset_selection = () => {
 			++request_id;
 			selected_barcode = "";
@@ -237,6 +254,13 @@
 			for (const field of ["variant", "qty", ...(is_receipt ? ["rate"] : [])]) {
 				dialog.set_df_property(field, "reqd", 0);
 				dialog.set_df_property(field, "hidden", 1);
+			}
+			if (is_sales_order) {
+				dialog.fields_dict.variant_items.df.data = [];
+				dialog.set_df_property("variant_items", "hidden", 1);
+				dialog.set_df_property("variant_select_all", "hidden", 1);
+				dialog.set_df_property("variant_invert", "hidden", 1);
+				dialog.fields_dict.variant_items.grid?.refresh();
 			}
 			dialog.set_value("variant", "");
 			dialog.set_value("qty", "");
@@ -251,10 +275,46 @@
 			dialog.fields_dict.variant_preview.$wrapper.html(`<div class="solua-wholesale-variant-preview">${image}<span>${frappe.utils.escape_html(selected?.color_code || selected?.color || selected?.item_name || "")}</span></div>`);
 		};
 
+		const add_selected_rows = async () => {
+			if (busy) return;
+			const selected = (dialog.fields_dict.variant_items.df.data || []).filter((row) => row.include);
+			const invalid = selected.filter((row) => !is_positive_integer(row.qty));
+			if (!selected.length) return frappe.msgprint(__("请至少选择一种颜色"));
+			if (invalid.length) return frappe.msgprint(__("数量必须为正整数"));
+			busy = true;
+			dialog.set_primary_action(__("写入中…"), () => {});
+			try {
+				const response = await frappe.call({ method: sales_order_rows_api, args: {
+					rows: JSON.stringify(selected.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse }))),
+					context: JSON.stringify(sales_order_context(frm, dialog.get_value("warehouse"))),
+				} });
+				const result = response.message || {};
+				append_sales_order_rows(frm, result.rows || []);
+				if (result.errors?.length) frappe.msgprint({ title: __("部分颜色未加入"), message: error_summary(result.errors), indicator: "orange" });
+				else frappe.show_alert({ message: __("已批量加入当前销售订单草稿，请保存"), indicator: "green" });
+				await dialog.set_value("barcode", "");
+				reset_selection();
+				dialog.fields_dict.barcode.$input.focus();
+			} finally { busy = false; }
+		};
+
 		const show_variants = (data) => {
-			variants = (data.templates || []).flatMap((group) => group.variants || []);
+			variants = is_sales_order && data.has_template ? (data.variants || []) : (data.templates || []).flatMap((group) => group.variants || []);
 			if (!variants.length) {
 				frappe.msgprint({ message: __("未找到可选颜色或无权查看该物料"), indicator: "orange" });
+				return;
+			}
+			if (is_sales_order && data.has_template) {
+				const rows = variants.map((row) => ({ ...row, include: 0, qty: 1 }));
+				dialog.fields_dict.variant_items.df.data = rows;
+				dialog.fields_dict.variant_items.grid?.refresh();
+				dialog.set_df_property("variant_items", "hidden", 0);
+				dialog.set_df_property("variant_select_all", "hidden", 0);
+				dialog.set_df_property("variant_invert", "hidden", 0);
+				dialog.set_df_property("variant", "hidden", 1);
+				dialog.set_df_property("qty", "hidden", 1);
+				dialog.set_df_property("duplicate_mode", "hidden", 1);
+				dialog.set_primary_action(__("加入所选颜色"), add_selected_rows);
 				return;
 			}
 			const options = [{label: __("请选择颜色/规格"), value: ""}, ...variants.map((row) => ({ label: `${row.color_code || "—"} · ${row.color || row.item_name} · ${row.item_code}`, value: row.name }))];
@@ -267,6 +327,7 @@
 			if (is_receipt) dialog.set_df_property("rate", "hidden", 0);
 			for (const field of ["variant", "qty", ...(is_receipt ? ["rate"] : [])]) dialog.set_df_property(field, "reqd", 1);
 			dialog.set_primary_action(__("加入单据"), add_row);
+			bind_variant_change();
 			dialog.fields_dict.variant.$input?.focus();
 			render_preview();
 		};
@@ -279,7 +340,10 @@
 			const current_request = ++request_id;
 			dialog.set_primary_action(__("查询中…"), () => {});
 			try {
-				const response = await frappe.call({ method: variant_api, args: { barcode, barcode_only: 1 } });
+				const args = is_sales_order
+					? { barcode, context: JSON.stringify(sales_order_context(frm, dialog.get_value("warehouse"))) }
+					: { barcode, barcode_only: 1 };
+				const response = await frappe.call({ method: is_sales_order ? sales_order_color_api : variant_api, args });
 				if (current_request === request_id && barcode === (dialog.get_value("barcode") || "").trim()) {
 					selected_barcode = barcode;
 					show_variants(response.message || {});
@@ -290,6 +354,16 @@
 				if (current_request === request_id && !variants.length) dialog.set_primary_action(__("查询颜色"), lookup);
 			}
 		};
+		if (is_sales_order) {
+			dialog.fields_dict.variant_select_all.$input?.on("click", () => {
+				set_table_selection(dialog.fields_dict.variant_items.df.data, true);
+				dialog.fields_dict.variant_items.grid?.refresh();
+			});
+			dialog.fields_dict.variant_invert.$input?.on("click", () => {
+				invert_table_selection(dialog.fields_dict.variant_items.df.data);
+				dialog.fields_dict.variant_items.grid?.refresh();
+			});
+		}
 
 		const add_row = async () => {
 			if (busy) return;
@@ -336,7 +410,7 @@
 			}
 		};
 
-		dialog.fields_dict.variant.$input.on("change", render_preview);
+		bind_variant_change();
 		dialog.set_primary_action(__("查询颜色"), lookup);
 		dialog.show();
 		dialog.fields_dict.barcode.$input.on("input", () => { if (!busy) reset_selection(); });
@@ -359,6 +433,11 @@
 					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
 				] : []),
+				...(frm.doctype === "Delivery Note" ? [
+					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before },
+					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining },
+					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability },
+				] : []),
 				{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
 				{ fieldname: "show_qr", label: __("显示色卡二维码"), fieldtype: "Check", default: frm.doc.custom_print_color_qr ? 1 : 0 },
 			],
@@ -373,6 +452,15 @@
 					if (frm.fields_dict.custom_print_sku) changes.custom_print_sku = values.show_sku ? 1 : 0;
 					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color_code ? 1 : 0;
 					if (frm.fields_dict.custom_print_description) changes.custom_print_description = values.show_description ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_ordered_before) {
+					changes.custom_print_ordered_before = values.show_ordered_before ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_current_remaining) {
+					changes.custom_print_current_remaining = values.show_current_remaining ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_traceability) {
+					changes.custom_print_traceability = values.show_traceability ? 1 : 0;
 				}
 				if (frm.fields_dict.custom_print_color_images) changes.custom_print_color_images = values.show_images ? 1 : 0;
 				if (frm.fields_dict.custom_print_color_qr) changes.custom_print_color_qr = values.show_qr ? 1 : 0;

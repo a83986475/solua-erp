@@ -84,14 +84,26 @@ def _variant_attributes(item_code):
     return {row.attribute: row.attribute_value for row in rows}
 
 
+def get_item_cor(item_code, item=None):
+    """Return native Cor; only fall back for legacy records with no Cor row."""
+    if not item_code:
+        return ""
+    color = (_variant_attributes(item_code).get("Cor") or "").strip()
+    if color:
+        return color
+    # Compatibility only: old history may still have the retired duplicate field.
+    if item is None:
+        item = frappe.get_doc("Item", item_code)
+    return str(item.get("custom_color_code") or "").strip()
+
+
 def _public_variant(item):
-    attrs = _variant_attributes(item.name)
     image = item.get("custom_swatch_image") or item.get("image") or ""
     return {
         "item_code": item.item_code,
         "order_code": item.get("custom_order_code") or item.item_code,
-        "color_code": item.get("custom_color_code") or "",
-        "color_name": attrs.get("Cor") or item.get("custom_pos_short_name") or "",
+        "color_code": get_item_cor(item.name, item),
+        "color_name": _variant_attributes(item.name).get("Cor") or item.get("custom_pos_short_name") or "",
         "name": item.get("custom_chinese_name") or item.item_name,
         "item_name": item.item_name,
         "image": image,

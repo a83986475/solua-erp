@@ -16,8 +16,14 @@ doc_events = {
     "Sales Invoice": {
         "before_validate": "solua_home.api.sales.before_validate_sales_invoice",
         "validate": "solua_home.api.sales.validate_sales_invoice",
-        "on_submit": "solua_home.api.sales.on_invoice_submitted",
-        "on_cancel": "solua_home.api.sales.on_invoice_cancelled",
+        "on_submit": [
+            "solua_home.api.sales.on_invoice_submitted",
+            "solua_home.item_metrics.on_stock_voucher_change",
+        ],
+        "on_cancel": [
+            "solua_home.api.sales.on_invoice_cancelled",
+            "solua_home.item_metrics.on_stock_voucher_change",
+        ],
     },
     "Sales Order": {
         "validate": "solua_home.api.sales.validate_sales_order",
@@ -36,6 +42,8 @@ doc_events = {
         "validate": "solua_home.api.buying.validate_purchase_order",
     },
     "Purchase Invoice": {
+        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
         "validate": "solua_home.api.buying.validate_purchase_invoice",
     },
     "Supplier": {
@@ -47,23 +55,41 @@ doc_events = {
         "before_validate": "solua_home.api.stock.before_validate_item",
         "validate": "solua_home.api.stock.validate_item",
         "after_insert": "solua_home.api.stock.auto_create_item_price",
+        "on_update": "solua_home.item_metrics.on_item_change",
     },
     "Stock Entry": {
         "validate": "solua_home.api.stock.validate_transaction_quantities",
-        "on_submit": "solua_home.api.stock.on_stock_entry_submitted",
+        "on_submit": [
+            "solua_home.api.stock.on_stock_entry_submitted",
+            "solua_home.item_metrics.on_stock_voucher_change",
+        ],
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
     },
     "Stock Reconciliation": {
         "validate": "solua_home.api.stock.validate_stock_reconciliation_quantities",
+        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
     },
     "Delivery Note": {
-        "validate": "solua_home.api.stock.validate_delivery_note",
+        "validate": [
+            "solua_home.api.stock.validate_delivery_note",
+            "solua_home.api.stock.prepare_delivery_snapshot",
+        ],
+        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
         "before_submit": [
             "solua_home.api.stock.prepare_delivery_snapshot",
             "solua_home.printing.wholesale.prepare_print_snapshot",
         ],
     },
     "Purchase Receipt": {
+        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
         "validate": "solua_home.api.stock.validate_transaction_quantities",
+    },
+    "POS Invoice": {
+        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
     },
     "Material Request": {
         "validate": "solua_home.api.stock.validate_transaction_quantities",
@@ -92,6 +118,9 @@ doc_events = {
     },
     "POS Profile": {
         "on_update": "solua_home.api.stock_settings.sync_from_pos_profile",
+    },
+    "Print Settings": {
+        "validate": "solua_home.printing.wholesale.validate_print_settings",
     },
 
     # ========== 通用 ==========
@@ -129,13 +158,19 @@ jinja = {
         "solua_home.printing.wholesale.get_delivery_order_info",
         "solua_home.printing.wholesale.get_delivery_invoice_names",
         "solua_home.printing.wholesale.get_driver_phone",
+        "solua_home.printing.wholesale.get_pick_list_print_data",
+        "solua_home.printing.wholesale.get_print_total_qty",
+        "solua_home.printing.wholesale.get_solua_print_css",
         "solua_home.printing.wholesale.get_wholesale_print_data",
     ],
 }
 
 # ------------------- 安装/迁移 -------------------
 after_install = "solua_home.install.after_install"
-after_migrate = "solua_home.install.after_migrate"
+after_migrate = [
+    "solua_home.install.after_migrate",
+    "solua_home.item_metrics.after_migrate",
+]
 
 # ------------------- 启动信息 -------------------
 extend_bootinfo = "solua_home.boot.extended_bootinfo"
@@ -193,11 +228,16 @@ page_js = {
 # Custom JS for Item form: template page shows per-color and total stock.
 doctype_js = {
     "Item": "public/js/item_color_stock.js",
-    "Sales Invoice": "public/js/sales_invoice_print_options.js",
-    "Sales Order": "public/js/wholesale_forms.js",
-    "Delivery Note": "public/js/wholesale_forms.js",
+    # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
+    "Sales Invoice": ["public/js/sales_invoice_print_options.js", "public/js/document_table_export.js"],
+    "Sales Order": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
+    "Delivery Note": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
+    "Pick List": "public/js/document_table_export.js",
+
     "Purchase Receipt": "public/js/wholesale_forms.js",
     "Stock Reconciliation": "public/js/wholesale_forms.js",
+    # 打印格式的「单据类型」下拉只列本项目会用到的单据类型（与 DocType 列表同一份白名单）
+    "Print Format": "public/js/doctype_module_filter.js",
 }
 
 # Custom JS for doctype list views（Item 列表页的向导按钮）
@@ -206,5 +246,10 @@ doctype_list_js = {
     "Item": [
         "public/js/item_variant_wizard.js",
         "public/js/item_data_wizard.js",
+        "public/js/item_list_metrics.js",
+    ],
+    # DocType 列表默认只显示会用到的单据类型（白名单，见 public/js/doctype_module_filter.js）
+    "DocType": [
+        "public/js/doctype_module_filter.js",
     ],
 }

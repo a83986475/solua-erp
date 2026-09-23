@@ -6,9 +6,12 @@ import frappe
 from frappe import _
 from frappe.utils import flt, nowdate
 
+
 DEFAULT_COMPANY = "Solua Home, Lda"
-DEFAULT_WAREHOUSE = "Finished Goods - SH"
 SERVICE_ACCOUNT_MARKERS = ("sync", "api", "integration", "service", "bot")
+# Curtain and rod templates carry their colour through this item attribute.
+COLOR_ATTRIBUTE = "Cor"
+ITEM_ISSUE_ROW_LIMIT = 200
 
 
 def _has_field(doctype, fieldname):
@@ -69,14 +72,14 @@ def _resolve_company(requested=None):
 def _resolve_warehouse(company, requested=None):
     if not company:
         return None
-    candidates = [requested.strip()] if requested else [DEFAULT_WAREHOUSE, frappe.defaults.get_user_default("Warehouse")]
+    stock_default = frappe.db.get_single_value("Stock Settings", "default_warehouse")
+    candidates = ([requested.strip()] if requested else [stock_default])
+    candidates.append(frappe.defaults.get_user_default("Warehouse"))
     filters = {"company": company.name, "is_group": 0}
     for name in dict.fromkeys(filter(None, candidates)):
         rows = _list("Warehouse", {**filters, "name": name}, ["name"], limit=1)
         if rows:
             return rows[0].name
-    if requested:
-        return None
     rows = _list("Warehouse", filters, ["name"], order_by="name asc", limit=1)
     return rows[0].name if rows else None
 
@@ -191,33 +194,94 @@ def _low_stock(warehouse):
             "count": None if incomplete else len(alerts), "items": alerts[:5]}
 
 
+def _item_issue_rows(rows):
+    return [{
+        "name": row.name,
+        "item_name": row.get("item_name") or "",
+        "item_group": row.get("item_group") or "",
+        "variant_of": row.get("variant_of") or "",
+    } for row in rows]
+
+
 def _item_data_status():
+    """Name the items that still need attention, not just how many there are.
+
+    The homepage used to return bare counts, so "缺图片 4" pointed at the unfiltered
+    item list and the user could not tell which records were the problem. Every issue
+    now carries the affected item codes so the page can list them inline and deep-link
+    to a list holding exactly those items.
+    """
     if not _can_read("Item"):
-        return {"state": "no_permission", "missing_image": None, "missing_color_code": None}
-    fields = ["name", "image", "variant_of", "disabled"]
-    if _has_field("Item", "custom_color_code"):
-        fields.append("custom_color_code")
-    items = _list("Item", {"disabled": 0}, fields, limit=0)
-    color_items = {row.parent for row in _list("Item Variant Attribute", {"attribute": "Cor"}, ["parent"], limit=0)}
+        return {"state": "no_permission", "missing_image": None, "missing_color_code": None,
+                "item_count": None, "checked_count": None, "template_count": None, "issues": []}
+    fields = ["name", "item_name", "image", "variant_of", "item_group", "has_variants"]
+    items = _list("Item", {"disabled": 0}, fields, limit=0, order_by="name asc")
+    # A template is the parent of its variants: it owns no single image and no single
+    # colour code, so checking templates would only ever report false alarms. Only the
+    # sellable leaf items (plain items and variants) are checked.
+    sellable = [row for row in items if not int(row.get("has_variants") or 0)]
+    color_items = {row.parent for row in _list("Item Variant Attribute", {"attribute": COLOR_ATTRIBUTE}, ["parent"], limit=0)}
+    colors = {row.parent: row.attribute_value for row in _list(
+        "Item Variant Attribute", {"attribute": COLOR_ATTRIBUTE},
+        ["parent", "attribute_value"], limit=0,
+    )}
+    buckets = {
+        "missing_image": [row for row in sellable if not row.get("image")],
+        "missing_color_code": [row for row in sellable if row.name in color_items
+                               and not str(colors.get(row.name) or "").strip()],
+    }
+    issues = []
+    for key, label, hint, field, rows in (
+        ("missing_image", _("缺图片"), _("这些单品/变体还没有商品图片，打开物料上传后即可"), "image", buckets["missing_image"]),
+        ("missing_color_code", _("缺颜色属性"),
+         _("这些物料有颜色变体但没有原生 Cor 属性"), "Cor", buckets["missing_color_code"]),
+    ):
+        issues.append({
+            "key": key, "label": label, "hint": hint, "field": field,
+            "count": len(rows),
+            "items": _item_issue_rows(rows[:ITEM_ISSUE_ROW_LIMIT]),
+            "truncated": len(rows) > ITEM_ISSUE_ROW_LIMIT,
+        })
     return {
         "state": "ok" if items else "no_data",
-        "missing_image": sum(1 for row in items if not row.get("image")),
-        "missing_color_code": sum(1 for row in items if row.name in color_items and not row.get("custom_color_code")),
+        "missing_image": len(buckets["missing_image"]),
+        "missing_color_code": len(buckets["missing_color_code"]),
         "item_count": len(items),
+        "checked_count": len(sellable),
+        "template_count": len(items) - len(sellable),
+        "issues": issues,
     }
 
 
 def _permissions():
+    """Per-doctype flags the homepage uses to hide actions a user cannot perform."""
     return {
+        # Selling
         "new_sales_invoice": _can_create("Sales Invoice"),
+        "read_sales_invoice": _can_read("Sales Invoice"),
         "new_sales_order": _can_create("Sales Order"),
+        "read_sales_order": _can_read("Sales Order"),
         "new_delivery_note": _can_create("Delivery Note"),
-        "new_purchase_receipt": _can_create("Purchase Receipt"),
+        "read_delivery_note": _can_read("Delivery Note"),
+        "read_quotation": _can_read("Quotation"),
+        "read_pos_invoice": _can_read("POS Invoice"),
+        # Stock
         "new_item": _can_create("Item"),
-        "new_stock_entry": _can_create("Stock Entry"),
         "read_item": _can_read("Item"),
+        "new_stock_entry": _can_create("Stock Entry"),
+        "read_stock_entry": _can_read("Stock Entry"),
         "read_stock_reconciliation": _can_read("Stock Reconciliation"),
         "new_stock_reconciliation": _can_create("Stock Reconciliation"),
+        "read_warehouse": _can_read("Warehouse"),
+        # Buying and accounts
+        "new_purchase_receipt": _can_create("Purchase Receipt"),
+        "read_purchase_receipt": _can_read("Purchase Receipt"),
+        "new_purchase_order": _can_create("Purchase Order"),
+        "read_purchase_order": _can_read("Purchase Order"),
+        "read_purchase_invoice": _can_read("Purchase Invoice"),
+        "new_payment_entry": _can_create("Payment Entry"),
+        "read_payment_entry": _can_read("Payment Entry"),
+        # Masters and tooling
         "read_customer": _can_read("Customer"),
         "read_supplier": _can_read("Supplier"),
         "read_item_price": _can_read("Item Price"),
@@ -246,6 +310,46 @@ def _stock_entry_types():
     }
 
 
+POS_MANAGER_ROLES = ("System Manager", "POS Manager", "Accounts Manager", "Sales Manager", "Stock Manager")
+# xPos POS Role names that mark a shift supervisor rather than a plain till operator.
+XPOS_SUPERVISOR_ROLES = ("Manager", "Administrator", "Supervisor")
+
+
+def _pos_cashier_profile():
+    """Return the enabled POS Profile this user operates when they are a till cashier.
+
+    A cashier is identified by the POS Profile's ``applicable_for_users`` child table
+    (the same assignment xPos validates against) and never by a desk role: desk managers,
+    administrators and shift supervisors keep the full homepage.
+    """
+    user = frappe.session.user
+    if not user or user in ("Guest", "Administrator"):
+        return None
+    if set(POS_MANAGER_ROLES) & set(frappe.get_roles(user)):
+        return None
+    rows = frappe.get_all(
+        "POS Profile User",
+        filters={"user": user, "parenttype": "POS Profile"},
+        fields=["parent"],
+        order_by="parent asc",
+        limit=0,
+        ignore_permissions=True,
+    )
+    for row in rows:
+        if frappe.db.get_value("POS Profile", row.parent, "disabled"):
+            continue
+        if frappe.db.has_column("POS Profile User", "pos_role"):
+            pos_role = frappe.db.get_value(
+                "POS Profile User",
+                {"user": user, "parent": row.parent, "parenttype": "POS Profile"},
+                "pos_role",
+            )
+            if pos_role in XPOS_SUPERVISOR_ROLES:
+                continue
+        return row.parent
+    return None
+
+
 @frappe.whitelist()
 @frappe.read_only()
 def get_dashboard_data(company=None, warehouse=None):
@@ -255,6 +359,19 @@ def get_dashboard_data(company=None, warehouse=None):
     company_doc = _resolve_company(company)
     if not company_doc:
         return {"state": "no_permission", "message": _("没有可访问的公司数据")}
+    cashier_profile = _pos_cashier_profile()
+    if cashier_profile:
+        # 收银员只用 POS：只回传收银入口所需的最小集合，不跑经营/库存/待处理的聚合查询
+        return {
+            "state": "ok",
+            "home_mode": "pos",
+            "pos_profile": cashier_profile,
+            "company": company_doc.name,
+            "currency": company_doc.default_currency or "MZN",
+            "query_time": frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S"),
+            "permissions": _permissions(),
+            "stock_entry_types": {},
+        }
     resolved_warehouse = _resolve_warehouse(company_doc, warehouse)
     today = nowdate()
     specs = _invoice_specs(company_doc.name, today)
@@ -290,6 +407,7 @@ def get_dashboard_data(company=None, warehouse=None):
     purchase_read = _can_read("Purchase Order")
     return {
         "state": "ok",
+        "home_mode": "desk",
         "company": company_doc.name,
         "currency": company_doc.default_currency or "MZN",
         "warehouse": resolved_warehouse,
@@ -351,7 +469,7 @@ def search_items(query=None):
     if not _can_read("Item"):
         return {"state": "no_permission", "items": []}
     fields = ["name", "item_code", "item_name", "variant_of", "has_variants", "stock_uom"]
-    fields.extend(field for field in ["custom_order_code", "custom_spu_code", "custom_color_code", "custom_pos_short_name"] if _has_field("Item", field))
+    fields.extend(field for field in ["custom_order_code", "custom_spu_code", "custom_pos_short_name"] if _has_field("Item", field))
     items = _list("Item", {"disabled": 0}, fields, limit=20, or_filters=[[field, "=", query] for field in _search_fields()])
     if _can_read("Item"):
         parents = [row.parent for row in _list("Item Barcode", {"barcode": query}, ["parent"], limit=20)]
@@ -370,7 +488,8 @@ def search_items(query=None):
         "name": row.name, "item_code": row.item_code, "item_name": row.item_name,
         "variant_of": row.variant_of, "color": colors.get(row.name),
         "order_code": row.get("custom_order_code") or "", "spu_code": row.get("custom_spu_code") or "",
-        "color_code": row.get("custom_color_code") or "", "pos_short_name": row.get("custom_pos_short_name") or "",
+        # Native Cor is current; custom_color_code is legacy-only compatibility.
+        "color_code": colors.get(row.name) or row.get("custom_color_code") or "", "pos_short_name": row.get("custom_pos_short_name") or "",
         "stock_uom": row.stock_uom,
     } for row in items_by_name.values()]}
 
@@ -442,7 +561,8 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
         if not variant_rows and not template_doc.has_variants:
             variant_rows = _list("Item", {"name": template_doc.name, "disabled": 0}, item_fields, limit=1)
         result.append({
-            "template": {"name": template_doc.name, "item_code": template_doc.item_code, "item_name": template_doc.item_name},
+            "template": {"name": template_doc.name, "item_code": template_doc.item_code,
+                         "item_name": template_doc.item_name, "has_variants": int(template_doc.has_variants or 0)},
             "variants": [{
                 "name": row.name,
                 "item_code": row.item_code,
@@ -450,7 +570,8 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 "stock_uom": row.stock_uom,
                 "image": row.get("custom_swatch_image") or row.get("image") or "",
                 "color": attributes.get(row.name, ""),
-                "color_code": row.get("custom_color_code") or "",
+                # Native Cor is current; custom_color_code is legacy-only compatibility.
+                "color_code": attributes.get(row.name) or row.get("custom_color_code") or "",
                 "order_code": row.get("custom_order_code") or "",
             } for row in variant_rows],
         })

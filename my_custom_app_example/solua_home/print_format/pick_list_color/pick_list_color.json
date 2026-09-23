@@ -1,0 +1,19 @@
+{
+  "custom_format": 1,
+  "disabled": 0,
+  "doc_type": "Pick List",
+  "docstatus": 0,
+  "doctype": "Print Format",
+  "html": "{{ get_solua_print_css() }}{% set p = get_pick_list_print_data(doc) %}\n<h2>Pick List / 拣货单</h2>\n{% if doc.docstatus != 1 %}<div class=\"warning\">{{ 'RASCUNHO / 草稿' if doc.docstatus == 0 else 'CANCELADO / 已取消' }} — 非正式凭证</div>{% endif %}\n<table class=\"meta\"><tr><td><b>{{ p.company | e }}</b><br>N.º / 编号: {{ doc.name | e }}<br>Uso / 用途: {{ p.purpose | e }}<br>Origem / 来源: {{ p.source or '—' | e }}</td><td><b>Cliente / 客户: {{ p.customer or '—' | e }}</b><br>Data / 日期: {{ doc.get('creation') and doc.get('creation')[:10] or '' }}<br>Status / 状态: {{ doc.get('status') or '' | e }}</td></tr></table>\n<table class=\"items\"><thead><tr><th>#</th><th>Foto / 图片</th><th>Artigo / 商品</th><th class=\"col-sku\">SKU / 货号</th><th>色号 / Cor</th><th class=\"col-barcode\">条码 / Código de barras</th><th class=\"col-description\">描述 / Descrição</th><th class=\"col-qty\">数量</th><th>已拣</th><th class=\"col-uom\">Un.</th><th>Armazém / 仓库</th><th>S.O.</th></tr></thead><tbody>\n{% for item in p['items'] %}<tr><td>{{ loop.index }}</td><td>{% if item.image %}<img class=\"photo\" src=\"{{ item.image | e }}\">{% endif %}</td><td>{{ item.item_name | e }}</td><td>{{ item.item_code | e }}</td><td>{{ (item.color_code or '—') | e }}{% if item.color %}<br>{{ item.color | e }}{% endif %}</td><td class=\"col-barcode\">{{ (item.barcode or '—') | e }}</td><td>{{ (item.description or '—') | e }}</td><td class=\"num\">{{ item.qty }}</td><td class=\"num\">{{ item.picked_qty }}</td><td class=\"col-uom\">{{ item.uom | e }}</td><td>{{ item.warehouse | e }}</td><td>{{ item.sales_order | e }}</td></tr>{% endfor %}\n</tbody><tfoot><tr><td colspan=\"7\" class=\"num\"><b>Total Qty / 总数量</b></td><td class=\"num\"><b>{{ p.total_qty }}</b></td><td class=\"num\"><b>{{ p.total_picked }}</b></td><td colspan=\"3\"></td></tr></tfoot></table>\n<div class=\"block sign\">拣货人 / Separado por: ____________________　核对 / Verificado por: ____________________　日期 / Data: ____________________</div>\n<div id=\"footer-html\" class=\"visible-pdf\"><div class=\"text-center\">{{ doc.name | e }} · <span class=\"page\"></span> / <span class=\"topage\"></span></div></div>\n",
+  "css": "@page{size:A4;margin:12mm}.print-format{font-size:var(--solua-font-size);color:#263238}h2{font-size:20px;color:#99732c}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:var(--solua-cell-padding);border-bottom:1px solid #ddd;vertical-align:middle;overflow-wrap:anywhere}th{background:#f5f1e9}thead{display:table-header-group}tr{page-break-inside:avoid}.meta td{width:50%}.num{text-align:right}.photo{max-width:34px;max-height:34px}.block{page-break-inside:avoid;margin-top:12px}.sign{height:80px;border:1px solid #bbb;padding:8px}.warning{color:#a35c00}",
+  "idx": 1,
+  "line_breaks": 0,
+  "module": "Solua Wholesale",
+  "name": "拣货单（颜色版）",
+  "print_format_builder": 0,
+  "print_format_type": "Jinja",
+  "raw_commands": "",
+  "raw_printing": 0,
+  "show_section_headings": 0,
+  "standard": "No"
+}
