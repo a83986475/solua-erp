@@ -7,7 +7,7 @@
 - 分支：`develop`
 - 审计起始 HEAD/远端：`456e1c3057`
 - 已知正式定制提交：`6067bc989`（窗帘色卡和销售流程）
-- 已阅读：`ERPNext 定制开发操作手册.md` 第 17–19 章、`xpos-readonly-diagnosis-20260917.md`、`.gitignore`、`git status`、`git diff`
+- 已阅读：`ERPNext 定制开发操作手册.md` 第 17–19 章、`xpos-client/OPERATIONS_HISTORY.md`（2026-09-17 诊断节）、`.gitignore`、`git status`、`git diff`
 - 本审计不操作 WSL、生产业务数据或服务器；不修改 `erpnext/`、`frappe` 核心源码。
 
 审计时根仓库没有待提交的已跟踪业务改动。审计过程中并行 xPos 任务产生了以下已跟踪改动，全部排除，不读取其内容、不暂存、不修改、不回滚：
@@ -24,7 +24,7 @@
 
 1. `my_custom_app_example/solua_home/`：正式 `solua_home` 应用的唯一权威源码位置；包括 hooks、API、override、打印格式、报表、零售设置、静态业务图片、前端 JS、翻译和最小测试脚本。
 2. `my_custom_app_example/solua_home/tests/` 中的 5 个测试脚本和 `release_whitelist.txt` 已在审计起始 HEAD 中跟踪；它们可读、可重建，用于最小静态/行为检查，本次不重复新增。仅 `tests/artifacts/` 归档。
-3. `xpos-readonly-diagnosis-20260917.md`：只读诊断证据和未确认项，不含凭据。
+3. `xpos-client/OPERATIONS_HISTORY.md`（2026-09-17 诊断节）：只读诊断证据和未确认项，不含凭据。
 4. 本审计报告：记录分类、归档、哈希、测试和剩余风险。
 
 ### 仅本地保留，不提交

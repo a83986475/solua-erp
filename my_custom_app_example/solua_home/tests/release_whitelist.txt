@@ -1,4 +1,3 @@
-Solua Home 定制首页实施计划.md
 my_custom_app_example/solua_home/api/export.py
 my_custom_app_example/solua_home/api/home.py
 my_custom_app_example/solua_home/api/stock.py
