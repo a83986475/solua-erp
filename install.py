@@ -2,6 +2,115 @@
 import frappe
 
 
+def ensure_solua_stock_entry_types():
+    """Reuse or create the two issue classifications used by the Solua Home page."""
+    if not frappe.db.exists("DocType", "Stock Entry Type"):
+        raise RuntimeError("Stock Entry Type DocType is unavailable")
+
+    definitions = {
+        "领用": ("领用", ("领用", "Consumption", "Issue for Use")),
+        "损耗": ("损耗", ("损耗", "Wastage", "Waste", "Material Loss")),
+    }
+    existing = frappe.get_all(
+        "Stock Entry Type",
+        filters={"purpose": "Material Issue"},
+        fields=["name", "purpose"],
+        limit_page_length=0,
+    )
+    by_name = {row.name: row for row in existing}
+    resolved = {}
+    for key, (preferred, aliases) in definitions.items():
+        match = next((by_name[name] for name in aliases if name in by_name), None)
+        if match:
+            resolved[key] = match.name
+            continue
+        doc = frappe.get_doc({
+            "doctype": "Stock Entry Type",
+            "name": preferred,
+            "purpose": "Material Issue",
+            "is_standard": 0,
+        })
+        doc.insert(ignore_permissions=True)
+        resolved[key] = doc.name
+    frappe.db.commit()
+    return resolved
+
+
+def ensure_wholesale_module():
+    """Register the one shipped module without running a site migration."""
+    if not frappe.db.exists("Module Def", "Solua Wholesale"):
+        frappe.get_doc({
+            "doctype": "Module Def",
+            "module_name": "Solua Wholesale",
+            "app_name": "solua_home",
+            "custom": 0,
+        }).insert(ignore_permissions=True)
+
+    module = frappe.db.get_value(
+        "Module Def", "Solua Wholesale", ["name", "app_name"], as_dict=True
+    )
+    if not module or module.app_name != "solua_home":
+        raise RuntimeError("Invalid Module Def Solua Wholesale")
+    return module
+
+
+def refresh_wholesale_module_map():
+    """Refresh only Frappe's cached app/module map after modules.txt is shipped."""
+    frappe.cache().delete_value("app_modules")
+    frappe.setup_module_map(include_all_apps=True)
+
+
+def install_wholesale_only():
+    """Install only the reviewed wholesale page, fields and three print formats."""
+    import os
+    from frappe.modules.import_file import import_file_by_path
+    from frappe.modules import get_module_path
+
+    try:
+        refresh_wholesale_module_map()
+        page_dir = get_module_path("Solua Wholesale", "page", "solua_home")
+        if not os.path.isdir(page_dir):
+            raise RuntimeError("Solua Wholesale page package is not importable: " + page_dir)
+        ensure_wholesale_module()
+        add_wholesale_fields(commit=False)
+        base = os.path.dirname(__file__)
+        for folder in ("sales_order_wholesale_color", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
+            import_file_by_path(os.path.join(base, "print_format", folder, folder + ".json"),
+                                force=True, ignore_version=True)
+        import_file_by_path(os.path.join(base, "solua_wholesale", "page", "solua_home", "solua_home.json"),
+                            force=True, ignore_version=True)
+        page = frappe.get_doc("Page", "solua-home")
+        if page.module != "Solua Wholesale":
+            raise RuntimeError("Unexpected Page module")
+        if not page.name or page.name != "solua-home":
+            raise RuntimeError("Unexpected Page name")
+        page.load_assets()
+        if not page.script or not page.style:
+            raise RuntimeError("Solua Page assets missing")
+        for method in (
+            "solua_home.api.home.get_dashboard_data",
+            "solua_home.api.home.get_color_variants",
+            "solua_home.api.stock.prepare_delivery_snapshot",
+            "solua_home.printing.wholesale.prepare_print_snapshot",
+            "solua_home.printing.wholesale.get_wholesale_print_data",
+            "solua_home.boot.extended_bootinfo",
+        ):
+            if not callable(frappe.get_attr(method)):
+                raise RuntimeError("Invalid hook: " + method)
+        for name, expected_module in (
+            ("客户订单确认单（颜色版）", "Solua Wholesale"),
+            ("批发销售单（颜色版）", "Solua Home 定制"),
+            ("Guia de Remessa", "Solua Wholesale"),
+        ):
+            fmt = frappe.get_doc("Print Format", name)
+            if not fmt.html or fmt.raw_printing or fmt.module != expected_module:
+                raise RuntimeError("Invalid HTML print format: " + name)
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        raise
+
+
 def after_install():
     """首次安装后执行"""
     add_translations()
@@ -9,12 +118,18 @@ def after_install():
     add_item_attributes()
     add_color_pool()
     add_variant_custom_fields()
+    add_color_card_fields()
+    add_sales_color_print_fields()
+    add_wholesale_fields()
+    add_print_settings_fields()
     configure_item_variant_settings()
     add_discount_approval_field()
     add_company_discount_settings()
     add_pos_profile_settings()
     configure_pos_tax()
+    ensure_solua_stock_entry_types()
     sync_standard_print_formats()
+    sync_standard_pages()
     add_member_system_fields()
     frappe.db.commit()
 
@@ -47,6 +162,24 @@ def sync_standard_print_formats():
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
+
+
+def sync_standard_pages():
+    """Import the standard Solua Home Desk page without changing routing now."""
+    import os
+
+    from frappe.modules.import_file import import_file_by_path
+
+    base = os.path.join(os.path.dirname(__file__), "solua_wholesale", "page")
+    for folder in os.listdir(base) if os.path.isdir(base) else []:
+        json_path = os.path.join(base, folder, f"{folder}.json")
+        if not os.path.exists(json_path):
+            continue
+        try:
+            import_file_by_path(json_path, force=True, ignore_version=True)
+            frappe.db.commit()
+        except Exception as e:
+            frappe.log_error(f"页面导入失败 [{json_path}]: {e}", "solua_home.pages")
 
 
 def add_translations():
@@ -475,8 +608,11 @@ def configure_pos_tax():
 
 
 def add_item_attributes():
-    """初始化 Item Attribute 框架（不含预填值，由用户自行添加属性值）"""
-    attribute_names = ["Color", "Size", "Material", "Season", "Gender"]
+    """初始化 Item Attribute 框架（不含预填值，由用户自行添加属性值）
+
+    颜色属性统一用 Cor（葡语池，见 add_color_pool），不再创建 Color/Colour。
+    """
+    attribute_names = ["Size", "Material", "Season", "Gender"]
 
     for attr_name in attribute_names:
         try:
@@ -563,6 +699,286 @@ def add_variant_custom_fields():
     frappe.db.commit()
 
 
+def add_color_card_fields():
+    """为颜色变体补充色卡字段；固定色号保留数据但暂时停用。"""
+    fields = [
+        {
+            "dt": "Item",
+            "fieldname": "custom_color_code",
+            "label": "固定色号",
+            "fieldtype": "Data",
+            "insert_after": "custom_pos_short_name",
+            "depends_on": "eval:doc.variant_of",
+            "hidden": 1,
+            "read_only": 1,
+            "in_list_view": 0,
+            "description": "本款内固定的数字色号，例如 01、02；一旦使用不重新分配",
+        },
+        {
+            "dt": "Item",
+            "fieldname": "custom_order_code",
+            "label": "对外订货货号",
+            "fieldtype": "Data",
+            "insert_after": "custom_color_code",
+            "description": "客户使用的稳定货号；为空时公开页面回退使用 Item 编码",
+        },
+        {
+            "dt": "Item",
+            "fieldname": "custom_color_card_published",
+            "label": "发布到公开色卡",
+            "fieldtype": "Check",
+            "insert_after": "custom_swatch_image",
+            "default": "0",
+            "description": "模板和具体颜色都勾选后，才会出现在 erp.solua.one/colors",
+        },
+    ]
+
+    for field in fields:
+        try:
+            existing = frappe.db.get_value(
+                "Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}, "name"
+            )
+            if existing:
+                if field["fieldname"] == "custom_color_code":
+                    # Retire the duplicate entry point without clearing historical values.
+                    frappe.db.set_value("Custom Field", existing, {
+                        "hidden": 1, "read_only": 1, "in_list_view": 0,
+                    }, update_modified=False)
+            else:
+                frappe.get_doc({
+                    "doctype": "Custom Field",
+                    **field,
+                    "owner": "Administrator",
+                }).insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(
+                f"色卡字段创建失败 [{field.get('fieldname')}]: {e}",
+                "solua_home.color_card_fields",
+            )
+
+    frappe.db.commit()
+
+
+def add_sales_color_print_fields():
+    """给批发销售发票提供图片和二维码两个独立打印开关。"""
+    fields = [
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_images",
+            "label": "批发单显示颜色图片",
+            "fieldtype": "Check",
+            "insert_after": "is_pos",
+            "default": "0",
+            "allow_on_submit": 1,
+            "description": "批发销售单打印格式开启时，显示每个颜色的实拍图",
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_qr",
+            "label": "批发单显示色卡二维码",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_images",
+            "default": "0",
+            "allow_on_submit": 1,
+            "description": "批发销售单打印格式开启时，显示对应款式的公开色卡二维码",
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_item_name",
+            "label": "销售单显示商品名称",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_qr",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_sku",
+            "label": "销售单显示 SKU/货号",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_item_name",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_color_code",
+            "label": "销售单显示固定色号",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_sku",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_cor",
+            "label": "销售单显示 Cor/颜色",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_color_code",
+            "default": "0",
+            "allow_on_submit": 1,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_print_description",
+            "label": "销售单显示商品描述",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_cor",
+            "default": "1",
+            "allow_on_submit": 1,
+        },
+    ]
+
+    for field in fields:
+        try:
+            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+                frappe.get_doc({
+                    "doctype": "Custom Field",
+                    **field,
+                    "owner": "Administrator",
+                }).insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(
+                f"销售单打印开关创建失败 [{field.get('fieldname')}]: {e}",
+                "solua_home.color_card_fields",
+            )
+
+    frappe.db.commit()
+
+
+def add_wholesale_fields(commit=True):
+    """Add only the small snapshots needed for wholesale order/delivery prints."""
+    fields = [
+        {"dt": dt, "fieldname": "custom_wholesale_snapshot", "label": "Wholesale print snapshot",
+         "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "no_copy": 1}
+        for dt in ("Sales Order", "Delivery Note")
+    ] + [
+        {"dt": "Sales Order", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
+        {"dt": "Sales Order", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
+        {"dt": "Sales Order", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
+        {"dt": "Sales Order", "fieldname": "custom_payment_method", "label": "付款方式", "fieldtype": "Select", "options": "\n先款\n货到付款（COD）\n赊账\n定金+尾款", "insert_after": "payment_terms_template"},
+        {"dt": "Sales Order", "fieldname": "custom_deposit_amount", "label": "定金金额", "fieldtype": "Currency", "insert_after": "custom_payment_method", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
+        {"dt": "Sales Order", "fieldname": "custom_balance_due_date", "label": "尾款到期日", "fieldtype": "Date", "insert_after": "custom_deposit_amount", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
+        {"dt": "Sales Order", "fieldname": "custom_invoice_plan", "label": "开票安排", "fieldtype": "Small Text", "insert_after": "terms"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_images", "label": "订单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
+        {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
+        {"dt": "Sales Order", "fieldname": "custom_print_sku", "label": "订单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
+        {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "contact_info"},
+        {"dt": "Delivery Note", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "shipping_address"},
+        {"dt": "Delivery Note", "fieldname": "custom_departure_time", "label": "实际起运时间（可选）", "fieldtype": "Datetime", "insert_after": "custom_driver_phone"},
+        {"dt": "Delivery Note", "fieldname": "custom_source_warehouse_address", "label": "发货仓库地址（可选）", "fieldtype": "Small Text", "insert_after": "custom_departure_time", "description": "公司与仓库目前同址：AV. DO TRABALHO, n.º 231, Cidade de Maputo；如以后分仓请在单据上维护当次地址"},
+        {"dt": "Delivery Note", "fieldname": "custom_driver_phone", "label": "司机电话", "fieldtype": "Data", "fetch_from": "driver.cell_number", "read_only": 1, "insert_after": "driver_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_section", "label": "开票资料", "fieldtype": "Section Break", "insert_after": "custom_source_warehouse_address"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_info", "label": "关联销售订单与开票状态", "fieldtype": "HTML", "insert_after": "custom_delivery_billing_section"},
+        {"dt": "Delivery Note", "fieldname": "custom_invoice_plan", "label": "开票安排（可选）", "fieldtype": "Small Text", "insert_after": "per_billed"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_signoff_section", "label": "签收资料", "fieldtype": "Section Break", "insert_after": "custom_invoice_plan"},
+        {"dt": "Delivery Note", "fieldname": "custom_box_count", "label": "箱数", "fieldtype": "Int", "insert_after": "custom_delivery_signoff_section", "description": "适用时填写；不适用留空"},
+        {"dt": "Delivery Note", "fieldname": "custom_pallet_count", "label": "托盘数", "fieldtype": "Int", "insert_after": "custom_box_count", "description": "适用时填写；不适用留空"},
+        {"dt": "Delivery Note", "fieldname": "custom_delivery_notes", "label": "差异/退货备注", "fieldtype": "Small Text", "insert_after": "custom_pallet_count"},
+        {"dt": "Delivery Note", "fieldname": "custom_signature_name", "label": "签收姓名", "fieldtype": "Data", "insert_after": "custom_delivery_notes"},
+        {"dt": "Delivery Note", "fieldname": "custom_signature_date", "label": "签收日期", "fieldtype": "Date", "insert_after": "custom_signature_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_images", "label": "送货单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_qr", "label": "送货单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_item_name", "label": "送货单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_sku", "label": "送货单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_ordered_before", "label": "送货单显示订购/此前已交付", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_current_remaining", "label": "送货单显示本次/剩余", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_ordered_before"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
+        {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
+        {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
+        {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
+    ]
+    for field in fields:
+        existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
+        if not existing:
+            frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
+        elif field["dt"] == "Delivery Note":
+            updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+
+    for field_name, prop, value, prop_type in (
+        ("address_and_contact_tab", "label", "送货与开票", "Data"),
+        ("contact_info", "label", "客户门店", "Data"),
+        ("contact_info", "insert_after", "custom_delivery_missing_summary", "Data"),
+        ("shipping_address_section", "insert_after", "custom_store_phone", "Data"),
+        ("transporter_info", "label", "运输资料", "Data"),
+        ("transporter_info", "insert_after", "custom_customer_order_no", "Data"),
+        ("shipping_address_name", "insert_after", "shipping_address_section", "Data"),
+        ("vehicle_no", "fieldtype", "Link", "Data"),
+        ("vehicle_no", "options", "Vehicle", "Data"),
+        ("vehicle_no", "insert_after", "transporter", "Data"),
+        ("driver", "insert_after", "vehicle_no", "Data"),
+        ("driver_name", "insert_after", "driver", "Data"),
+        ("per_billed", "insert_after", "custom_delivery_billing_info", "Data"),
+    ):
+        frappe.make_property_setter({
+            "doctype": "Delivery Note", "doctype_or_field": "DocField", "fieldname": field_name,
+            "property": prop, "property_type": prop_type, "value": value,
+        })
+
+    # Standard DocFields ignore insert_after for ordering in Frappe v16.
+    frappe.clear_cache(doctype="Delivery Note")
+    order = [field.fieldname for field in frappe.get_meta("Delivery Note").fields]
+    delivery_fields = [
+        "transporter_info", "transporter", "vehicle_no", "driver", "driver_name",
+        "custom_driver_phone", "custom_departure_time", "custom_source_warehouse_address",
+        "lr_no", "delivery_trip", "col_break34", "transporter_name", "lr_date",
+        "custom_delivery_billing_section", "custom_delivery_billing_info", "per_billed",
+        "custom_invoice_plan", "custom_delivery_signoff_section", "custom_box_count",
+        "custom_pallet_count", "custom_delivery_notes", "custom_signature_name", "custom_signature_date",
+    ]
+    present = [name for name in delivery_fields if name in order]
+    for name in present:
+        order.remove(name)
+    if "company_contact_person" in order:
+        position = order.index("company_contact_person") + 1
+        order[position:position] = present
+        frappe.make_property_setter({
+            "doctype": "Delivery Note", "doctype_or_field": "DocType",
+            "property": "field_order", "value": frappe.as_json(order),
+        })
+    if commit:
+        frappe.db.commit()
+
+
+def add_print_settings_fields():
+    """Add the single global font/density control used by Solua Print Formats."""
+    fields = [
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_font_size",
+            "label": "Solua 打印基础字号（pt）",
+            "fieldtype": "Int",
+            "default": "10",
+            "description": "Solua 自定义打印格式的基础字号，允许 8–14 pt",
+            "insert_after": "print_uom_after_quantity",
+        },
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_density",
+            "label": "Solua 打印密度",
+            "fieldtype": "Select",
+            "options": "紧凑\n标准",
+            "default": "紧凑",
+            "description": "紧凑减少行间距；标准增加可读空间",
+            "insert_after": "custom_solua_print_font_size",
+        },
+    ]
+    for field in fields:
+        if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+            frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
+    frappe.db.commit()
+
+
 # 窗帘颜色池（Cor 属性）：全部常用颜色 + 唯一缩写
 # 变体编码 = 模板编码-缩写（如 CR-001-PR = Preto 黑）；缩写必须全局唯一
 CURTAIN_COLOR_POOL = [
@@ -608,24 +1024,14 @@ def add_color_pool():
         raise ValueError(f"Color pool abbreviations conflict: {dupes}")
 
     existing = {v.attribute_value for v in attr.item_attribute_values}
-    pool = dict(CURTAIN_COLOR_POOL)
     changed = False
 
-    # 更新/新增
-    for v in attr.item_attribute_values:
-        if v.attribute_value in pool:
-            new_abbr = pool[v.attribute_value]
-            if v.abbr != new_abbr:
-                v.abbr = new_abbr
-                changed = True
-            del pool[v.attribute_value]
-        else:
-            # 不在池子里的旧值移除（避免与池子冲突）
-            attr.item_attribute_values.remove(v)
-            changed = True
-
-    # 池子里新增的
-    for value, abbr in pool.items():
+    # 生产环境可能已经用数字色号（例如 09）创建了变体。
+    # 只补充缺失的颜色池值，不删除或重写任何已有值，避免触发
+    # ERPNext 对已被 Item 使用的 Item Attribute Value 的保护校验。
+    for value, abbr in CURTAIN_COLOR_POOL:
+        if value in existing:
+            continue
         attr.append("item_attribute_values", {"attribute_value": value, "abbr": abbr})
         changed = True
 
@@ -639,7 +1045,7 @@ def clear_prefilled_attributes():
     """清除服务器上已预填的属性值（改为空框架）"""
     import frappe
 
-    for attr_name in ["Color", "Size", "Material", "Season", "Gender"]:
+    for attr_name in ["Size", "Material", "Season", "Gender"]:
         try:
             if not frappe.db.exists("Item Attribute", attr_name):
                 continue
@@ -671,6 +1077,7 @@ def configure_item_variant_settings():
             "item_group",
             "custom_chinese_name",
             "custom_spu_code",
+            "custom_swatch_image",
         ]
 
         existing_fields = {row.field_name for row in settings.fields}

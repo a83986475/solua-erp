@@ -6,10 +6,7 @@
 //       Variant → 点击颜色后直接把对应 Variant 加入 POS 购物车。
 //       普通商品 / 已含颜色的 Variant 条码 → 保持 ERPNext 标准扫码行为。
 //
-// 注册方式（hooks.py）：
-//   page_js = {
-//       "point-of-sale": "public/js/pos_custom.js",
-//   }
+// 注册方式（hooks.py）：app_include_js 全局加载；脚本只在 POS 类存在时安装补丁。
 // ============================================================================
 
 frappe.provide("solua_home.pos");
@@ -145,6 +142,8 @@ frappe.provide("solua_home.pos");
 	// 自定义扫码处理：先问后端，模板 → 弹窗选颜色；否则走标准行为
 	// ------------------------------------------------------------------
 	function handle_barcode_scan(barcode) {
+		barcode = (barcode || "").toString().trim();
+		if (!barcode) return;
 		const item_selector = this; // ItemSelector 实例
 		if (!item_selector || !item_selector.search_field || !item_selector.$component.is(":visible")) {
 			return;
@@ -365,6 +364,9 @@ frappe.provide("solua_home.pos");
 			}, 500);
 		};
 
+		// 这些是可选增强；即使其中一个因加载时序失败，也不能阻断
+		// 下方的 POS 商品查询、颜色弹窗和扫码拦截。
+		try {
 		// POS 提交拦截：带未审批折扣时弹审批密码对话框（仅 POS 发票）
 		const original_form_savesubmit = frappe.ui.form.Form.prototype.savesubmit;
 		frappe.ui.form.Form.prototype.savesubmit = function (btn, callback, on_error) {
@@ -494,6 +496,9 @@ frappe.provide("solua_home.pos");
 			}
 			return original_load_summary_of.call(this, doc, after_submission);
 		};
+		} catch (e) {
+			console.error("[solua_home] 可选 POS 增强初始化失败，保留扫码选色功能:", e);
+		}
 
 		// POS 商品数据带 has_variants：换用 solua_home 包装器
 		// （附加模板标记后转发原生查询，前端据此拦截模板直加）
@@ -857,20 +862,6 @@ frappe.provide("solua_home.pos");
 		});
 	}
 
-	// ─── 交班按钮 ───────────────────────────────────────────────
-	function inject_closing_button() {
-		if (document.getElementById("pos-closing-btn")) return;
-		const btn = document.createElement("div");
-		btn.id = "pos-closing-btn";
-		btn.title = "交班 (Ctrl+Shift+C)";
-		btn.innerHTML = "📋";
-		btn.style.cssText = "position:fixed;bottom:80px;left:24px;z-index:9990;width:48px;height:48px;border-radius:50%;background:#e67e22;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(230,126,34,0.4);transition:transform 0.2s;";
-		btn.onmouseenter = () => btn.style.transform = "scale(1.1)";
-		btn.onmouseleave = () => btn.style.transform = "scale(1)";
-		btn.onclick = () => open_closing_dialog();
-		document.body.appendChild(btn);
-	}
-
 	function open_closing_dialog() {
 		frappe.call({
 			method: "solua_home.api.closing.get_today_closing",
@@ -937,10 +928,10 @@ frappe.provide("solua_home.pos");
 			open_closing_dialog();
 		}
 	});
+	solua_home.pos.open_closing = open_closing_dialog;
 
 	// 启动
 	wrap_opening_dialog();
-	inject_closing_button();
 	inject_price_override();
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", () => apply_custom_barcode_handler());

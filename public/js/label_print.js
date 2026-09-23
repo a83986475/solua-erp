@@ -196,7 +196,7 @@ frappe.provide("solua_home.label_print");
                     <select id="lp-format" style="padding:5px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;min-width:140px;"></select>
                     <button id="lp-new-format-btn" style="padding:4px 8px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;" title="新建打印格式">+ 新建</button>
                     <label style="font-size:13px;font-weight:500;margin-left:8px;">数量：</label>
-                    <input id="lp-qty" type="number" value="1" min="1" max="999" style="width:55px;padding:5px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;text-align:center;" />
+                    <input id="lp-qty" type="number" value="1" min="1" max="999" step="1" inputmode="numeric" style="width:55px;padding:5px;border:1px solid #dee2e6;border-radius:6px;font-size:13px;text-align:center;" />
                 </div>
                 <div style="display:flex;gap:8px;">
                     <button id="lp-select-all-btn" style="padding:7px 14px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">全选</button>
@@ -221,6 +221,9 @@ frappe.provide("solua_home.label_print");
             if (e.key === "Enter") { e.preventDefault(); do_search(); }
         });
         $dialog.find("#lp-search-btn").on("click", do_search);
+        $dialog.find("#lp-qty").on("keydown", function (e) {
+            if ([".", ",", "-", "+", "e", "E"].includes(e.key)) e.preventDefault();
+        });
         $dialog.find("#lp-qty").on("change", update_selected_summary);
 
         $dialog.find("#lp-format").on("change", function () {
@@ -470,9 +473,17 @@ frappe.provide("solua_home.label_print");
 
     // ─── 选中汇总 ─────────────────────────────────────────────────
 
-    function get_selected_items() {
+    function get_label_qty() {
+        var raw = String($dialog.find("#lp-qty").val() || "").trim();
+        if (!/^\d+$/.test(raw)) return null;
+        var qty = parseInt(raw, 10);
+        return qty >= 1 && qty <= 999 ? qty : null;
+    }
+
+    function get_selected_items(qty) {
         var selected = [];
-        var qty = parseInt($dialog.find("#lp-qty").val()) || 1;
+        if (qty === undefined) qty = get_label_qty();
+        if (qty === null) return selected;
         $dialog.find(".lp-check:checked").each(function () {
             var idx = parseInt($(this).data("index"));
             if (idx >= 0 && idx < _current_results.length) {
@@ -504,7 +515,12 @@ frappe.provide("solua_home.label_print");
     // ─── 打印 ─────────────────────────────────────────────────────
 
     function do_print() {
-        var selected = get_selected_items();
+        var qty = get_label_qty();
+        if (qty === null) {
+            frappe.show_alert({ message: "标签打印数量必须是 1 到 999 的整数", indicator: "orange" });
+            return;
+        }
+        var selected = get_selected_items(qty);
         if (selected.length === 0) {
             frappe.show_alert({ message: "请先勾选要打印的物料", indicator: "orange" });
             return;
@@ -633,34 +649,8 @@ frappe.provide("solua_home.label_print");
         });
     }
 
-    // ─── 浮动按钮（SVG 图标）────────────────────────────────────
-
-    function inject_floating_button() {
-        if (window.location.pathname.includes("/point-of-sale")) return;
-
-        var $btn = $('<div id="lp-float-btn" title="标签打印 (Ctrl+L)" style="' +
-            'position:fixed;bottom:80px;right:24px;z-index:9990;' +
-            'width:48px;height:48px;border-radius:50%;' +
-            'background:#007bff;color:#fff;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'box-shadow:0 4px 12px rgba(0,123,255,0.4);' +
-            'transition:transform 0.2s,box-shadow 0.2s;">' + ICONS.tag + '</div>');
-
-        $btn.on("mouseenter", function () {
-            $(this).css({ transform: "scale(1.1)", "box-shadow": "0 6px 20px rgba(0,123,255,0.5)" });
-        });
-        $btn.on("mouseleave", function () {
-            $(this).css({ transform: "scale(1)", "box-shadow": "0 4px 12px rgba(0,123,255,0.4)" });
-        });
-        $btn.on("click", open_dialog);
-        $("body").append($btn);
-    }
-
     // ─── 导出接口 ─────────────────────────────────────────────────
     solua_home.label_print.open = open_dialog;
     solua_home.label_print.close = close_dialog;
 
-    $(document).ready(function () {
-        inject_floating_button();
-    });
 })();

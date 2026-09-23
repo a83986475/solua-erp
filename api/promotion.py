@@ -10,6 +10,8 @@ from frappe import _
 import json
 from datetime import date, datetime
 
+from solua_home.api.stock import validate_positive_integer_qty
+
 
 # ─── 促销模板 ─────────────────────────────────────────────────────
 
@@ -64,6 +66,18 @@ PROMOTION_TEMPLATES = {
         "selling": 1,
     },
 }
+
+
+def validate_promotion_quantities(doc, method=None):
+    """促销数量条件也按件数处理；0 表示该条件未启用。"""
+    for fieldname, label in (
+        ("min_qty", "促销最小数量"),
+        ("max_qty", "促销最大数量"),
+        ("free_qty", "赠送数量"),
+    ):
+        value = doc.get(fieldname)
+        if value not in (None, "", 0, "0"):
+            validate_positive_integer_qty(value, label)
 
 
 @frappe.whitelist()
@@ -255,8 +269,11 @@ def list_promotions(show_disabled=0, limit=50):
 def disable_promotion(pricing_rule_name):
     """停用促销规则"""
     doc = frappe.get_doc("Pricing Rule", pricing_rule_name)
-    doc.disable = 1
-    doc.save(ignore_permissions=True)
+    # 历史规则可能带有旧版允许、当前版本不允许的 priority="0"。
+    # 停用不应被无关字段的整单校验阻断。
+    if doc.priority == "0":
+        doc.db_set("priority", "", update_modified=False)
+    doc.db_set("disable", 1)
     frappe.db.commit()
     return {"status": "disabled", "name": doc.name}
 
@@ -265,8 +282,9 @@ def disable_promotion(pricing_rule_name):
 def enable_promotion(pricing_rule_name):
     """启用促销规则"""
     doc = frappe.get_doc("Pricing Rule", pricing_rule_name)
-    doc.disable = 0
-    doc.save(ignore_permissions=True)
+    if doc.priority == "0":
+        doc.db_set("priority", "", update_modified=False)
+    doc.db_set("disable", 0)
     frappe.db.commit()
     return {"status": "enabled", "name": doc.name}
 

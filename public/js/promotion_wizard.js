@@ -2,7 +2,7 @@
  * Promotion Wizard for solua_home
  *
  * 功能：基于模板快速创建促销规则（特价/折扣/买赠/量大从优/会员专享）
- * 入口：Ctrl+Shift+D 或右下角浮动按钮
+ * 入口：首页快捷操作或 Ctrl+Shift+D
  */
 frappe.provide("solua_home.promotion_wizard");
 
@@ -181,9 +181,24 @@ frappe.provide("solua_home.promotion_wizard");
                     frappe.call({
                         method: "solua_home.api.promotion." + method,
                         args: { pricing_rule_name: name },
-                        callback: function () {
+                        callback: function (r) {
+                            if (r.exc) {
+                                frappe.msgprint({
+                                    title: action === "disable" ? "停用失败" : "启用失败",
+                                    message: r.exc,
+                                    indicator: "red",
+                                });
+                                return;
+                            }
                             frappe.show_alert({ message: action === "disable" ? "已停用" : "已启用", indicator: "green" });
                             _load_promotions();
+                        },
+                        error: function (r) {
+                            frappe.msgprint({
+                                title: action === "disable" ? "停用失败" : "启用失败",
+                                message: r.responseJSON?.exception || "服务器未能完成请求",
+                                indicator: "red",
+                            });
                         },
                     });
                 });
@@ -313,7 +328,7 @@ frappe.provide("solua_home.promotion_wizard");
             html += `
             <div style="margin-top:12px;">
                 <label style="font-size:13px;font-weight:500;">最少购买数量 *</label>
-                <input id="pm-f-min-qty" type="number" min="1" value="5" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
+                <input id="pm-f-min-qty" type="number" min="1" step="1" inputmode="numeric" value="5" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
             </div>`;
         }
 
@@ -321,11 +336,11 @@ frappe.provide("solua_home.promotion_wizard");
             html += `
             <div style="margin-top:12px;">
                 <label style="font-size:13px;font-weight:500;">购买数量 *</label>
-                <input id="pm-f-min-qty" type="number" min="1" value="3" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
+                <input id="pm-f-min-qty" type="number" min="1" step="1" inputmode="numeric" value="3" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
             </div>
             <div style="margin-top:8px;">
                 <label style="font-size:13px;font-weight:500;">赠送数量</label>
-                <input id="pm-f-free-qty" type="number" min="1" value="1" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
+                <input id="pm-f-free-qty" type="number" min="1" step="1" inputmode="numeric" value="1" style="width:100px;padding:8px;border:1px solid #dee2e6;border-radius:6px;margin-top:4px;" />
             </div>`;
         }
 
@@ -374,12 +389,25 @@ frappe.provide("solua_home.promotion_wizard");
         var rate = $dialog.find("#pm-f-rate").val();
         if (rate) config.rate = parseFloat(rate);
 
-        // 数量
-        var minQty = $dialog.find("#pm-f-min-qty").val();
-        if (minQty) config.min_qty = parseInt(minQty);
+        // 数量：先验证原始输入，避免 parseInt 把 1.5 静默变成 1。
+        function read_positive_integer(selector, label) {
+            var $field = $dialog.find(selector);
+            if (!$field.length) return undefined;
+            var raw = String($field.val() || "").trim();
+            if (!/^\d+$/.test(raw) || parseInt(raw, 10) < 1) {
+                frappe.show_alert({ message: label + "必须是大于等于 1 的整数", indicator: "orange" });
+                return null;
+            }
+            return parseInt(raw, 10);
+        }
 
-        var freeQty = $dialog.find("#pm-f-free-qty").val();
-        if (freeQty) config.free_qty = parseInt(freeQty);
+        var minQty = read_positive_integer("#pm-f-min-qty", "购买数量");
+        if (minQty === null) return;
+        if (minQty !== undefined) config.min_qty = minQty;
+
+        var freeQty = read_positive_integer("#pm-f-free-qty", "赠送数量");
+        if (freeQty === null) return;
+        if (freeQty !== undefined) config.free_qty = freeQty;
 
         frappe.call({
             method: "solua_home.api.promotion.create_promotion",
@@ -409,35 +437,11 @@ frappe.provide("solua_home.promotion_wizard");
         return null;
     }
 
-    // ─── 浮动按钮 ─────────────────────────────────────────────────
-
-    function inject_floating_button() {
-        if (window.location.pathname.includes("/point-of-sale")) return;
-
-        var $btn = $('<div id="pm-float-btn" title="促销管理 (Ctrl+Shift+D)" style="' +
-            'position:fixed;bottom:140px;right:24px;z-index:9990;' +
-            'width:48px;height:48px;border-radius:50%;' +
-            'background:#e67e22;color:#fff;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'font-size:20px;box-shadow:0 4px 12px rgba(230,126,34,0.4);' +
-            'transition:transform 0.2s,box-shadow 0.2s;">🎯</div>');
-
-        $btn.on("mouseenter", function () {
-            $(this).css({ transform: "scale(1.1)", "box-shadow": "0 6px 20px rgba(230,126,34,0.5)" });
-        });
-        $btn.on("mouseleave", function () {
-            $(this).css({ transform: "scale(1)", "box-shadow": "0 4px 12px rgba(230,126,34,0.4)" });
-        });
-        $btn.on("click", open_dialog);
-        $("body").append($btn);
-    }
-
     // ─── 导出接口 ─────────────────────────────────────────────────
     solua_home.promotion_wizard.open = open_dialog;
     solua_home.promotion_wizard.close = close_dialog;
 
     $(document).ready(function () {
-        inject_floating_button();
         // 绑定表单提交（延迟绑定，等 DOM 就绪）
         $(document).on("click", "#pm-submit-form", _submit_form);
         $(document).on("click", "#pm-cancel-form", function () {

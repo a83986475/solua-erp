@@ -3,7 +3,7 @@ import frappe
 
 
 def extended_bootinfo(bootinfo):
-    """注入自定义 boot 信息"""
+    """注入元数据；默认 Desk 入口由原生 desktop:home_page 管理。"""
     bootinfo["solua_home"] = {
         "version": "0.0.1",
         "app_name": "solua_home",

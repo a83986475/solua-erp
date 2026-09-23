@@ -14,6 +14,8 @@
 import frappe
 from frappe import _
 
+from solua_home.api.stock import validate_positive_integer_qty
+
 
 @frappe.whitelist()
 def get_bundle_definitions(item_code=None):
@@ -155,7 +157,9 @@ def create_bundle(parent_item, bundles):
 
     created = []
     for b in bundles:
-        qty = int(b.get("quantity", 1))
+        raw_qty = b.get("quantity", 1)
+        validate_positive_integer_qty(raw_qty, "打包包含数量", parent_item)
+        qty = int(raw_qty)
         bp = b.get("bundle_price")
         if not bp:
             bp = round(unit_price * qty, 2)

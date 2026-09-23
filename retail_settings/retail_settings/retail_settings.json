@@ -1,0 +1,41 @@
+{
+  "name": "Retail Settings",
+  "module": "Retail Settings",
+  "doctype": "DocType",
+  "issingle": 1,
+  "engine": "InnoDB",
+  "fields": [
+    {"fieldname": "receipt_section", "fieldtype": "Section Break", "label": "小票设置"},
+    {"fieldname": "receipt_title_1", "fieldtype": "Data", "label": "标题1（公司名）", "default": "Solua Home", "reqd": 1},
+    {"fieldname": "receipt_title_2", "fieldtype": "Data", "label": "标题2（副标题）", "default": "Lda"},
+    {"fieldname": "cb_receipt_1", "fieldtype": "Column Break"},
+    {"fieldname": "receipt_format", "fieldtype": "Select", "label": "小票格式", "options": "条码+品名+数量+单价+小计\n品名+数量+单价+小计\n条码+数量+单价+小计\n品名+货号+数量+单价+小计\n条码+品名+规格+单位+数量+单价+小计", "default": "条码+品名+数量+单价+小计"},
+    {"fieldname": "paper_width", "fieldtype": "Select", "label": "纸宽", "options": "80mm\n58mm", "default": "80mm"},
+
+    {"fieldname": "footer_section", "fieldtype": "Section Break", "label": "页脚设置"},
+    {"fieldname": "receipt_footer_1", "fieldtype": "Data", "label": "页脚1", "default": "Obrigado pela preferência!"},
+    {"fieldname": "receipt_footer_2", "fieldtype": "Data", "label": "页脚2"},
+    {"fieldname": "cb_footer_1", "fieldtype": "Column Break"},
+    {"fieldname": "receipt_footer_3", "fieldtype": "Data", "label": "页脚3", "default": "www.solua.one"},
+    {"fieldname": "receipt_footer_4", "fieldtype": "Data", "label": "页脚4"},
+
+    {"fieldname": "print_section", "fieldtype": "Section Break", "label": "打印设置"},
+    {"fieldname": "print_copies", "fieldtype": "Int", "label": "打印份数", "default": 1, "min": 1, "max": 5},
+    {"fieldname": "print_delay_hours", "fieldtype": "Int", "label": "打印延迟（小时）", "default": 0, "min": 0, "max": 23},
+    {"fieldname": "cb_print_1", "fieldtype": "Column Break"},
+    {"fieldname": "rounding_method", "fieldtype": "Select", "label": "抹零方式", "options": "不处理\n四舍五入到角\n四舍五入到元\n舍去分\n舍去角", "default": "不处理"},
+    {"fieldname": "default_warehouse", "fieldtype": "Link", "label": "前台默认仓库", "options": "Warehouse", "default": "Finished Goods - SH"},
+
+    {"fieldname": "price_section", "fieldtype": "Section Break", "label": "价格控制"},
+    {"fieldname": "allow_price_override", "fieldtype": "Check", "label": "允许前台改价", "default": 0},
+    {"fieldname": "price_override_requires_approval", "fieldtype": "Check", "label": "改价需要审批密码", "default": 1},
+    {"fieldname": "cb_price_1", "fieldtype": "Column Break"},
+    {"fieldname": "max_discount_pct", "fieldtype": "Percent", "label": "最大折扣幅度（%）", "default": 0, "description": "0 表示不限制，超过此幅度需审批"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1},
+    {"role": "Administrator", "read": 1, "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

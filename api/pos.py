@@ -182,14 +182,11 @@ def fix_is_billing_contact():
 
 @frappe.whitelist()
 def get_items(start, page_length, price_list, item_group, pos_profile, search_term=''):
-    """POS 商品加载：默认不返回商品（扫码/搜索才加载），避免全量物料导致卡顿；
+    """POS 商品加载：保留标准 POS 的默认商品列表显示；
 
     附加 has_variants 标记：前端据此拦截「模板物料直接加购」（模板无价会报
     错「未设置物料价格」），改为弹颜色选择框让收银员选具体颜色。
     """
-    if not search_term:
-        return {"items": []}
-
     from erpnext.selling.page.point_of_sale import point_of_sale as pos_page
 
     result = pos_page.get_items(start, page_length, price_list, item_group, pos_profile, search_term)
@@ -197,14 +194,22 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
     if items:
         codes = [it.get("item_code") for it in items if it.get("item_code")]
         if codes:
-            hv_map = dict(
-                frappe.db.get_all(
+            item_fields = ["name", "has_variants"]
+            if frappe.db.has_column("Item", "custom_swatch_image"):
+                item_fields.append("custom_swatch_image")
+            hv_map = {
+                row[0]: row[1:]
+                for row in frappe.db.get_all(
                     "Item",
                     filters={"name": ["in", codes]},
-                    fields=["name", "has_variants"],
+                    fields=item_fields,
                     as_list=True,
                 )
-            )
+            }
             for it in items:
-                it["has_variants"] = 1 if hv_map.get(it.get("item_code")) else 0
+                row = hv_map.get(it.get("item_code")) or []
+                it["has_variants"] = 1 if (row[0] if row else 0) else 0
+                if len(row) > 1 and not it.get("image"):
+                    it["image"] = row[1] or ""
+
     return result

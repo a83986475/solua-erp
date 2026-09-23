@@ -19,7 +19,7 @@ EDITABLE_FIELDS = [
     "custom_min_stock_level",# 最低库存
 ]
 
-COLOR_ATTR_NAMES = ["Cor", "Color", "Colour"]
+COLOR_ATTR_NAMES = ["Cor"]
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ $(function () {
 		// no-op
 	}
 
-	const COLOR_ATTR_NAMES = ["Cor", "Color", "Colour"];
+	const COLOR_ATTR_NAMES = ["Cor"];
 
 	// ---------- 工具 ----------
 	const isItemListPage = () => {

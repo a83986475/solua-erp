@@ -20,6 +20,21 @@ node_modules/
 # Aider AI Chat
 .aider*
 
-# Banking SPA
+# Banking SPA build output
 erpnext/public/banking
 erpnext/www/banking.html
+
+# Local build and server artifacts
+*.pyo
+*.py[cod]
+.env
+Thumbs.db
+build/
+sites/
+nodes/
+logs/
+config/
+*.orig
+*.tar.gz
+*.bak*
+solua_home

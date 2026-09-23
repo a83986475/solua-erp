@@ -6,9 +6,13 @@
 import frappe
 from frappe import _
 
+from solua_home.api.stock import validate_transaction_quantities
+
 
 def validate_purchase_order(doc, method=None):
     """采购订单保存时验证"""
+    validate_transaction_quantities(doc)
+
     # 示例：采购金额上限控制
     if doc.grand_total > 50000:
         frappe.throw(_("采购金额超过 50,000，需要上级审批"))
@@ -21,6 +25,8 @@ def validate_purchase_order(doc, method=None):
 
 def validate_purchase_invoice(doc, method=None):
     """采购发票验证"""
+    validate_transaction_quantities(doc)
+
     # 示例：发票金额不能超过采购订单金额
     for item in doc.items:
         if item.purchase_order:

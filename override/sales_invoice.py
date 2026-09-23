@@ -6,6 +6,7 @@
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 
 
@@ -18,6 +19,20 @@ class CustomSalesInvoice(SalesInvoice):
         "Sales Invoice": "solua_home.override.sales_invoice.CustomSalesInvoice",
     }
     """
+
+    @frappe.whitelist()
+    def set_missing_values(self, for_validate=False):
+        """Keep POS return payments negative after ERPNext rebuilds them."""
+        super().set_missing_values(for_validate)
+        if self.is_pos and self.is_return:
+            for payment in self.get("payments") or []:
+                payment.amount = -abs(flt(payment.amount))
+
+    def verify_payment_amount_is_negative(self):
+        """Normalize POS return payments before ERPNext validates them."""
+        for payment in self.get("payments") or []:
+            payment.amount = -abs(flt(payment.amount))
+        return super().verify_payment_amount_is_negative()
 
     def validate(self):
         """保存时验证（重写父类方法）"""
