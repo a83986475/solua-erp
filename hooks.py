@@ -217,6 +217,7 @@ app_include_js = [
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
     "/assets/solua_home/js/retail_settings_panel.js",
     "/assets/solua_home/js/print_format_import_export.js",
+    "/assets/solua_home/js/print_preview_pdfjs.js?v=pdfjs-print-preview-20260924",
     # Point of Sale 是已打包的标准页面，page_js 不一定会被执行；
     # 全局引入后由 pos_custom.js 自己等待 POS 类加载，确保颜色弹窗可靠生效。
     "/assets/solua_home/js/pos_custom.js",
