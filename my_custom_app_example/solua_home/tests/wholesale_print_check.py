@@ -59,7 +59,9 @@ frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
 frappe.get_all = lambda dt, *a, **k: [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else []
 frappe.get_list = lambda *a, **k: []
-frappe.utils = types.SimpleNamespace(fmt_money=lambda value, currency: f"{value or 0:.2f} {currency}")
+def fmt_money(value, currency, precision=2):
+    return f"{value or 0:.{precision}f} {currency}"
+frappe.utils = types.SimpleNamespace(fmt_money=fmt_money)
 sys.modules["frappe"] = frappe
 color = types.ModuleType("solua_home.printing.color_card")
 color.get_item_color_info = lambda code: {"order_code":code,"color_code":"01","color_name":"Red","image":"/red.png", "template_code":"STYLE", "card_url":"/colors?q=STYLE"}
@@ -164,9 +166,13 @@ assert pick_data["items"][0]["sales_order"] == "SO-1" and pick_data["items"][1][
 empty_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-2", docstatus=1, locations=[]))
 assert empty_pick["items"] == [] and empty_pick["total_qty"] == 0 and empty_pick["total_picked"] == 0
 assert module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-3", docstatus=1))["total_qty"] == 0
+assert module.format_print_qty(5.6) == "6"
+assert module.format_print_money(430.49, currency="MZN") == "430 MZN"
 
 env = Environment(undefined=StrictUndefined)
 env.globals.update(frappe=frappe, get_wholesale_print_data=module.get_wholesale_print_data,
+                  format_print_money=module.format_print_money,
+                  format_print_qty=module.format_print_qty,
                   get_print_total_qty=module.get_print_total_qty,
                   get_solua_print_css=module.get_solua_print_css,
                   get_pick_list_print_data=module.get_pick_list_print_data,
@@ -176,10 +182,10 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     assert fmt["html"] and fmt["raw_printing"] == 0 and not fmt["raw_commands"]
     assert fmt["module"] == "Solua Wholesale"
     html = env.from_string(fmt["html"]).render(doc=document)
-    assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20.00 MZN" in html
+    assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20 MZN" in html
     if folder == "sales_order_wholesale_color":
-        for header in ("Artigo / 商品", "SKU / 货号", "色号 / Cor"):
-            assert header in html  # legacy documents default all three columns to visible
+        for header in ("Artigo / 商品", "SKU / 货号", "Código de cor fixo / 固定色号"):
+            assert header in html  # legacy documents default the fixed code column to visible
         assert "6901234567892" in html and "Cortina vermelha" in html and "描述 / Descrição" in html
     assert "WRONG BILLING" not in html and "NEW ADDRESS" not in html
     # 明细表格最下面一行是总数量（fixture 只有一行 qty=2）
@@ -202,15 +208,18 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
             for sku in (0, 1):
                 for color_code in (0, 1):
                     for description in (0, 1):
-                        option_doc.custom_print_item_name = item_name
-                        option_doc.custom_print_sku = sku
-                        option_doc.custom_print_color_code = color_code
-                        option_doc.custom_print_description = description
-                        rendered = env.from_string(fmt["html"]).render(doc=option_doc)
-                        assert ("Artigo / 商品" in rendered) == bool(item_name)
-                        assert ("SKU / 货号" in rendered) == bool(sku)
-                        assert ("色号 / Cor" in rendered) == bool(color_code)
-                        assert ("描述 / Descrição" in rendered) == bool(description)
+                        for cor in (0, 1):
+                            option_doc.custom_print_item_name = item_name
+                            option_doc.custom_print_sku = sku
+                            option_doc.custom_print_color_code = color_code
+                            option_doc.custom_print_description = description
+                            option_doc.custom_print_cor = cor
+                            rendered = env.from_string(fmt["html"]).render(doc=option_doc)
+                            assert ("Artigo / 商品" in rendered) == bool(item_name)
+                            assert ("SKU / 货号" in rendered) == bool(sku)
+                            assert ("固定色号" in rendered) == bool(color_code)
+                            assert ("Cor / 颜色" in rendered) == bool(cor)
+                            assert ("描述 / Descrição" in rendered) == bool(description)
     if folder == "delivery_note_guia_remessa":
         assert "table-layout:fixed" not in fmt["css"]
     env.globals["get_color_card_qr_img"]=lambda name:""
@@ -238,7 +247,7 @@ invoice = Doc(
     items=[Doc(item_code="SH151046-01", item_name="Curtain", qty=2, rate=20, amount=40, uom="条")])
 rendered_invoice = env.from_string(invoice_fmt["html"]).render(doc=invoice)
 assert "SH151046-01" in rendered_invoice and "6901234567892" in rendered_invoice
-assert "Cortina vermelha" in rendered_invoice and "40.00 MZN" in rendered_invoice
+assert "Cortina vermelha" in rendered_invoice and "40 MZN" in rendered_invoice
 assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
 assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
 assert "Descrição" in rendered_invoice and "SKU / 货号" in rendered_invoice
@@ -251,10 +260,10 @@ assert pick_fmt["custom_format"] == 1 and pick_fmt["standard"] == "No" and pick_
 assert pick_fmt["raw_printing"] == 0 and not pick_fmt["raw_commands"]
 rendered_pick = env.from_string(pick_fmt["html"]).render(doc=pick)
 assert "Pick List / 拣货单" in rendered_pick and "{%" not in rendered_pick
-for header in ("SKU / 货号", "色号 / Cor", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
+for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick
-assert "<b>3.5</b>" in rendered_pick and "<b>2</b>" in rendered_pick
+assert "<b>4</b>" in rendered_pick and "<b>2</b>" in rendered_pick
 assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
 assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
@@ -351,24 +360,24 @@ def render_delivery(rows, ordered_before=None):
 unlinked = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
                custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([unlinked])
-assert "订购 / 此前已交付" not in html and data["has_order_linkage"] is False
+assert "Quantidade encomendada / 订购数量" not in html and data["has_order_linkage"] is False
 linked = Doc(item_code="RED", item_name="Curtain", qty=2, rate=1, amount=2, uom="条",
              against_sales_order="SO-1", so_detail="SOI-1", conversion_factor=2,
              custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([linked])
-assert "订购 / 此前已交付" in html and data["items"][0]["ordered_qty"] == 10
+assert "Quantidade encomendada / 订购数量" in html and data["items"][0]["ordered_qty"] == 10
 assert data["items"][0]["delivered_before_qty"] == 3 and data["items"][0]["remaining_qty"] == 5
 html, _ = render_delivery([linked], ordered_before=0)
-assert "订购 / 此前已交付" not in html
+assert "Quantidade encomendada / 订购数量" not in html
 missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
                    against_sales_order="SO-1", conversion_factor=1,
                    custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([missing_link])
-assert "订购 / 此前已交付" in html and "—" in html and data.get("delivery_quantity_error")
+assert "Quantidade encomendada / 订购数量" in html and "—" in html and data.get("delivery_quantity_error")
 mixed = Doc(item_code="BLUE", item_name="Blue", qty=1, rate=1, amount=1, uom="条",
             custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([linked, mixed])
-assert "订购 / 此前已交付" in html and data["items"][1]["ordered_qty"] is None
+assert "Quantidade encomendada / 订购数量" in html and data["items"][1]["ordered_qty"] is None
 assert data.get("delivery_quantity_error")
 history_result = stock.get_delivery_snapshot_quantities(
     Doc(name="CURRENT-DN", is_return=0, items=[Doc(item_code="RED", qty=2, conversion_factor=2,

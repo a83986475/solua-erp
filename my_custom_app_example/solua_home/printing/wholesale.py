@@ -3,6 +3,7 @@
 import html
 import json
 import re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import frappe
 from frappe import _
@@ -24,7 +25,8 @@ def _print_setting(name, default):
 def get_solua_print_css():
     """Shared print CSS; settings are read at render time for preview and PDF."""
     try:
-        font_size = max(8, min(14, int(float(_print_setting("custom_solua_print_font_size", 10)))))
+        parsed_font_size = int(float(_print_setting("custom_solua_print_font_size", 10)))
+        font_size = 10 if parsed_font_size <= 0 else max(8, min(14, parsed_font_size))
     except (TypeError, ValueError):
         font_size = 10
     density = str(_print_setting("custom_solua_print_density", "紧凑")).strip().lower()
@@ -38,8 +40,8 @@ def get_solua_print_css():
 .print-format, .print-format * {{ box-sizing: border-box; }}
 .print-format {{ font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }}
 .print-format h1, .print-format h2, .print-format h3 {{ line-height: 1.15; }}
-.print-format table {{ width: 100%; border-collapse: collapse; }}
-.print-format th, .print-format td {{ padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); }}
+.print-format table {{ width: 100%; border-collapse: collapse; table-layout: auto; }}
+.print-format th, .print-format td {{ padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); overflow-wrap: normal; word-break: normal; }}
 .print-format th {{ white-space: normal; }}
 .print-format .num {{ text-align: right; white-space: nowrap; }}
 .print-format .col-sku, .print-format .col-barcode, .print-format .col-uom,
@@ -50,7 +52,7 @@ def get_solua_print_css():
 .print-format .col-qty {{ min-width: 17mm; width: 17mm; }}
 .print-format .col-uom {{ min-width: 10mm; width: 10mm; }}
 .print-format .col-rate, .print-format .col-amount {{ min-width: 22mm; width: 22mm; }}
-.print-format .col-description {{ min-width: 34mm; overflow-wrap: anywhere; word-break: break-word; }}
+.print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}
 .print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
 .print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
@@ -231,6 +233,20 @@ def _sum_qty(rows, key):
         except (TypeError, ValueError):
             continue
     return int(total) if float(total).is_integer() else round(total, 6)
+
+
+def format_print_qty(value):
+    """Render document quantities as whole units; source data remains unchanged."""
+    try:
+        amount = Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0"
+    return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
+
+
+def format_print_money(value, currency=None):
+    """Render document money with zero decimals while retaining ERP currency formatting."""
+    return frappe.utils.fmt_money(value or 0, currency=currency, precision=0)
 
 
 def get_print_total_qty(data):

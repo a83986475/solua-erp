@@ -441,7 +441,8 @@
 				...(has_column_switches ? [
 					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name },
 					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
-					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
+					{ fieldname: "show_color_code", label: __("显示固定色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
+					{ fieldname: "show_cor", label: __("显示 Cor/颜色"), fieldtype: "Check", default: frm.doc.custom_print_cor == null ? 0 : frm.doc.custom_print_cor },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
 				] : []),
 				...(frm.doctype === "Delivery Note" ? [
@@ -462,6 +463,7 @@
 					if (frm.fields_dict.custom_print_item_name) changes.custom_print_item_name = values.show_item_name ? 1 : 0;
 					if (frm.fields_dict.custom_print_sku) changes.custom_print_sku = values.show_sku ? 1 : 0;
 					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color_code ? 1 : 0;
+					if (frm.fields_dict.custom_print_cor) changes.custom_print_cor = values.show_cor ? 1 : 0;
 					if (frm.fields_dict.custom_print_description) changes.custom_print_description = values.show_description ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_ordered_before) {

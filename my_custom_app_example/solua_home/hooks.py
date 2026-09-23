@@ -159,6 +159,8 @@ jinja = {
         "solua_home.printing.wholesale.get_delivery_invoice_names",
         "solua_home.printing.wholesale.get_driver_phone",
         "solua_home.printing.wholesale.get_pick_list_print_data",
+        "solua_home.printing.wholesale.format_print_money",
+        "solua_home.printing.wholesale.format_print_qty",
         "solua_home.printing.wholesale.get_print_total_qty",
         "solua_home.printing.wholesale.get_solua_print_css",
         "solua_home.printing.wholesale.get_wholesale_print_data",
