@@ -345,13 +345,15 @@ def compatibility_sql(query, args, **kwargs):
     return [[6]]
 frappe.db.sql = compatibility_sql
 dn_format = json.loads((ROOT / "print_format" / "delivery_note_guia_remessa" / "delivery_note_guia_remessa.json").read_text(encoding="utf-8"))
-def render_delivery(rows, ordered_before=None):
+def render_delivery(rows, ordered_before=None, current_remaining=None):
     document = fixture("Delivery Note")
     document.docstatus = 1
     document.custom_wholesale_snapshot = None
     document.items = rows
     if ordered_before is not None:
         document.custom_print_ordered_before = ordered_before
+    if current_remaining is not None:
+        document.custom_print_current_remaining = current_remaining
     data = module.get_wholesale_print_data(document)
     return env.from_string(dn_format["html"]).render(doc=document), data
 
@@ -365,6 +367,10 @@ linked = Doc(item_code="RED", item_name="Curtain", qty=2, rate=1, amount=2, uom=
 html, data = render_delivery([linked])
 assert "Quantidade encomendada / 订购数量" in html and data["items"][0]["ordered_qty"] == 10
 assert data["items"][0]["delivered_before_qty"] == 3 and data["items"][0]["remaining_qty"] == 5
+assert "Esta entrega / Restante<br>本次 / 剩余" in html and ">Qtd.<" not in html
+html, _ = render_delivery([linked], current_remaining=0)
+assert "Esta entrega / Restante<br>本次 / 剩余" not in html and '<th class="col-qty">Qtd.</th>' in html
+assert "<td class='col-qty num'>2</td>" in html and "2.0" not in html
 html, _ = render_delivery([linked], ordered_before=0)
 assert "Quantidade encomendada / 订购数量" not in html
 missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
