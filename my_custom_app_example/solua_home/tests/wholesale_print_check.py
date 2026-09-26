@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import sys
 import types
-from copy import deepcopy
 
 from jinja2 import Environment, StrictUndefined
 
@@ -101,6 +100,20 @@ legacy_display = module.get_wholesale_print_data(legacy_so)["items"][0]
 assert legacy_display["barcode"] == "6901234567892"
 assert legacy_display["description"] == "Cortina vermelha"
 assert json.loads(legacy_so.custom_wholesale_snapshot)["items"][0]["barcode"] == ""
+
+# A submitted Sales Order may change quantity after its print snapshot exists.
+edited_so = Doc(so)
+edited_so.items = [Doc(row) for row in so["items"]]
+edited_so.docstatus = 1
+edited_so["items"][0].qty = 1
+edited_so["items"][0].amount = 10
+edited_so.grand_total = 10
+edited_data = module.get_wholesale_print_data(edited_so)
+assert edited_data["items"][0]["qty"] == 1
+assert edited_data["items"][0]["amount"] == 10
+assert edited_data["total_qty"] == 1
+assert json.loads(edited_so.custom_wholesale_snapshot)["items"][0]["qty"] == 2
+
 dn = fixture("Delivery Note")
 module.prepare_print_snapshot(dn, "before_submit")
 stored = dn.custom_wholesale_snapshot

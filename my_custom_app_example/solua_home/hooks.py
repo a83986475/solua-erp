@@ -159,6 +159,7 @@ jinja = {
         "solua_home.printing.wholesale.get_delivery_invoice_names",
         "solua_home.printing.wholesale.get_driver_phone",
         "solua_home.printing.wholesale.get_pick_list_print_data",
+        "solua_home.printing.a4_designer.get_a4_print_data",
         "solua_home.printing.wholesale.format_print_money",
         "solua_home.printing.wholesale.format_print_qty",
         "solua_home.printing.wholesale.get_print_total_qty",
@@ -226,6 +227,7 @@ app_include_js = [
 # Custom JS for standard pages
 page_js = {
     "print-designer": "public/js/print_designer_zh.js",
+    "a4-print-designer": "public/js/a4_print_designer.js",
 }
 
 # Custom JS for Item form: template page shows per-color and total stock.

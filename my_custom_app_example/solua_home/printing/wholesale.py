@@ -320,7 +320,7 @@ def _collect(doc):
         })
     return {
         "version": 1, "company": get_company_print_info(doc), "customer": get_customer_print_info(doc),
-        "order": get_delivery_order_info(doc), "items": items,
+        "order": get_delivery_order_info(doc), "items": items, "total_qty": _sum_qty(items, "qty"),
         "transport": {
             "driver_name": doc.get("driver_name") or _value("Driver", doc.get("driver"), "full_name"),
             "vehicle_no": doc.get("vehicle_no") or "", "driver_phone": get_driver_phone(doc),
@@ -455,6 +455,21 @@ def get_wholesale_print_data(doc):
     frozen = _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc)
+    if frozen and doc.doctype == "Sales Order":
+        live_rows = doc.get("items") or []
+        snapshot_rows = data.get("items") or []
+        same_rows = len(live_rows) == len(snapshot_rows) and all(
+            live.get("item_code") == saved.get("item_code")
+            for live, saved in zip(live_rows, snapshot_rows)
+        )
+        if live_rows and same_rows:
+            # Snapshot keeps stable display data; transaction values must follow the edited order.
+            for live, saved in zip(live_rows, snapshot_rows):
+                for key in ("uom", "qty", "rate", "amount", "warehouse"):
+                    saved[key] = live.get(key)
+            data["total_qty"] = _sum_qty(snapshot_rows, "qty")
+        elif live_rows:
+            data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
@@ -463,6 +478,7 @@ def get_wholesale_print_data(doc):
             for item in data.get("items", [])
             for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
         )
+    data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0
     return data
