@@ -88,6 +88,7 @@ so.custom_store_phone = "111"
 so.driver = so.driver_name = so.vehicle_no = ""
 module.prepare_print_snapshot(so, "before_submit")
 assert json.loads(so.custom_wholesale_snapshot)["company"]["nuit"] == "COMPANY-NUIT"
+assert module.get_company_print_info(so)["logo"] == "888"
 assert module.get_customer_print_info(so)["address"] == "Store address"
 assert module.get_customer_print_info(so)["phone"] == "111"
 legacy_so = Doc(so)
@@ -194,6 +195,7 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     assert fmt["module"] == "Solua Wholesale"
     html = env.from_string(fmt["html"]).render(doc=document)
     assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20 MZN" in html
+    assert 'class="solua-global-logo"' in html and 'src="888"' in html
     if folder == "sales_order_wholesale_color":
         for header in ("Artigo / 商品", "SKU / 货号", "Código de cor fixo / 固定色号"):
             assert header in html  # legacy documents default the fixed code column to visible
@@ -258,6 +260,7 @@ invoice = Doc(
     items=[Doc(item_code="SH151046-01", item_name="Curtain", qty=2, rate=20, amount=40, uom="条")])
 rendered_invoice = env.from_string(invoice_fmt["html"]).render(doc=invoice)
 assert "SH151046-01" in rendered_invoice and "6901234567892" in rendered_invoice
+assert 'class="solua-global-logo"' in rendered_invoice and 'src="888"' in rendered_invoice
 assert "Cortina vermelha" in rendered_invoice and "40 MZN" in rendered_invoice
 assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
 assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
@@ -271,6 +274,7 @@ assert pick_fmt["custom_format"] == 1 and pick_fmt["standard"] == "No" and pick_
 assert pick_fmt["raw_printing"] == 0 and not pick_fmt["raw_commands"]
 rendered_pick = env.from_string(pick_fmt["html"]).render(doc=pick)
 assert "Pick List / 拣货单" in rendered_pick and "{%" not in rendered_pick
+assert 'class="solua-global-logo"' in rendered_pick and 'src="888"' in rendered_pick
 for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick

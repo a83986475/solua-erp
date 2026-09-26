@@ -31,12 +31,17 @@ def get_solua_print_css():
         font_size = 10
     density = str(_print_setting("custom_solua_print_density", "紧凑")).strip().lower()
     compact = density not in {"标准", "standard", "normal"}
+    border_setting = str(_print_setting("custom_solua_print_item_borders", 1)).strip().lower()
+    item_border = "1px solid #d1d8dd" if border_setting not in {"0", "false", "no", "off"} else "0"
+    logo = _company_logo_url(COMPANY_NAME)
+    logo_css = ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-fit:contain;}" if logo else ""
+    logo_html = f'<img class="solua-global-logo" src="{html.escape(logo, quote=True)}" alt="Company Logo">' if logo else ""
     line_height = "1.12" if compact else "1.35"
     cell_padding = "3px 4px" if compact else "6px 6px"
     block_margin = "7px" if compact else "12px"
     return Markup("""
 <style id="solua-print-shared">
-:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; }}
+:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; --solua-item-border: {item_border}; }}
 .print-format, .print-format * {{ box-sizing: border-box; }}
 .print-format {{ font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }}
 .print-format h1, .print-format h2, .print-format h3 {{ line-height: 1.15; }}
@@ -55,10 +60,12 @@ def get_solua_print_css():
 .print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}
 .print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
 .print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
+.print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td {{ border: var(--solua-item-border) !important; }}
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
 @media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
 </style>
-""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin))
+{logo_css}{logo_html}
+""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html))
 
 
 def validate_print_settings(doc, method=None):
@@ -73,6 +80,8 @@ def validate_print_settings(doc, method=None):
         frappe.throw(_("打印基础字号必须在 8 到 14 pt 之间"))
     if doc.get("custom_solua_print_density") not in (None, "", "紧凑", "标准", "compact", "standard"):
         frappe.throw(_("打印密度只能选择紧凑或标准"))
+    if doc.get("custom_solua_print_item_borders") not in (None, "", 0, 1, "0", "1", True, False):
+        frappe.throw(_("商品信息边框只能选择开启或关闭"))
 
 
 def _clean_item_text(value):
@@ -156,6 +165,17 @@ def _value(doctype, name, field):
     return ""
 
 
+def _company_logo_url(company):
+    try:
+        logo = _value("Company", company, "company_logo")
+    except Exception:
+        return ""
+    if not logo:
+        return ""
+    get_url = getattr(getattr(frappe, "utils", None), "get_url", None)
+    return get_url(logo) if callable(get_url) else logo
+
+
 def _snapshot(doc):
     raw = doc.get("custom_wholesale_snapshot")
     if not raw:
@@ -169,14 +189,22 @@ def _snapshot(doc):
 def get_company_print_info(doc):
     frozen = _snapshot(doc)
     if frozen:
-        return frozen["company"]
+        company_info = dict(frozen.get("company") or {})
+        company_info.setdefault("logo", _company_logo_url(company_info.get("name") or doc.get("company")))
+        return company_info
     company = doc.get("company") or ""
+    if not company:
+        defaults = getattr(frappe, "defaults", None)
+        get_default = getattr(defaults, "get_global_default", None)
+        company = get_default("company") if callable(get_default) else ""
+    company = company or COMPANY_NAME
     own = company == COMPANY_NAME
     return {
         "name": company,
         "nuit": _value("Company", company, "tax_id") or ("402216468" if own else ""),
         "address": doc.get("company_address_display") or (COMPANY_ADDRESS_LINE if own else ""),
         "phone": _value("Company", company, "phone_no") or ("860515423" if own else ""),
+        "logo": _company_logo_url(company),
     }
 
 

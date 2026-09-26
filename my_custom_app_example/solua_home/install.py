@@ -954,7 +954,7 @@ def add_wholesale_fields(commit=True):
 
 
 def add_print_settings_fields():
-    """Add the single global font/density control used by Solua Print Formats."""
+    """Add the global controls used by Solua Print Formats."""
     fields = [
         {
             "dt": "Print Settings",
@@ -974,6 +974,15 @@ def add_print_settings_fields():
             "default": "紧凑",
             "description": "紧凑减少行间距；标准增加可读空间",
             "insert_after": "custom_solua_print_font_size",
+        },
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_item_borders",
+            "label": "Solua 商品信息边框",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "控制商品明细表是否显示单元格边框",
+            "insert_after": "custom_solua_print_density",
         },
     ]
     for field in fields:

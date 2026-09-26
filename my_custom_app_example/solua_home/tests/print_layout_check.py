@@ -49,9 +49,12 @@ def check_settings():
     db.values.clear()
     css = str(wholesale.get_solua_print_css())
     assert "10pt" in css and "1.12" in css and "3px 4px" in css
-    db.values.update({"custom_solua_print_font_size": "14", "custom_solua_print_density": "标准"})
+    db.values.update({"custom_solua_print_font_size": "14", "custom_solua_print_density": "标准", "custom_solua_print_item_borders": "1"})
     css = str(wholesale.get_solua_print_css())
-    assert "14pt" in css and "1.35" in css and "6px 6px" in css
+    assert "14pt" in css and "1.35" in css and "6px 6px" in css and "--solua-item-border: 1px solid" in css
+    db.values["custom_solua_print_item_borders"] = "0"
+    css = str(wholesale.get_solua_print_css())
+    assert "--solua-item-border: 0" in css
 
 
 def check_delivery_switches():
@@ -74,6 +77,7 @@ def check_source_syntax():
 
     for path in (APP / "printing/wholesale.py", APP / "install.py"):
         ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+    assert "custom_solua_print_item_borders" in (APP / "install.py").read_text(encoding="utf-8-sig")
 
 
 if __name__ == "__main__":
