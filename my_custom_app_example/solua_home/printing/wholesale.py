@@ -22,8 +22,12 @@ def _print_setting(name, default):
     return value if value not in (None, "") else default
 
 
-def get_solua_print_css():
-    """Shared print CSS; settings are read at render time for preview and PDF."""
+def get_solua_print_css(with_logo=True):
+    """Shared print CSS; settings are read at render time for preview and PDF.
+
+    ``with_logo=False`` 供小纸格式使用（如 50×30mm 价格标签）：公司 logo 是
+    15.4×12.3mm，在标签纸上会盖住商品名，所以由调用方显式关掉。
+    """
     try:
         parsed_font_size = int(float(_print_setting("custom_solua_print_font_size", 10)))
         font_size = 10 if parsed_font_size <= 0 else max(8, min(14, parsed_font_size))
@@ -33,9 +37,22 @@ def get_solua_print_css():
     compact = density not in {"标准", "standard", "normal"}
     border_setting = str(_print_setting("custom_solua_print_item_borders", 1)).strip().lower()
     item_border = "1px solid #d1d8dd" if border_setting not in {"0", "false", "no", "off"} else "0"
-    logo = _company_logo_url(COMPANY_NAME)
-    logo_css = ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-fit:contain;}" if logo else ""
-    logo_html = f'<img class="solua-global-logo" src="{html.escape(logo, quote=True)}" alt="Company Logo">' if logo else ""
+    logo = _company_logo_url(COMPANY_NAME) if with_logo else ""
+    # 公司抬头：logo 与居中标题同一行。
+    # 旧写法把 logo 直接绝对定位在 .print-format 的 left:0/top:0（即容器边框盒的角落），
+    # 而 .print-format 有 padding（屏幕预览 0.2in/0.75in），所以 logo 落在内容区之外、
+    # 贴着容器边捅进标题。改成用一个零高度定位盒（.solua-brand）承载，logo 就从内容区
+    # 左上角开始；随后的标题占满 12.3mm 行高并垂直居中，两者自然对齐。
+    logo_css = (
+        ".print-format{position:relative}"
+        ".print-format .solua-brand{position:relative;height:0;margin:0}"
+        ".print-format .solua-brand .solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain}"
+        ".print-format .company-header{position:relative;min-height:12.3mm;padding:0;background:none;margin:0 0 2mm}"
+        ".print-format > h2:first-of-type,.print-format .company-header h2{min-height:12.3mm;margin:0 0 2mm;"
+        "display:flex;align-items:center;justify-content:center;text-align:center;color:#99732c}"
+    ) if logo else ""
+    logo_html = (f'<div class="solua-brand"><img class="solua-global-logo" '
+                 f'src="{html.escape(logo, quote=True)}" alt="Company Logo"></div>') if logo else ""
     line_height = "1.12" if compact else "1.35"
     cell_padding = "3px 4px" if compact else "6px 6px"
     block_margin = "7px" if compact else "12px"
@@ -63,8 +80,9 @@ def get_solua_print_css():
 .print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td {{ border: var(--solua-item-border) !important; }}
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
 @media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
+{logo_css}
 </style>
-{logo_css}{logo_html}
+{logo_html}
 """.format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html))
 
 
@@ -272,9 +290,15 @@ def format_print_qty(value):
     return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
 
 
-def format_print_money(value, currency=None):
-    """Render document money with zero decimals while retaining ERP currency formatting."""
-    return frappe.utils.fmt_money(value or 0, currency=currency, precision=0)
+def format_print_money(value, currency=None, precision=0):
+    """Render document money with zero decimals while retaining ERP currency formatting.
+
+    打印模板会显式传 ``precision``（如 ``format_print_money(item.rate, precision=0)``）；
+    不接受该参数会让整张格式渲染失败（模板第 6 行抛 TypeError，单据完全打不出来）。
+    默认仍为 0 位小数，保持既有格式的输出不变。
+    """
+    return frappe.utils.fmt_money(value or 0, currency=currency,
+                                  precision=0 if precision is None else precision)
 
 
 def get_print_total_qty(data):
@@ -282,8 +306,48 @@ def get_print_total_qty(data):
     return _sum_qty((data or {}).get("items") or [], "qty")
 
 
+PACK_UOM = "箱/Caixa"
+
+
+def get_item_pack_factor(item_code, uom=PACK_UOM):
+    """1 箱 = N 个本位单位；货号自身没有换算时回退到模板（杆的颜色变体只在模板上维护）。"""
+    if not item_code or not uom:
+        return 0.0
+    codes = [item_code, frappe.db.get_value("Item", item_code, "variant_of")]
+    for code in codes:
+        if not code:
+            continue
+        factor = frappe.db.get_value("UOM Conversion Detail", {"parent": code, "uom": uom},
+                                     "conversion_factor")
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            continue
+        if factor > 1:
+            return factor
+    return 0.0
+
+
+def get_pick_list_row_pack(uom, qty, conversion_factor, stock_qty, item_code):
+    """拣货单行按整箱折算的提示文本；行单位本身就是箱、或没有换算关系时返回空。"""
+    if (uom or "") == PACK_UOM:
+        return ""
+    factor = get_item_pack_factor(item_code)
+    if factor <= 1:
+        return ""
+    try:
+        base_qty = float(stock_qty) if stock_qty not in (None, "") else float(qty or 0) * float(conversion_factor or 1)
+    except (TypeError, ValueError):
+        return ""
+    if not base_qty:
+        return ""
+    boxes = base_qty / factor
+    boxes = int(boxes) if float(boxes).is_integer() else round(boxes, 2)
+    return f"{boxes:g} {PACK_UOM}"
+
+
 def get_pick_list_rows(doc):
-    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述。"""
+    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述与整箱提示。"""
     from solua_home.printing.color_card import get_item_color_info
 
     rows = []
@@ -304,6 +368,8 @@ def get_pick_list_rows(doc):
             "qty": row.get("qty"),
             "picked_qty": row.get("picked_qty"),
             "uom": row.get("uom") or row.get("stock_uom") or "",
+            "pack_uom": get_pick_list_row_pack(row.get("uom") or row.get("stock_uom"), row.get("qty"),
+                                               row.get("conversion_factor"), row.get("stock_qty"), item_code),
             "warehouse": row.get("warehouse") or "",
             "sales_order": row.get("sales_order") or "",
         })
@@ -311,12 +377,18 @@ def get_pick_list_rows(doc):
 
 
 def get_pick_list_print_data(doc):
-    """拣货单打印数据：行 + 需求数量/已拣数量合计。"""
+    """拣货单打印数据：行 + 需求数量/已拣数量合计。
+
+    ``total_uom``：所有行单位一致时回填该单位，否则留空。数量列改以「箱」为主位后，
+    合计仍是本位单位的和，不标单位会被误读成箱。
+    """
     rows = get_pick_list_rows(doc)
+    uoms = {row.get("uom") for row in rows if row.get("uom")}
     return {
         "items": rows,
         "total_qty": _sum_qty(rows, "qty"),
         "total_picked": _sum_qty(rows, "picked_qty"),
+        "total_uom": next(iter(uoms)) if len(uoms) == 1 else "",
         "company": doc.get("company") or "",
         "purpose": doc.get("purpose") or "",
         "customer": doc.get("customer_name") or doc.get("customer") or "",

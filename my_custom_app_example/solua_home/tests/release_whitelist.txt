@@ -1,3 +1,4 @@
+my_custom_app_example/solua_home/api/a4_designer.py
 my_custom_app_example/solua_home/api/export.py
 my_custom_app_example/solua_home/api/home.py
 my_custom_app_example/solua_home/api/stock.py
@@ -13,6 +14,7 @@ my_custom_app_example/solua_home/solua_wholesale/page/solua_home/__init__.py
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.json
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.js
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.css
+my_custom_app_example/solua_home/public/js/a4_print_designer.js
 my_custom_app_example/solua_home/public/js/doctype_module_filter.js
 my_custom_app_example/solua_home/public/js/document_table_export.js
 my_custom_app_example/solua_home/public/js/item_list_metrics.js
@@ -21,10 +23,17 @@ my_custom_app_example/solua_home/public/js/label_print.js
 my_custom_app_example/solua_home/public/js/promotion_wizard.js
 my_custom_app_example/solua_home/public/js/pos_custom.js
 my_custom_app_example/solua_home/public/js/solua_home_global.js
+my_custom_app_example/solua_home/printing/a4_designer.py
 my_custom_app_example/solua_home/printing/wholesale.py
 my_custom_app_example/solua_home/print_format/sales_order_wholesale_color/sales_order_wholesale_color.json
 my_custom_app_example/solua_home/print_format/sales_invoice_wholesale_color/sales_invoice_wholesale_color.json
 my_custom_app_example/solua_home/print_format/delivery_note_guia_remessa/delivery_note_guia_remessa.json
+my_custom_app_example/solua_home/print_format/pick_list_color/pick_list_color.json
+my_custom_app_example/solua_home/print_format/pick_list_simple/pick_list_simple.json
+my_custom_app_example/solua_home/print_format/price_label_50x30/price_label_50x30.json
+my_custom_app_example/solua_home/print_format/so_new_header/so_new_header.json
+my_custom_app_example/solua_home/print_format/sales_invoice_wholesale_color_v2/sales_invoice_wholesale_color_v2.json
+my_custom_app_example/solua_home/tests/a4_designer_check.py
 my_custom_app_example/solua_home/tests/doctype_module_filter_check.cjs
 my_custom_app_example/solua_home/tests/document_export_check.py
 my_custom_app_example/solua_home/tests/document_table_export_check.cjs

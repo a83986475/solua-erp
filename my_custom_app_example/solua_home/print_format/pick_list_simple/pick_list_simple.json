@@ -1,0 +1,19 @@
+{
+  "custom_format": 1,
+  "disabled": 0,
+  "doc_type": "Pick List",
+  "docstatus": 0,
+  "doctype": "Print Format",
+  "html": "{{ get_solua_print_css() }}{% set p = get_pick_list_print_data(doc) %}\n<h2>Pick List / 拣货单（简版）</h2>\n{% if doc.docstatus != 1 %}<div class=\"warning\">{{ 'RASCUNHO / 草稿' if doc.docstatus == 0 else 'CANCELADO / 已取消' }} — Documento não oficial / 非正式凭证</div>{% endif %}\n<table class=\"meta\"><tr><td><b>Cliente / 客户: {{ (p.customer or '—') | e }}</b><br>N.º / 单号: {{ doc.name | e }}</td><td>Data / 日期: {{ (doc.get('creation') | string)[:10] if doc.get('creation') else '' }}<br>Uso / 用途: {{ (p.purpose or '—') | e }}<br>Origem / 来源: {{ (p.source or '—') | e }}</td></tr></table>\n<table class=\"items\"><thead><tr><th class=\"col-idx\">#</th><th class=\"col-spu\">SPU</th><th>SKU / 货号</th><th class=\"col-qty\">Quantidade / 数量</th></tr></thead><tbody>\n{% for item in p['items'] %}<tr><td class=\"col-idx\">{{ loop.index }}</td><td class=\"col-spu\">{{ (item.template_code or item.item_code) | e }}</td><td>{{ item.item_code | e }}</td><td class=\"col-qty num\">{% if item.pack_uom %}<b>{{ item.pack_uom | e }}</b><br><small>(= {{ format_print_qty(item.qty) }}{% if item.uom %} {{ item.uom | e }}{% endif %})</small>{% else %}{{ format_print_qty(item.qty) }}{% if item.uom %} {{ item.uom | e }}{% endif %}{% endif %}</td></tr>{% endfor %}\n</tbody><tfoot><tr><td class=\"num\" colspan=\"3\"><b>Total Qty / 总数量</b></td><td class=\"col-qty num\"><b>{{ format_print_qty(p.total_qty) }}{% if p.total_uom %} {{ p.total_uom | e }}{% endif %}</b></td></tr></tfoot></table>\n<table class=\"confirm\"><thead><tr><th>Separação / 拣货确认</th><th>Carregamento / 装车确认（司机）</th></tr></thead><tbody><tr><td><div class=\"line\">Separado por / 拣货人: ________________________</div><div class=\"line\">Assinatura / 签名: ________________________</div><div class=\"line\">Data / 日期: ____________　Hora / 时间: ____________</div></td><td><div class=\"line\">Volumes / 件数(箱): __________　Conferido / 核对数量: __________</div><div class=\"line\">Motorista / 司机: ________________________</div><div class=\"line\">Assinatura / 签名: ________________________</div><div class=\"line\">Data / 日期: ____________　Hora / 时间: ____________</div></td></tr></tbody></table>\n<div id=\"footer-html\" class=\"visible-pdf\"><div class=\"text-center\">{{ doc.name | e }} · <span class=\"page\"></span> / <span class=\"topage\"></span></div></div>\n",
+  "css": "@page{size:A4;margin:12mm}.print-format{font-size:var(--solua-font-size);color:#263238}h2{font-size:20px;color:#99732c;margin:0 0 8px}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:var(--solua-cell-padding);border-bottom:1px solid #ddd;vertical-align:middle}th{background:#f5f1e9}thead{display:table-header-group}tr{page-break-inside:avoid}.meta td{width:50%}.num{text-align:right}.col-idx{width:8mm}.col-spu{width:36mm}.print-format table.items .col-qty{width:26mm;min-width:26mm}.items td{padding-top:6px;padding-bottom:6px}.items small{color:#666}.confirm{margin-top:14px}.confirm th{text-align:left}.confirm td{width:50%;height:32mm;vertical-align:top;border:1px solid #bbb;padding:6px 8px}.confirm .line{margin-bottom:8px}.warning{color:#a35c00}",
+  "idx": 2,
+  "line_breaks": 0,
+  "module": "Solua Wholesale",
+  "name": "拣货单（简版）",
+  "print_format_builder": 0,
+  "print_format_type": "Jinja",
+  "raw_commands": "",
+  "raw_printing": 0,
+  "show_section_headings": 0,
+  "standard": "No"
+}

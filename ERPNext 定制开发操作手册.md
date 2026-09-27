@@ -133,6 +133,8 @@ sudo supervisorctl status
 - 下架颜色用禁用保留交易历史；只有确认无库存、无交易引用时才考虑删除。修改颜色缩写会影响 SKU，先核对历史单据和条码引用。
 - 窗帘 Variant 的包装条码和变体 SKU 是不同用途：遵循当前条码规则，不给颜色 Variant 擅自复制或生成独立条码；扫码映射须先在实际 POS 流程验证。
 - 装箱换算用 UOM `箱/Caixa`（符号 Cx）。换算行只写在杆模板的 UOM 换算表并随模板保存自动同步到变体：`SH151138-2MS`、`SH151152-3MS` 为 1 箱 = 12 根，`SH151145-2MD`、`SH151169-3MD` 为 1 箱 = 6 根（2026-09-24 生产回读，20 个颜色变体全部继承一致）。变体自身的换算行优先于模板；后续改装箱数只改模板，不要单独改变体。
+- 单据上直接选箱：销售订单/销售单/交货单行的单位可选 `箱/Caixa`，数量按箱录入，金额与库存按换算式折算（2026-09-26 生产回读：4 个杆变体 `get_conversion_factor` 返回 12/6）。拣货单明细行的单位同样可改（`Pick List Item.uom` 可编辑，保存时按该行单位重算换算式），但**数量必须一起按新单位填**：12 根改成箱要填 1，否则会变成 12 箱 = 144 根。
+- Stock Settings 的 `allow_uom_with_conversion_rate_defined_in_item` 自 2026-09-26 起为 1（由 `install.py` 的 `configure_pick_list_printing` 幂等维护）：单据行的单位下拉只列出该物料 UOM 换算表里的单位。ERPNext 保证每个物料都有一行本位单位（本次回读 93 个物料、0 个缺行），所以不会出现空下拉；选到没有换算关系的单位被挡住，避免按 1:1 算错数量。
 
 ### 6.2 仓库与库存
 
@@ -184,7 +186,39 @@ POS 的允许负库存与禁止超卖是联动且含义相反的设置。修改�
 - 批发订单、交货单、销售单与拣货单应准确显示真实条码、SKU、固定色号和葡语优先描述；商品名称、SKU、固定色号、图片/二维码等显示项按各自独立开关控制。关闭的列应移除并重排，不留空白列。
 - 订单与交货打印显示订购、此前已交付、本次和剩余数量时，来源应是单据关联与历史已提交交货单；关联缺失时显示未知，不伪造 0。
 - 拣货单明细来自 `Pick List.locations`；导出数量/金额应为数值，并保护权限、DocType 白名单及 CSV 编码。
+- 拣货单有两份自定义格式：「拣货单（颜色版）」供仓库/客户核对（图片、色号、条码、仓库、已拣数量），「拣货单（简版）」供现场拣货（只留 SPU、SKU、数量，底部两列确认框：拣货人 / 司机装车）。拣货单默认打印格式自 2026-09-26 起为「拣货单（简版）」。两份格式的修订都要在生产上用真实单据完整渲染一次，不能只做模板解析。
+- 标准 DocType 的默认打印格式必须用 Customize Form / `frappe.make_property_setter` 设置（`Sales Order`、`Delivery Note` 都是这样）；不要直接写 `DocType.default_print_format` 字段，Frappe 校验明确禁止标准 DocType 这样做，历史遗留的直接写入值要清掉并改用 Property Setter。
+- 拣货单数量列**以「箱」为主位**（2026-09-27 起）：简版里货号维护了整箱换算的行显示 `<b>1 箱/Caixa</b>`，下一行小字给本位数量 `(= 12 根)`；没有换算关系的行照旧显示 `12 根`；已按箱录入的行不重复提示；没有换算关系的行不显示折箱数，不能凭空除以猜测的装箱数。颜色版有独立的 `Un.` 列，所以保持本位数量为主，只在下面补一行 `(= 1 箱/Caixa)`。
+- 拣货单合计（`Total Qty / 总数量`）始终是**本位单位**的和，不是箱数（箱数跨行/跨货号相加没有意义）：所有行单位一致时在合计后补上单位（如 `180 根`），单位混杂时留空。行改成箱主位后裸数字会被误读成箱，所以合计必须带单位。
+- 折箱显示只属于拣货单：销售订单、销售单、交货单的数量保持业务单位（条/根/卷）不变，不套用折箱显示。
+- A4 设计器的格式会隐藏共享 logo，改用公司抬头区里的 `.company-logo`，所以取数必须在打印快照之上补齐 `company.logo`：已提交单据的快照存于 logo 功能之前，公司抬头只有 name/nuit/address/phone；漏补就打出没有公司标识的单（草稿不走快照反而正常，最容易漏测）。2026-09-26 已修：`printing/a4_designer.py` 的 `get_a4_print_data` 统一走 `get_company_print_info(doc)`；生产回读：已提交订单渲染出 `.company-logo`，PDF 带 logo 124 KB / 去掉 logo 64 KB。
+- A4 设计器另存的格式在保存那一刻就把模板固化进 Print Format，设计器代码后来新增的区块（公司抬头、边框开关等）不会进入旧格式；要拿到新效果只能重新加载设计设置并另存为新格式（只允许 create-only，不覆盖旧格式，历史格式保留）。
+- 打印模板里的 `creation` 等字段是 datetime 对象，必须先转字符串再截取日期；直接下标切片会抛 `PrintFormatError`（模板第 4 行）让整张单据打不出来。本地测试若用字符串伪造字段会漏掉这个错，要补一个传入 datetime 的用例。
+- 关于“信纸”的一个易错点：Frappe 剔除信纸的办法是 `frappe/utils/pdf.py` 里的 `soup.find_all(attrs={"class":"hidden-pdf"})`（**只在生成 PDF 的那条路上剥掉**）。打印 CSS（print.bundle.css）里**没有任何** `.hidden-pdf{display:none}` 规则，所以如果把信纸内联到页面里，它在屏幕和 Chrome 打印中都会显示。不过实测 `/printview` 返回的 body **根本不含信纸元素**（`get_html_and_style` / `get_context` 两种取法都不含），所以当前屏幕预览与纸面都没有重复公司抬头；不要为了“去掉信纸”去关 `Print Settings.with_letterhead`——需要时先确认信纸到底有没有渲染进 body。
+- 打印里的公司 logo 目前指向私有文件 `/private/files/SOLUA LOGO.png`（`Company.company_logo`）。PDF 生成时 Frappe 会把当前用户可读的私有图片转成 base64 再交给 wkhtmltopdf，所以纸面/PDF 正常（2026-09-26 实测：带 logo 97 KB / 去掉 logo 37 KB）；但 on-screen 预览里它可能显示破图（跨站/无会话取私有文件 403、页面 https 而图片是 http 的混内容）。排查 logo 时先看 PDF 里图片是否存在，再判断是不是真问题。注意内联查找是按 File 记录的 `file_url` 原样匹配：文件名带空格时必须保持原样的 `/private/files/SOLUA LOGO.png`，一旦被 URL 编码成 `%20` 就匹配不上，wkhtmltopdf 会以匿名请求取图并得到 403，logo 会真的丢掉。
 - 打印格式所属 Module 必须是真实存在的 Module Def；改格式先渲染/预览，再在生产读回。
+- 用 JSON 文件部署自定义打印格式时，必须同时带上 `"custom_format": 1`、`"print_format_type": "Jinja"`、`"standard": "No"`。缺了这几项 Frappe 会把它当成「Print Format Builder」格式：`html` 照样存进数据库，但渲染时**被静默忽略**，页面回退成原生默认版式（逐字段排布 + 自动 `Print Heading`），从外观看不出是同一个格式，极易误判成「格式没生效」。判断依据：渲染结果里出现 `data-fieldname=` 或 `print-heading` 就是走了默认版式。2026-09-27 实证：新格式 `客户订单确认单（公司抬头-新）` 第一次部署就是这个原因。
+- 站点 PDF 管线（`frappe.utils.pdf.get_pdf` / wkhtmltopdf 0.12.6 + 15mm 页边距 + `--print-media-type`）会把整页 HTML 统一缩放到 CSS 尺寸的约 **0.77 倍**（实测：100mm 宽的方块出图 76.9mm；`.solua-global-logo` 的 15.4mm 出图 11.8mm），而浏览器打印（Chrome）是 1:1。因此**不能用浏览器打印出来的样张去核对下载 PDF 里的毫米尺寸**；CSS 里的毫米值要按实际打印路径来定，两者相差约 23%，不要为此反复改 CSS。
+- 公司共享 logo 的基准尺寸是 `.solua-global-logo` 的 **15.4mm × 12.3mm**；标题（`h2`）**金色 `#99732c` 居中**，与 logo 同行（行高 12.3mm）。这个版式照客户确认的销售单样张（Chrome 打印，logo 落在纸面 11.9mm 处、标题中点 = 页中点）定的。
+- **logo 不能直接绝对定位在 `.print-format` 上**。`.print-format` 在屏幕预览里带 padding（实测 0.2in ≈ 19.2px，正文因此从 19px 处开始），而 `position:absolute;left:0;top:0` 锚的是**边框盒**——logo 会落在内容区之外、贴着容器左上角、并压住下面第一行标题（2026-09-27 实际症状：黑 logo 捅进金色标题）。正确写法是垫一个零高度定位盒承载 logo，标题占 12.3mm 行高并垂直居中，两者自然对齐（实测 logo/标题 top 均为 83px、垂直偏移 0px、标题居中跨满 555px 内容宽）：
+  ```css
+  .print-format{position:relative}
+  .print-format .solua-brand{position:relative;height:0;margin:0}
+  .print-format .solua-brand .solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain}
+  .print-format > h2:first-of-type,.print-format .company-header h2{min-height:12.3mm;margin:0 0 2mm;
+      display:flex;align-items:center;justify-content:center;text-align:center;color:#99732c}
+  ```
+  这套规则写在 `get_solua_print_css()` 里（共享 CSS 在 body 中、晚于格式自带 css，等特异度时胜出），所以**一次修改就统一了所有手写批发格式**；A4 设计器的格式会把 `.solua-global-logo` 置 `display:none!important`，且标题在 `.brand-title` 里（选择器不匹配），版式不受影响。
+- **小纸格式要自己关掉公司 logo**。共享 CSS 会在 body 里输出 `.solua-brand` + `.solua-global-logo`（15.4×12.3mm、绝对定位），A4 格式正好用它做公司抬头，但 `价格标签 50x30` 纸面只有 50×30mm，logo 会直接盖住商品名（2026-09-27 实测：logo 与 `.name-zh` 同为 top 23.21mm）。因为格式自己的 `<style>` 排在共享 CSS 之后，在该格式的 `<style>` 里加一行 `!important` 即可盖掉，**只改格式、不需要改代码或重启**：
+  ```css
+  .print-format .solua-brand, .print-format .solua-global-logo { display: none !important; }
+  ```
+  这份记录 2026-09-27 还做了规范化：`standard` 由 `Yes` 改为 `No`。原先 `standard=Yes` 时任何 `doc.save()` 都会被 `Standard Print Format cannot be updated` 拦下，只能绕过校验写库；改成 `No` 后（仓库 JSON 与生产记录一致）就能正常保存，也和仓库里其它格式文件保持一致。
+  另一种写法是 `{{ get_solua_print_css(with_logo=False) }}`（`printing/wholesale.py` 已支持该关键字参数，默认 True），但它依赖代码已部署+重载；改 DB 里的 `raw_commands` 不会触发代码重载，所以**在运行中的 worker 还没加载新函数时改用它会直接 TypeError 让整张标签打不出来**。稳妥顺序：先部署并确认 worker 已重载，再改调用方式。
+- 共享 CSS **不包含 `@page`**，所以每份手写批发格式必须自带 `@page{size:A4;margin:12mm}`；缺了页边距会走 Frappe 默认 15mm，位置和样张对不上。`批发销售单（颜色版）新版` 与 `批发销售单（颜色版）` 已于 2026-09-27 补齐；后者原先是**只有数据库、没有磁盘源文件**的手建记录，2026-09-27 已从生产导出为 `print_format/sales_invoice_wholesale_color/sales_invoice_wholesale_color.json`（字段与 key 顺序、1 空格缩进、CRLF 行尾、结尾不加换行都对齐仓库里其它格式文件），以后从文件重导不会再丢 `@page`。
+- `format_print_money(value, currency=None, precision=0)` 必须接受 `precision` 关键字参数。打印模板会写 `format_print_money(item.rate, precision=0)`，不接受时整张格式在第 6 行抛 TypeError，单据**完全打不出来**（2026-09-27 修，涉及 `客户订单确认单（A4新版）`、`-紧凑版`、`-紧凑无边框版` 三份；默认 0 位小数不变）。
+- Print Designer 的格式（`print_designer = 1`）如果 `print_designer_print_format` 为 `None`，渲染时会抛 `the JSON object must be str, bytes or bytearray, not NoneType`——这是**空壳格式**（建了记录但从未在设计师里保存过内容）。识别办法：看 `print_designer_print_format` / `print_designer_settings` 是否为 None。处理方式是停用它，或把一份可用格式的 `print_designer_*` 负载拷过去（2026-09-27 把 `Sales Order DIY` 的负载拷给了空壳 `PRINT DESIGN 销售订单`）。
+- 销售订单新格式 `客户订单确认单（公司抬头-新）`（module `Solua Wholesale`，Jinja，非默认、不影响旧格式）：共享 logo 左上 + 金色居中标题 + 两栏「公司 / 客户」表头，明细为 Artigo / SKU / EAN / Descrição / 数量 / Un. / 单价 / 金额。它的 CSS 自带 `@page{size:A4;margin:12mm}`（共享 CSS 不含 `@page`，缺了会多出约 3mm 偏移）。模板里 SKU 列必须写 `item.order_code or item.item_code`——`item.sku` 这个键在批发打印数据里不存在，渲染出来是 `no such element` 而不是报错。
 
 ### 6.6 员工标签打印操作
 

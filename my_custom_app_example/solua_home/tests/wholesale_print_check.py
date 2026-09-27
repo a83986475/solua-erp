@@ -45,6 +45,11 @@ def db_get_value(dt, name, field, **kwargs):
         return "STORE-A"
     if dt == "Item" and kwargs.get("as_dict"):
         return Doc(variant_of="", description="<p>Standard description</p>", custom_item_description_pt="Cortina <b>vermelha</b>")
+    if dt == "Item" and field == "variant_of":
+        return {"RED": "STYLE-01", "GREY": "STYLE-01", "BLUE": None}.get(name)
+    if dt == "UOM Conversion Detail" and isinstance(name, dict):
+        # 只有货号/模板自己维护了换算关系才能标箱数；1 箱 = 2 条用于校验整数箱
+        return {"RED": 2, "STYLE-01": 12}.get(name.get("parent"))
     return "888"
 
 
@@ -171,15 +176,32 @@ pick = Doc(doctype="Pick List", name="PL-CHECK-1", docstatus=1, company="Solua H
                           warehouse="W1", sales_order="", description="")])
 pick_data = module.get_pick_list_print_data(pick)
 assert pick_data["total_qty"] == 3.5 and pick_data["total_picked"] == 2, pick_data
+assert pick_data["total_uom"] == "\u6761"  # 所有行单位一致时合计带单位
+# 单位不一致（混合拣货）时不给合计标单位，不假装成某一个单位
+mixed_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-MIX", docstatus=1,
+                                                locations=[Doc(item_code="RED", qty=2, uom="\u6761"),
+                                                           Doc(item_code="BLUE", qty=1, uom="\u5377")]))
+assert mixed_pick["total_uom"] == "" and mixed_pick["total_qty"] == 3
 assert pick_data["customer"] == "Customer" and pick_data["purpose"] == "Delivery"
 assert pick_data["items"][0]["barcode"] == "6901234567892" and pick_data["items"][0]["color_code"] == "01"
 assert pick_data["items"][0]["description"] == "Cortina vermelha"
 assert pick_data["items"][0]["sales_order"] == "SO-1" and pick_data["items"][1]["item_name"] == "BLUE"
+# 数量后面要带单位；货号维护了整箱换算的再补一行折箱数（1 箱 = 2 条 → 2 条 = 1 箱）
+assert pick_data["items"][0]["pack_uom"] == "1 箱/Caixa" and pick_data["items"][1]["pack_uom"] == ""
+assert module.get_item_pack_factor("RED") == 2.0
+assert module.get_item_pack_factor("GREY") == 12.0  # 变体自身没有换算，回退到模板
+assert module.get_item_pack_factor("NOPE") == 0.0 and module.get_item_pack_factor("") == 0.0
+assert module.get_pick_list_row_pack("箱/Caixa", 1, 2, 2, "RED") == ""  # 行本来就是箱，不再重复提示
+assert module.get_pick_list_row_pack("条", 3, 2, 6, "RED") == "3 箱/Caixa"
+assert module.get_pick_list_row_pack("条", None, None, None, "RED") == ""
 empty_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-2", docstatus=1, locations=[]))
 assert empty_pick["items"] == [] and empty_pick["total_qty"] == 0 and empty_pick["total_picked"] == 0
 assert module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-3", docstatus=1))["total_qty"] == 0
 assert module.format_print_qty(5.6) == "6"
 assert module.format_print_money(430.49, currency="MZN") == "430 MZN"
+# 打印模板会显式传 precision；不接受该参数会让整张格式渲染失败（模板第 6 行 TypeError）。
+assert module.format_print_money(430.49, currency="MZN", precision=0) == "430 MZN"
+assert module.format_print_money(430.567, currency="MZN", precision=2) == "430.57 MZN"
 
 env = Environment(undefined=StrictUndefined)
 env.globals.update(frappe=frappe, get_wholesale_print_data=module.get_wholesale_print_data,
@@ -196,6 +218,26 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     html = env.from_string(fmt["html"]).render(doc=document)
     assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20 MZN" in html
     assert 'class="solua-global-logo"' in html and 'src="888"' in html
+    # logo 必须包在零高度定位盒里，否则会按 .print-format 的边框盒定位、捅出内容区并压住标题
+    assert '<div class="solua-brand"><img class="solua-global-logo"' in html
+    assert '.print-format .solua-brand{position:relative;height:0' in html
+    assert '.solua-brand .solua-global-logo{position:absolute;left:0;top:0' in html
+    # 标题金色居中，并与 logo 同一行（12.3mm 行高）
+    assert '.print-format > h2:first-of-type,.print-format .company-header h2{min-height:12.3mm' in html
+    assert 'justify-content:center;text-align:center;color:#99732c' in html
+    # 小纸格式可以关掉公司 logo：15.4×12.3mm 的 logo 放进 50×30mm 标签纸会盖住商品名。
+    label_css = module.get_solua_print_css(with_logo=False)
+    assert 'id="solua-print-shared"' in label_css
+    assert "solua-global-logo" not in label_css and "solua-brand" not in label_css
+    # 价格标签（50×30mm）纸太小，放不下 15.4×12.3mm 的公司 logo：它的 <style> 排在共享 CSS 之后，
+    # 用 display:none 盖掉共享表头的 logo。这样只改格式（不需要重新部署或重启）就生效。
+    label_fmt = json.loads((ROOT / "print_format" / "price_label_50x30" / "price_label_50x30.json").read_text(encoding="utf-8"))
+    # JSON 部署自定义格式的三件套（手册 6.5）：缺任一项都会被当成 Print Format Builder 格式而静默失效。
+    # 这条记录生产上原来是 standard=Yes，改字段必须绕过 doc.save()；统一成 No 后才能走正常保存。
+    assert label_fmt["custom_format"] == 1 and label_fmt["print_format_type"] == "Jinja"
+    assert label_fmt["standard"] == "No" and label_fmt["doc_type"] == "Item" and label_fmt["raw_printing"] == 1
+    assert "get_solua_print_css()" in label_fmt["raw_commands"]
+    assert ".print-format .solua-brand, .print-format .solua-global-logo { display: none !important; }" in label_fmt["raw_commands"]
     if folder == "sales_order_wholesale_color":
         for header in ("Artigo / 商品", "SKU / 货号", "Código de cor fixo / 固定色号"):
             assert header in html  # legacy documents default the fixed code column to visible
@@ -213,8 +255,8 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
         option_doc.custom_print_color_images=images
         option_doc.custom_print_color_qr=qr
         rendered=env.from_string(fmt["html"]).render(doc=option_doc)
-        assert ('class="photo"' in rendered)==bool(images)
-        assert ('class="qr"' in rendered)==bool(qr)
+        assert (('class="photo"' in rendered) or ("class='photo'" in rendered)) == bool(images)
+        assert (('class="qr"' in rendered) or ("class='qr'" in rendered)) == bool(qr)
     if folder in ("sales_order_wholesale_color", "delivery_note_guia_remessa"):
         assert "<colgroup>" not in fmt["html"]  # no reserved width for hidden columns
         for item_name in (0, 1):
@@ -265,6 +307,19 @@ assert "Cortina vermelha" in rendered_invoice and "40 MZN" in rendered_invoice
 assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
 assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
 assert "Descrição" in rendered_invoice and "SKU / 货号" in rendered_invoice
+# 旧版销售单「批发销售单（颜色版）」以前只活在生产数据库里、没有磁盘源文件；它的 @page 是 2026-09-27
+# 直接写库补的，现在导出成仓库文件，防止下次从文件重导时把页边距丢掉。
+legacy_invoice_folder = "sales_invoice_wholesale_color"
+legacy_fmt = json.loads((ROOT / "print_format" / legacy_invoice_folder / (legacy_invoice_folder + ".json")).read_text(encoding="utf-8"))
+assert legacy_fmt["name"] == "批发销售单（颜色版）", "仓库文件必须对应生产上的旧版记录"
+assert legacy_fmt["doc_type"] == "Sales Invoice" and legacy_fmt["module"] == "Solua Wholesale"
+assert legacy_fmt["custom_format"] == 1 and legacy_fmt["standard"] == "No" and legacy_fmt["raw_printing"] == 0
+assert "@page" in legacy_fmt["css"], "共享 CSS 不含 @page，格式不自带会走 Frappe 默认 15mm 边距"
+rendered_legacy = env.from_string(legacy_fmt["html"]).render(doc=invoice)
+# 旧版 SKU 列打的是 item_code，金额走 frappe.utils.fmt_money（两位小数）
+assert "SH151046-01" in rendered_legacy and "40.00 MZN" in rendered_legacy
+assert "Cortina vermelha" in rendered_legacy and "Total Qty / 总数量" in rendered_legacy
+assert "{%" not in rendered_legacy
 assert "Total Qty / 总数量" in rendered_invoice
 assert "</td><td style='text-align:right'><b>2</b></td>" in rendered_invoice
 # 拣货单打印格式：标准格式没有总数量，这份新格式有
@@ -278,12 +333,42 @@ assert 'class="solua-global-logo"' in rendered_pick and 'src="888"' in rendered_
 for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick
-assert "<b>4</b>" in rendered_pick and "<b>2</b>" in rendered_pick
+# 合计必须带单位：行改以箱为主位后，裸数字会被读成箱（两行都是「条」→ total_uom=条）
+assert "<b>4 \u6761</b>" in rendered_pick and "<b>2 \u6761</b>" in rendered_pick
 assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
+assert "(= 1 \u7bb1/Caixa)" in rendered_pick  # 颜色版：有整箱换算的行补一行折箱数
 assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=2))
-print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; invoice barcode/description; independent column switches; pick list totals")
+# 拣货单（简版）：只保留 SPU/SKU/数量 + 双列确认框（拣货人/司机），适合现场拣货
+simple_fmt = json.loads((ROOT / "print_format/pick_list_simple/pick_list_simple.json").read_text(encoding="utf-8"))
+assert simple_fmt["doc_type"] == "Pick List" and simple_fmt["module"] == "Solua Wholesale"
+assert simple_fmt["name"] == "拣货单（简版）" and simple_fmt["custom_format"] == 1 and simple_fmt["standard"] == "No"
+assert simple_fmt["html"] and simple_fmt["raw_printing"] == 0 and not simple_fmt["raw_commands"]
+rendered_simple = env.from_string(simple_fmt["html"]).render(doc=pick)
+assert "{%" not in rendered_simple and "Pick List / 拣货单（简版）" in rendered_simple
+assert 'class="solua-global-logo"' in rendered_simple and 'src="888"' in rendered_simple
+assert "Cliente / 客户: Customer" in rendered_simple
+for header in ("SPU", "SKU / 货号", "Quantidade / 数量"):
+    assert header in rendered_simple, header
+for dropped in ("Foto / 图片", "Código de barras", "Código de cor", "Armazém / 仓库", "Separado / 已拣", "Preço"):
+    assert dropped not in rendered_simple, dropped
+assert "Separado por / 拣货人" in rendered_simple and "Motorista / 司机" in rendered_simple
+assert rendered_simple.count("<th") == 8  # 2 个 <thead> + 4 个商品列 + 2 个确认列
+assert "Total Qty / 总数量" in rendered_simple and "<b>4 \u6761</b>" in rendered_simple
+# 数量列：有整箱换算的行把「箱」放主位（拣货按箱数），本位数量退到括号里；没换算的行仍是「数量 单位」
+assert "<b>1 \u7bb1/Caixa</b>" in rendered_simple, rendered_simple
+assert "(= 2 \u6761)" in rendered_simple  # 主位是箱，本位单位数量只在括号里出现一次
+assert rendered_simple.count(">2 \u6761<") == 1, rendered_simple
+assert "非正式凭证" not in rendered_simple
+assert "非正式凭证" in env.from_string(simple_fmt["html"]).render(doc=Doc(pick, docstatus=0))
+# 生产上 doc.creation 是 datetime（不是字符串），直接切片会抛 PrintFormatError；两张拣货单都必须先转字符串
+from datetime import datetime as _datetime
+real_dated_pick = Doc(pick, creation=_datetime(2026, 9, 23, 9, 15))
+for dated_name, dated_fmt in (("pick_list_simple", simple_fmt), ("pick_list_color", pick_fmt)):
+    dated_html = env.from_string(dated_fmt["html"]).render(doc=real_dated_pick)
+    assert "2026-09-23" in dated_html and "datetime" not in dated_html, dated_name
+print("PASS: SO without transport; DN required fields/store; stored snapshot immutability; invoice barcode/description; independent column switches; pick list totals; simple pick list")
 
 # Customer ownership and contact-address linkage fail closed.
 frappe.db.exists=lambda dt,filters:False
@@ -362,7 +447,7 @@ def compatibility_sql(query, args, **kwargs):
     return [[6]]
 frappe.db.sql = compatibility_sql
 dn_format = json.loads((ROOT / "print_format" / "delivery_note_guia_remessa" / "delivery_note_guia_remessa.json").read_text(encoding="utf-8"))
-def render_delivery(rows, ordered_before=None, current_remaining=None):
+def render_delivery(rows, ordered_before=None, current_remaining=None, quantity=None):
     document = fixture("Delivery Note")
     document.docstatus = 1
     document.custom_wholesale_snapshot = None
@@ -371,6 +456,8 @@ def render_delivery(rows, ordered_before=None, current_remaining=None):
         document.custom_print_ordered_before = ordered_before
     if current_remaining is not None:
         document.custom_print_current_remaining = current_remaining
+    if quantity is not None:
+        document.custom_print_quantity = quantity
     data = module.get_wholesale_print_data(document)
     return env.from_string(dn_format["html"]).render(doc=document), data
 
@@ -386,8 +473,10 @@ assert "Quantidade encomendada / 订购数量" in html and data["items"][0]["ord
 assert data["items"][0]["delivered_before_qty"] == 3 and data["items"][0]["remaining_qty"] == 5
 assert "Esta entrega / Restante<br>本次 / 剩余" in html and ">Qtd.<" not in html
 html, _ = render_delivery([linked], current_remaining=0)
-assert "Esta entrega / Restante<br>本次 / 剩余" not in html and '<th class="col-qty">Qtd.</th>' in html
+assert "Esta entrega / Restante<br>本次 / 剩余" not in html and (('<th class="col-qty">Qtd.</th>' in html) or ("<th class='col-qty'>Qtd.</th>" in html))
 assert "<td class='col-qty num'>2</td>" in html and "2.0" not in html
+html, _ = render_delivery([linked], quantity=0)
+assert 'class="col-qty"' not in html and "class='col-qty'" not in html and "Total Qty / 总数量" in html and "<b>2</b>" in html
 html, _ = render_delivery([linked], ordered_before=0)
 assert "Quantidade encomendada / 订购数量" not in html
 missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
