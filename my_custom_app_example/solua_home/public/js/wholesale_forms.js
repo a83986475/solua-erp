@@ -445,6 +445,7 @@
 				...(frm.doctype === "Delivery Note" ? [
 					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before },
 					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining },
+					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity },
 					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability },
 				] : []),
 				{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
@@ -467,6 +468,9 @@
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_current_remaining) {
 					changes.custom_print_current_remaining = values.show_current_remaining ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_quantity) {
+					changes.custom_print_quantity = values.show_quantity ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_traceability) {
 					changes.custom_print_traceability = values.show_traceability ? 1 : 0;

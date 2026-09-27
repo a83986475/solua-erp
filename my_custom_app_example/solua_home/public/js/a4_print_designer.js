@@ -12,7 +12,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const columns = {
 		"Sales Order": ["qty", "uom", "rate", "amount"],
 		"Sales Invoice": ["qty", "uom", "rate", "amount"],
-		"Delivery Note": ["ordered", "remaining", "uom", "rate", "amount", "trace"],
+		"Delivery Note": ["ordered", "remaining", "qty", "uom", "rate", "amount", "trace"],
 		"Pick List": ["qty", "picked", "uom", "warehouse", "order"],
 	};
 	const defaults = {

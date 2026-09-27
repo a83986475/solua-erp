@@ -114,6 +114,7 @@ page = (BASE / "public" / "js" / "a4_print_designer.js").read_text(encoding="utf
 assert 'a4d-mock' in page and '"Delivery Note"' in page and '"Pick List"' in page
 assert 'legacy-preview' in page and 'import-format' in page and 'sandbox' in page and 'color_code' in page
 assert 'itemBorders' in page and 'Company Logo' in page
+assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
 
 known_legacy_html = """{{ get_solua_print_css() }}{% set p = get_wholesale_print_data(doc) %}
 <table class="items">{% if doc.get('custom_print_item_name') %}{% endif %}
