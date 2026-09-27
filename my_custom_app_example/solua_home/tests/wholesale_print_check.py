@@ -239,7 +239,7 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     assert "get_solua_print_css()" in label_fmt["raw_commands"]
     assert ".print-format .solua-brand, .print-format .solua-global-logo { display: none !important; }" in label_fmt["raw_commands"]
     if folder == "sales_order_wholesale_color":
-        for header in ("Artigo / 商品", "SKU / 货号", "Código de cor fixo / 固定色号"):
+        for header in ("Artigo / 商品", "SKU / 货号", "Cor"):
             assert header in html  # legacy documents default the fixed code column to visible
         assert "6901234567892" in html and "Cortina vermelha" in html and "描述 / Descrição" in html
     assert "WRONG BILLING" not in html and "NEW ADDRESS" not in html
@@ -272,7 +272,8 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
                             rendered = env.from_string(fmt["html"]).render(doc=option_doc)
                             assert ("Artigo / 商品" in rendered) == bool(item_name)
                             assert ("SKU / 货号" in rendered) == bool(sku)
-                            assert ("固定色号" in rendered) == bool(color_code)
+                            color_header = '<th class="col-color-code">Cor</th>'
+                            assert (color_header in rendered) == bool(color_code) if folder == "sales_order_wholesale_color" else (("固定色号" in rendered) == bool(color_code))
                             assert ("Cor / 颜色" in rendered) == bool(cor)
                             assert ("描述 / Descrição" in rendered) == bool(description)
     if folder == "delivery_note_guia_remessa":

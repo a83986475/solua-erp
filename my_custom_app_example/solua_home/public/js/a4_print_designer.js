@@ -2,9 +2,9 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __("A4 打印设计器"), single_column: true });
 	const types = ["Sales Order", "Sales Invoice", "Delivery Note", "Pick List"];
 	const labels = {
-		image: "FOTO", name: "Artigo / 商品", spu: "SPU", sku: "SKU / 货号", color_code: "固定色号",
+		image: "FOTO", name: "Artigo / 商品", spu: "SPU", sku: "SKU / 货号", color_code: "Cor",
 		cor: "COR", barcode: "EAN / 条码", description: "Descrição / 描述", ordered: "Qt. pedido / 已订购",
-		remaining: "Qt. restante / 剩余", qty: "Qt", picked: "Qt separado / 已拣", uom: "Un.", rate: "Prc",
+		remaining: "Qt. restante / 剩余", qty: "Qt/数量", picked: "Qt separado / 已拣", uom: "Un.", rate: "Prc",
 		amount: "Valor / 金额", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
 	};
 	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", footer: "页脚页码" };

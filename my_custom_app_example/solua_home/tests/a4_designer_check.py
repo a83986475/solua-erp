@@ -74,7 +74,8 @@ assert '"legacy_preview"' in api_source and '"legacy_importable"' in api_source
 assert "company-logo" in api_source and "item_border" in api_source
 
 assert api.COLUMN_LABELS["cor"] == "COR"
-assert api.COLUMN_LABELS["qty"] == "Qt"
+assert api.COLUMN_LABELS["color_code"] == "Cor"
+assert api.COLUMN_LABELS["qty"] == "Qt/数量"
 assert api.COLUMN_LABELS["rate"] == "Prc"
 
 with_image = config_for("Sales Order")
@@ -89,8 +90,8 @@ visible = [key for key in api.BASE_COLUMNS + api.DOCTYPE_CONFIG["Delivery Note"]
 visible.append("qty")
 delivery["widths"] = {key: 100 / len(visible) if key in visible else 1 for key in delivery["widths"]}
 delivery_template = api._template(api._validate_config(delivery))
-assert "<th>Qt</th>" in delivery_template and "item.qty" in delivery_template
-assert delivery_template.count("<th>Qt</th>") == 1
+assert "<th>Qt/数量</th>" in delivery_template and "item.qty" in delivery_template
+assert delivery_template.count("<th>Qt/数量</th>") == 1
 
 try:
 	bad = config_for("Sales Order")

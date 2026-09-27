@@ -17,10 +17,10 @@ DOCTYPE_CONFIG = {
 BASE_COLUMNS = ["image", "name", "spu", "sku", "color_code", "cor", "barcode", "description"]
 COLUMN_LABELS = {
     "image": "FOTO", "name": "Artigo / 商品", "spu": "SPU", "sku": "SKU / 货号",
-    "color_code": "Código de cor fixo / 固定色号",
+    "color_code": "Cor",
     "cor": "COR", "barcode": "EAN / 条码", "description": "Descrição / 描述",
     "ordered": "Qt. pedido / 已订购", "remaining": "Qt. restante / 剩余",
-    "qty": "Qt", "picked": "Qt separado / 已拣", "uom": "Un.", "rate": "Prc",
+    "qty": "Qt/数量", "picked": "Qt separado / 已拣", "uom": "Un.", "rate": "Prc",
     "amount": "Valor / 金额", "trace": "Rastreabilidade / 追溯",
     "warehouse": "Armazém / 仓库", "order": "S.O. / 订单",
 }
