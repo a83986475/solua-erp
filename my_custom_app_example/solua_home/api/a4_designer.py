@@ -14,11 +14,10 @@ DOCTYPE_CONFIG = {
     "Delivery Note": ["ordered", "remaining", "qty", "uom", "rate", "amount", "trace"],
     "Pick List": ["qty", "picked", "uom", "warehouse", "order"],
 }
-BASE_COLUMNS = ["image", "name", "spu", "sku", "color_code", "cor", "barcode", "description"]
+BASE_COLUMNS = ["image", "name", "spu", "sku", "color_code", "barcode", "description"]
 COLUMN_LABELS = {
     "image": "FOTO", "name": "Artigo / 商品", "spu": "SPU", "sku": "SKU / 货号",
-    "color_code": "Cor",
-    "cor": "COR", "barcode": "EAN / 条码", "description": "Descrição / 描述",
+    "color_code": "Cor", "barcode": "EAN / 条码", "description": "Descrição / 描述",
     "ordered": "Qt. pedido / 已订购", "remaining": "Qt. restante / 剩余",
     "qty": "Qt/数量", "picked": "Qt separado / 已拣", "uom": "Un.", "rate": "Prc",
     "amount": "Valor / 金额", "trace": "Rastreabilidade / 追溯",
@@ -207,6 +206,11 @@ def _validate_config(config):
 	widths = config.get("widths")
 	if not isinstance(visible, dict) or not isinstance(widths, dict):
 		frappe.throw(_("Invalid columns"))
+	# Old designer payloads may still contain the removed duplicate COR column.
+	# Ignore it while loading so existing formats remain readable and re-save cleanly.
+	legacy_cor = "cor" in visible or "cor" in widths
+	visible = {key: value for key, value in visible.items() if key != "cor"}
+	widths = {key: value for key, value in widths.items() if key != "cor"}
 	if set(visible) - allowed or set(widths) - allowed:
 		frappe.throw(_("Unknown column"))
 	if any(key in visible and not isinstance(visible[key], bool) for key in allowed):
@@ -221,6 +225,12 @@ def _validate_config(config):
 		if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 < value <= 100:
 			frappe.throw(_("Invalid column width"))
 		clean_widths[key] = float(value)
+	if legacy_cor:
+		visible_total = sum(clean_widths[key] for key in allowed if clean_visible[key])
+		if visible_total:
+			for key in allowed:
+				if clean_visible[key]:
+					clean_widths[key] = clean_widths[key] * 100 / visible_total
 	settings = config.get("settings")
 	if not isinstance(settings, dict):
 		frappe.throw(_("Invalid layout settings"))
@@ -280,7 +290,7 @@ def _template(config):
 	widths = config["widths"]
 	conditional_fields = {
 		"image": "show_images", "name": "show_item_name", "sku": "show_sku",
-		"color_code": "show_color_code", "cor": "show_cor", "description": "show_description",
+		"color_code": "show_color_code", "description": "show_description",
 	}
 	def conditional(key, fragment):
 		field = conditional_fields.get(key)
@@ -291,7 +301,7 @@ def _template(config):
 		"image": '<td>{% if item.image %}<img class="photo" src="{{ item.image | e }}">{% endif %}</td>',
 		"name": '<td>{{ (item.item_name or "—") | e }}</td>', "spu": '<td>{{ (item.spu or "—") | e }}</td>',
 		"sku": '<td>{{ (item.order_code or item.item_code or "—") | e }}</td>',
-		"color_code": '<td>{{ (item.color_code or "—") | e }}</td>', "cor": '<td>{{ (item.color or item.color_code or "—") | e }}</td>',
+		"color_code": '<td>{{ (item.color_code or "—") | e }}</td>',
 		"barcode": '<td>{{ item.barcode | e }}</td>', "description": '<td>{{ item.description | e }}</td>',
 		"ordered": '<td>{{ item.ordered_qty or "—" }}</td>', "remaining": '<td>{{ item.remaining_qty or "—" }}</td>',
 		"qty": '<td>{{ format_print_qty(item.qty) }}</td>', "picked": '<td>{{ format_print_qty(item.picked_qty) }}</td>',
@@ -372,8 +382,8 @@ def _legacy_import_config(print_format):
 		"doctype": doctype,
 		"visible": {key: True for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype]},
 		"widths": {
-			"image": 7, "name": 12, "spu": 8, "sku": 12, "color_code": 8, "cor": 7,
-			"barcode": 11, "description": 16, "qty": 5, "uom": 5, "rate": 4, "amount": 5,
+			"image": 7, "name": 12, "spu": 8, "sku": 12, "color_code": 8,
+			"barcode": 11, "description": 23, "qty": 5, "uom": 5, "rate": 4, "amount": 5,
 		},
 		"settings": {
 			"fontSize": 9, "titleSize": 18, "headSize": 9, "lineHeight": 1.35,

@@ -3,12 +3,12 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const types = ["Sales Order", "Sales Invoice", "Delivery Note", "Pick List"];
 	const labels = {
 		image: "FOTO", name: "Artigo / 商品", spu: "SPU", sku: "SKU / 货号", color_code: "Cor",
-		cor: "COR", barcode: "EAN / 条码", description: "Descrição / 描述", ordered: "Qt. pedido / 已订购",
+		barcode: "EAN / 条码", description: "Descrição / 描述", ordered: "Qt. pedido / 已订购",
 		remaining: "Qt. restante / 剩余", qty: "Qt/数量", picked: "Qt separado / 已拣", uom: "Un.", rate: "Prc",
 		amount: "Valor / 金额", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
 	};
 	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", footer: "页脚页码" };
-	const base = ["image", "name", "spu", "sku", "color_code", "cor", "barcode", "description"];
+	const base = ["image", "name", "spu", "sku", "color_code", "barcode", "description"];
 	const columns = {
 		"Sales Order": ["qty", "uom", "rate", "amount"],
 		"Sales Invoice": ["qty", "uom", "rate", "amount"],
@@ -16,10 +16,10 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		"Pick List": ["qty", "picked", "uom", "warehouse", "order"],
 	};
 	const defaults = {
-		"Sales Order": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, cor: 7, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
-		"Sales Invoice": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, cor: 7, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
-		"Delivery Note": { image: 6, name: 10, spu: 8, sku: 10, color_code: 6, cor: 6, barcode: 8, description: 11, ordered: 9, remaining: 9, qty: 8, uom: 5, rate: 5, amount: 6, trace: 5 },
-		"Pick List": { image: 8, name: 14, spu: 8, sku: 12, color_code: 7, cor: 7, barcode: 11, description: 16, qty: 7, picked: 7, uom: 5, warehouse: 8, order: 5 },
+		"Sales Order": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
+		"Sales Invoice": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
+		"Delivery Note": { image: 6, name: 10, spu: 8, sku: 10, color_code: 6, barcode: 8, description: 11, ordered: 9, remaining: 9, qty: 8, uom: 5, rate: 5, amount: 6, trace: 5 },
+		"Pick List": { image: 8, name: 14, spu: 8, sku: 12, color_code: 7, barcode: 11, description: 16, qty: 7, picked: 7, uom: 5, warehouse: 8, order: 5 },
 	};
 	const defaultFeatures = { payment_schedule: false, color_qr: false, footer: true, legacy_warning: false, legacy_controls: false };
 	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true };
@@ -53,7 +53,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const call = (method, args = {}) => frappe.call({ method: `solua_home.api.a4_designer.${method}`, args }).then(r => r.message);
 	const status = text => root.find('[data-role="status"]').text(text);
 	const esc = value => frappe.utils.escape_html(String(value == null ? "" : value));
-	const rowValue = (row, key) => ({ name: row.item_name, sku: row.order_code || row.item_code, color_code: row.color_code, cor: row.color_code || row.color }[key] ?? row[key]);
+	const rowValue = (row, key) => ({ name: row.item_name, sku: row.order_code || row.item_code, color_code: row.color_code }[key] ?? row[key]);
 	const partyText = party => [party?.nuit, party?.store, party?.address, party?.contact, party?.phone].filter(Boolean).map(value => esc(String(value).replace(/<br\s*\/?>(\r?\n)?/gi, " "))).join("<br>");
 	const allowed = () => [...base, ...columns[config.doctype]];
 	const visibleCols = () => {

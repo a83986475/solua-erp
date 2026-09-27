@@ -45,7 +45,7 @@ for doctype in api.DOCTYPE_CONFIG:
 	assert template.count("<colgroup>") == template.count("</colgroup>") == 1
 	assert template.count("<col data-col=") == sum(clean["visible"].values())
 	assert "item.spu" in template
-	assert "item.color_code" in template and "item.color or item.color_code" in template
+	assert "item.color_code" in template and "item.color or item.color_code" not in template
 	assert 'for item in p["items"]' in template
 	assert '<div class="qty-total">' in template
 	assert 'p.get("total_qty")' in template
@@ -74,7 +74,7 @@ assert '"legacy_preview"' in api_source and '"legacy_importable"' in api_source
 assert "company-logo" in api_source and "item_border" in api_source
 assert "tbody tr{break-inside:avoid;page-break-inside:avoid}" in api_source
 
-assert api.COLUMN_LABELS["cor"] == "COR"
+assert "cor" not in api.BASE_COLUMNS and "cor" not in api.COLUMN_LABELS
 assert api.COLUMN_LABELS["color_code"] == "Cor"
 assert api.COLUMN_LABELS["qty"] == "Qt/数量"
 assert api.COLUMN_LABELS["rate"] == "Prc"
@@ -115,6 +115,7 @@ assert '"custom_spu_code"' in source and '"variant_of"' in source
 page = (BASE / "public" / "js" / "a4_print_designer.js").read_text(encoding="utf-8")
 assert 'a4d-mock' in page and '"Delivery Note"' in page and '"Pick List"' in page
 assert 'legacy-preview' in page and 'import-format' in page and 'sandbox' in page and 'color_code' in page
+assert 'cor: "COR"' not in page and '"color_code", "cor"' not in page
 assert 'itemBorders' in page and 'Company Logo' in page
 assert "tbody tr td{break-inside:avoid;page-break-inside:avoid}" in page
 assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
@@ -134,7 +135,8 @@ assert api._format_mode("Sales Order", unknown_legacy_html) == "legacy_preview"
 legacy_format = types.SimpleNamespace(doc_type="Sales Order", html=known_legacy_html)
 legacy_config = api._legacy_import_config(legacy_format)
 assert legacy_config["version"] == 2
-assert legacy_config["visible"]["image"] and legacy_config["visible"]["color_code"] and legacy_config["visible"]["cor"]
+assert legacy_config["visible"]["image"] and legacy_config["visible"]["color_code"] and "cor" not in legacy_config["visible"]
+assert abs(sum(legacy_config["widths"][key] for key, enabled in legacy_config["visible"].items() if enabled) - 100) < 0.01
 assert legacy_config["features"]["payment_schedule"]
 assert legacy_config["features"]["color_qr"] and legacy_config["features"]["footer"]
 assert legacy_config["features"]["legacy_controls"]
@@ -155,6 +157,13 @@ assert old_config["features"]["payment_schedule"] and old_config["features"]["co
 assert old_config["control_defaults"]["custom_print_color_images"] is False
 assert old_config["control_defaults"]["custom_print_cor"] is False
 Environment().parse(api._template(old_config))
+old_payload = config_for("Sales Order")
+old_payload["visible"]["cor"] = True
+old_payload["widths"]["cor"] = 7
+old_payload["widths"] = {key: value * 100 / (sum(old_payload["widths"].values())) for key, value in old_payload["widths"].items()}
+clean_old_payload = api._validate_config(old_payload)
+assert "cor" not in clean_old_payload["visible"] and "cor" not in clean_old_payload["widths"]
+assert abs(sum(clean_old_payload["widths"][key] for key, enabled in clean_old_payload["visible"].items() if enabled) - 100) < 0.01
 shared_data = {
 	"company": {"name": "Solua Home", "nuit": "N", "address": "Company address", "phone": "111", "logo": "/files/company-logo.png"},
 	"customer": {"name": "A Customer", "nuit": "C", "store": "Store 1", "address": "Customer street", "contact": "Contact", "phone": "111"},
