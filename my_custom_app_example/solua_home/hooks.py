@@ -227,6 +227,7 @@ app_include_js = [
 # Custom JS for standard pages
 page_js = {
     "print-designer": "public/js/print_designer_zh.js",
+    # page_js is read as a filesystem path; a query string makes get_js() miss the file.
     "a4-print-designer": "public/js/a4_print_designer.js",
 }
 

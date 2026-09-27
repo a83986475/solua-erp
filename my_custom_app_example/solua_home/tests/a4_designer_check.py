@@ -72,6 +72,7 @@ assert '"receiver": source.get("customer")' in api_source
 assert 'frappe.get_print(doctype, name, print_format=format_doc.name, as_pdf=False)' in api_source
 assert '"legacy_preview"' in api_source and '"legacy_importable"' in api_source
 assert "company-logo" in api_source and "item_border" in api_source
+assert "tbody tr{break-inside:avoid;page-break-inside:avoid}" in api_source
 
 assert api.COLUMN_LABELS["cor"] == "COR"
 assert api.COLUMN_LABELS["color_code"] == "Cor"
@@ -115,7 +116,12 @@ page = (BASE / "public" / "js" / "a4_print_designer.js").read_text(encoding="utf
 assert 'a4d-mock' in page and '"Delivery Note"' in page and '"Pick List"' in page
 assert 'legacy-preview' in page and 'import-format' in page and 'sandbox' in page and 'color_code' in page
 assert 'itemBorders' in page and 'Company Logo' in page
+assert "tbody tr td{break-inside:avoid;page-break-inside:avoid}" in page
 assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
+
+hooks = (BASE / "hooks.py").read_text(encoding="utf-8")
+assert '"a4-print-designer": "public/js/a4_print_designer.js"' in hooks
+assert "a4_print_designer.js?v=" not in hooks
 
 known_legacy_html = """{{ get_solua_print_css() }}{% set p = get_wholesale_print_data(doc) %}
 <table class="items">{% if doc.get('custom_print_item_name') %}{% endif %}
@@ -151,12 +157,28 @@ assert old_config["control_defaults"]["custom_print_cor"] is False
 Environment().parse(api._template(old_config))
 shared_data = {
 	"company": {"name": "Solua Home", "nuit": "N", "address": "Company address", "phone": "111", "logo": "/files/company-logo.png"},
-	"customer": {"name": "Customer", "nuit": "CN", "store": "Store", "address": "Store address", "contact": "Person", "phone": "222"},
+	"customer": {"name": "A Customer", "nuit": "C", "store": "Store 1", "address": "Customer street", "contact": "Contact", "phone": "111"},
+	"legacy": False,
 	"items": [{"item_name": "Curtain", "spu": "SPU-1", "item_code": "STYLE-01", "order_code": "STYLE-01", "color_code": "01", "color": "Red", "barcode": "6901234567892", "description": "Cortina vermelha", "image": "/red.png", "qty": 2, "uom": "条", "rate": 10, "amount": 20, "template_code": "STYLE"}],
 	"total_qty": 2, "payment_method": "50/50", "deposit": 10, "balance_due_date": "2026-10-01", "invoice_plan": "签收后开票",
 }
-shared_doc = {"name": "SO-1", "docstatus": 1, "currency": "MZN", "grand_total": 20, "posting_date": "2026-09-26", "transaction_date": "2026-09-26", "payment_schedule": [],
-	"custom_print_color_images": 1, "custom_print_item_name": 1, "custom_print_sku": 1, "custom_print_color_code": 1, "custom_print_cor": 1, "custom_print_description": 1, "custom_print_color_qr": 1}
+def _make_doc(**extra):
+    base = {
+        "name": "SO-1", "docstatus": 1, "currency": "MZN", "grand_total": 20,
+        "posting_date": "2026-09-26", "transaction_date": "2026-09-26",
+        "custom_customer_order_no": "CUST-1", "custom_wholesale_snapshot": None,
+        "custom_print_color_images": 1, "custom_print_item_name": 1, "custom_print_sku": 1,
+        "custom_print_color_code": 1, "custom_print_cor": 1, "custom_print_description": 1,
+        "custom_print_color_qr": 1,
+        "payment_schedule": [],
+    }
+    base.update(extra)
+    class _Doc(dict):
+        def get(self, key, default=None):
+            return dict.get(self, key, default)
+    return _Doc(base)
+
+shared_doc = _make_doc()
 render_env = Environment()
 render_env.globals.update(
 	get_wholesale_print_data=lambda doc: shared_data,
@@ -209,4 +231,32 @@ try:
 except ValueError:
 	pass
 
-print("A4 designer checks passed: supported doctypes, SPU source, delivery Qt fallback, Jinja structure, empty images, currency, validation, permissions, duplicate names")
+# --- A4 取数：公司 logo 必须缝在快照之上 -------------------------------
+# 已提交单据的打印快照存于 logo 功能之前，company 里没有 logo；设计器模板会隐藏
+# 共享 logo，所以这里不补就会打出一张没有公司标识的单子（草稿不走快照，容易漏测）。
+sys.path.insert(0, str(BASE.parent))
+provider = importlib.import_module("solua_home.printing.a4_designer")
+wholesale = importlib.import_module("solua_home.printing.wholesale")
+
+snapshot_company = {"name": "Solua Home, Lda", "nuit": "400", "address": "Av", "phone": "21"}
+wholesale.get_wholesale_print_data = lambda doc: {"company": dict(snapshot_company), "items": [{"item_code": "SH1"}]}
+wholesale.get_company_print_info = lambda doc: {**snapshot_company, "logo": "http://erp.solua.one/private/files/LOGO.png"}
+fake.db.get_value = lambda *args, **kwargs: {"custom_spu_code": "SPU-1", "variant_of": "", "image": "/files/x.png"}
+
+loaded = provider.get_a4_print_data(types.SimpleNamespace(doctype="Sales Order"))
+assert loaded["company"]["logo"] == "http://erp.solua.one/private/files/LOGO.png"
+assert loaded["company"]["name"] == "Solua Home, Lda" and loaded["company"]["nuit"] == "400"
+assert loaded["items"][0]["spu"] == "SPU-1" and loaded["items"][0]["image"] == "/files/x.png"
+
+# 没有 logo 配置时不能凭空造一个，也不能把 company 整个丢掉
+wholesale.get_company_print_info = lambda doc: dict(snapshot_company)
+fake.db.get_value = lambda doctype, name, fieldname, **kwargs: ""
+loaded = provider.get_a4_print_data(types.SimpleNamespace(doctype="Sales Order", get=lambda key, default=None: None))
+assert loaded["company"]["name"] == "Solua Home, Lda" and loaded["company"].get("logo") in (None, "")
+
+# 拣货单同样走 get_company_print_info（没有快照）
+wholesale.get_pick_list_print_data = lambda doc: {"company": "ignored", "items": [], "total_qty": 0}
+wholesale.get_company_print_info = lambda doc: {"name": "Solua Home, Lda", "logo": "http://erp.solua.one/private/files/LOGO.png"}
+assert provider.get_a4_print_data(types.SimpleNamespace(doctype="Pick List"))["company"]["logo"].endswith("LOGO.png")
+
+print("A4 designer checks passed: supported doctypes, SPU source, delivery Qt fallback, Jinja structure, empty images, currency, validation, permissions, duplicate names, snapshot company logo")

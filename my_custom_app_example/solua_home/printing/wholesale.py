@@ -78,6 +78,7 @@ def get_solua_print_css(with_logo=True):
 .print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
 .print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
 .print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td {{ border: var(--solua-item-border) !important; }}
+.print-format table.items > tbody > tr, .print-format table.wholesale-items > tbody > tr {{ break-inside: avoid; page-break-inside: avoid; }}
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
 @media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
 {logo_css}

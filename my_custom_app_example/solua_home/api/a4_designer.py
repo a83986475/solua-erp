@@ -155,14 +155,14 @@ def get_preview(doctype, name, print_format=None):
 	seen_qr = set()
 	for row in source.get("items", []):
 		item_code = row.get("item_code")
-		item = frappe.db.get_value("Item", item_code, ["custom_spu_code", "variant_of", "image"], as_dict=True) or {}
+		item = frappe.db.get_value("Item", item_code, ["custom_spu_code", "variant_of", "image", "custom_swatch_image"], as_dict=True) or {}
 		spu = item.get("custom_spu_code")
 		if not spu and item.get("variant_of"):
 			spu = frappe.db.get_value("Item", item.variant_of, "custom_spu_code")
 		out = dict(row)
 		out["spu"] = spu or ""
-		image = out.get("image") or item.get("image") or ""
-		out["image"] = image if image.startswith(("/files/", "/private/files/")) else ""
+		image = out.get("image") or item.get("image") or item.get("custom_swatch_image") or ""
+		out["image"] = image if image.startswith(("/files/", "/private/files/", "http://", "https://", "data:")) else ""
 		out["trace"] = row.get("batch_no") or row.get("serial_no") or row.get("serial_and_batch_bundle") or ""
 		out["ordered"] = row.get("ordered_qty") or ""
 		out["remaining"] = row.get("remaining_qty") or ""
@@ -182,6 +182,9 @@ def get_preview(doctype, name, print_format=None):
 		"currency": doc.get("currency") or "", "total": doc.get("grand_total") or "",
 		"total_qty": source.get("total_qty") or sum(row.get("qty") or 0 for row in data),
 		"sender": source.get("company") or {}, "receiver": source.get("customer") or {},
+		"purpose": source.get("purpose") or doc.get("purpose") or "", "source": source.get("source") or "",
+		"order": source.get("order") or {}, "transport": source.get("transport") or {},
+		"total_picked": source.get("total_picked") or 0,
 		"docstatus": doc.get("docstatus") or 0, "customer_order_no": doc.get("custom_customer_order_no") or "",
 		"delivery_date": doc.get("delivery_date") or "", "payment_method": source.get("payment_method") or "",
 		"deposit": source.get("deposit") or 0, "balance_due_date": source.get("balance_due_date") or "",
@@ -237,6 +240,10 @@ def _validate_config(config):
 	if not isinstance(item_borders, bool):
 		frappe.throw(_("Invalid layout setting: itemBorders"))
 	clean_settings["itemBorders"] = item_borders
+	border_by_doctype = settings.get("itemBordersByDoctype") or {}
+	if not isinstance(border_by_doctype, dict) or any(key not in DOCTYPE_CONFIG or not isinstance(value, bool) for key, value in border_by_doctype.items()):
+		frappe.throw(_("Invalid layout setting: itemBordersByDoctype"))
+	clean_settings["itemBordersByDoctype"] = {key: bool(border_by_doctype.get(key, item_borders)) for key in DOCTYPE_CONFIG}
 	features = config.get("features") or {}
 	if not isinstance(features, dict) or set(features) - set(FEATURE_DEFAULTS):
 		frappe.throw(_("Unknown feature"))
@@ -299,12 +306,16 @@ def _template(config):
 	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Venda / 销售单",
 	         "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单"}[doctype]
 	settings = config["settings"]
-	item_border = "1px solid #aeb8be" if settings.get("itemBorders", True) else "0"
+	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", True)) else "0"
 	css = (f'@page{{size:A4;margin:0}} .print-format{{width:210mm;min-height:297mm;padding:{settings["pageMargin"]}mm;box-sizing:border-box;color:#25313a;font-size:{settings["fontSize"]}pt;overflow-wrap:anywhere}}'
 	       f'h1{{font-size:{settings["titleSize"]}pt;color:{settings["titleColor"]}}}.items{{width:100%;table-layout:fixed;border-collapse:collapse;font-size:{settings["fontSize"]}pt;line-height:{settings["lineHeight"]}}}'
 	       f'.items th{{font-size:{settings["headSize"]}pt;background:{settings["headBg"]}}}.items th,.items td{{padding:{settings["cellPadding"]}mm;border:{item_border};vertical-align:top;overflow-wrap:anywhere}}'
-	       '.items thead{display:table-header-group}.items tr{break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.company-header{position:relative;min-height:18mm;padding-left:30mm}.company-logo{position:absolute;left:0;top:0;width:25mm;max-height:16mm;object-fit:contain}.company-header h2{margin:0;text-align:center}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
-	css += '.solua-global-logo{display:none!important}.print-format table.items th,.print-format table.items td{border:' + item_border + ' !important;}'
+	       '.items thead{display:table-header-group}.items tbody tr{break-inside:avoid;page-break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.brand{width:100%;border-collapse:collapse;margin-bottom:4mm}.brand td{border:0;vertical-align:middle;padding:0}.brand-logo{width:42mm}.brand-logo img{display:block;width:32mm;height:20mm;object-fit:contain;object-position:left center}.brand-title h2{margin:0;color:' + settings["titleColor"] + ';font-size:' + str(settings["titleSize"]) + 'pt;text-align:left}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm}.sign{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
+	# The shared print CSS already embeds the company logo inside its <style> block
+	# (get_solua_print_css writes logo_css + logo_html INSIDE <style>). Don't add a
+	# stray rule here that places it outside, which would render behind the body.
+	css += '.print-format table.items th,.print-format table.items td{border:' + item_border + ' !important;}'
+	css += '.solua-global-logo{display:none!important}'
 	controls = ""
 	if legacy_controls:
 		control_defaults = config.get("control_defaults") or CONTROL_DEFAULTS
@@ -325,15 +336,27 @@ def _template(config):
 			"{% for item in p['items'] %}{% if item.template_code and item.template_code not in seen %}{% set unused = seen.append(item.template_code) %}"
 			'{% set qr = get_color_card_qr_img(item.template_code) %}{% if qr %}<div><img src="{{ qr | e }}"><br>{{ item.template_code | e }}</div>{% endif %}{% endif %}{% endfor %}</div>{% endif %}')
 	footer = '<div id="footer-html" class="visible-pdf"><div class="text-center">{{ doc.name | e }} · <span class="page"></span> / <span class="topage"></span></div></div>' if features.get("footer") else ""
+	if doctype == "Delivery Note":
+		meta_rows = "<tr><td>N.º / 编号: {{ doc.name | e }}<br>Encomenda / 订单: {{ (p.get('order') or {}).get('name') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or '—' }}<br>Saída / 出发: {{ (p.get('transport') or {}).get('departure_time') or '—' | e }}<br>Armazém / 仓库: {{ (p.get('transport') or {}).get('source_address') or '—' | e }}</td></tr>"
+		table_title = "{{ doc.name | e }} · 本次送货 / Entrega"
+		closing = '<div class="block">Transporte / 运输: {{ (p.get("transport") or {}).get("driver_name") or "—" | e }} · {{ (p.get("transport") or {}).get("driver_phone") or "—" | e }}<br>Plano de faturação / 开票安排: {{ p.get("invoice_plan") or "未维护" | e }}</div><div class="sign">Diferenças / 退货备注: ______________________________________<br>Cliente recebeu / 客户签收: ____________________<br>Motorista / 司机签字: ____________________</div>'
+	elif doctype == "Pick List":
+		meta_rows = "<tr><td>N.º / 编号: {{ doc.name | e }}<br>Finalidade / 用途: {{ p.get('purpose') or '—' | e }}</td><td>Origem / 来源: {{ p.get('source') or '—' | e }}<br>Cliente / 客户: {{ customer.name or '—' | e }}</td></tr>"
+		table_title = "{{ doc.name | e }} · 拣货 / Separação"
+		closing = '<div class="block">Armazém / 仓库: {{ p.get("source") or "—" | e }}<br>已拣数量 / Total separado: {{ format_print_qty(p.get("total_picked") or 0) }}</div>'
+	else:
+		meta_rows = "<tr><td>N.º / 编号: {{ doc.name | e }}<br>N.º encomenda cliente / 客户订单号: {{ doc.get('custom_customer_order_no') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or doc.get('transaction_date') }}<br>Prazo de entrega / 交期: {{ doc.get('delivery_date') or '—' }}</td></tr>"
+		table_title = "{{ doc.name | e }} · 订购 / Encomenda"
+		closing = payment
 	return (FORMAT_META.format(meta) + "{{ get_solua_print_css() }}<style>" + css + "</style>" + controls
 	        + f"{{% set p = {provider} %}}{{% set company = p.get('company') or {{}} %}}{{% set customer = p.get('customer') or {{}} %}}"
-	        + '<div class="company-header">{% if company.get("logo") %}<img class="company-logo" src="{{ company.logo | e }}" alt="Company Logo">{% endif %}<h2>' + title + '</h2></div>'
+	        + '<table class="brand"><tr><td class="brand-logo">{% if company.get("logo") %}<img class="company-logo" src="{{ company.logo | e }}" alt="Company Logo">{% endif %}</td><td class="brand-title"><h2>' + title + '</h2></td></tr></table>'
 	        + "{% if doc.docstatus != 1 %}<div class=\"warning\">{{ 'RASCUNHO / 草稿' if doc.docstatus == 0 else 'CANCELADO / 已取消' }} — Documento não oficial / 非正式凭证</div>{% endif %}" + warning
-	        + "<table class=\"parties\"><tr><td><b>{{ company.name | e }}</b><br>NUIT: {{ company.nuit | e }}<br>{{ company.address }}<br>Tel: {{ company.phone | e }}</td><td><b>Cliente / 客户: {{ customer.name | e }}</b><br>NUIT: {{ customer.nuit or 'Não informado / 未提供' | e }}<br>Loja / 门店: {{ customer.store | e }}<br>{{ customer.address }}<br>{{ customer.contact }} · {{ customer.phone | e }}</td></tr><tr><td>N.º / 编号: {{ doc.name | e }}<br>N.º encomenda cliente / 客户订单号: {{ doc.get('custom_customer_order_no') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or doc.get('transaction_date') }}<br>Prazo de entrega / 交期: {{ doc.get('delivery_date') or '—' }}</td></tr></table>"
-	        + f'<table class="items"><colgroup>{cols}</colgroup><thead><tr><th colspan="{len(keys)}">{{{{ doc.name | e }}}} · 订购 / Encomenda</th></tr><tr>{headers}</tr></thead><tbody>{{% for item in {items} %}}<tr>{cells}</tr>{{% endfor %}}</tbody></table>'
+	        + "<table class=\"parties\"><tr><td><b>{{ company.name | e }}</b><br>NUIT: {{ company.nuit | e }}<br>{{ company.address }}<br>Tel: {{ company.phone | e }}</td><td><b>Cliente / 客户: {{ customer.name | e }}</b><br>NUIT: {{ customer.nuit or 'Não informado / 未提供' | e }}<br>Loja / 门店: {{ customer.store | e }}<br>{{ customer.address }}<br>{{ customer.contact }} · {{ customer.phone | e }}</td></tr>" + meta_rows + "</table>"
+	        + f'<table class="items"><colgroup>{cols}</colgroup><thead><tr><th colspan="{len(keys)}">{table_title}</th></tr><tr>{headers}</tr></thead><tbody>{{% for item in {items} %}}<tr>{cells}</tr>{{% endfor %}}</tbody></table>'
 	        + '<div class="qty-total">Total Qty / 总数量: {{ format_print_qty(p.get("total_qty") or 0) }}</div>'
 	        + ("<div class=\"total\">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" if doctype in ("Sales Order", "Sales Invoice") else "")
-	        + payment + qr + footer)
+	        + closing + qr + footer)
 
 
 def _legacy_import_config(print_format):

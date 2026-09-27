@@ -211,6 +211,8 @@ env.globals.update(frappe=frappe, get_wholesale_print_data=module.get_wholesale_
                   get_solua_print_css=module.get_solua_print_css,
                   get_pick_list_print_data=module.get_pick_list_print_data,
                   get_delivery_invoice_names=lambda name: [], get_color_card_qr_img=lambda name: "")
+shared_css = str(module.get_solua_print_css())
+assert ".print-format table.items > tbody > tr, .print-format table.wholesale-items > tbody > tr { break-inside: avoid; page-break-inside: avoid; }" in shared_css
 for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia_remessa",dn)):
     fmt = json.loads((ROOT / "print_format" / folder / (folder + ".json")).read_text(encoding="utf-8"))
     assert fmt["html"] and fmt["raw_printing"] == 0 and not fmt["raw_commands"]
