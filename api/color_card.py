@@ -97,11 +97,11 @@ def get_item_cor(item_code, item=None):
     return str(item.get("custom_color_code") or "").strip()
 
 
-def _public_variant(item):
+def _public_variant(item, template_order_code=""):
     image = item.get("custom_swatch_image") or item.get("image") or ""
     return {
         "item_code": item.item_code,
-        "order_code": item.get("custom_order_code") or item.item_code,
+        "order_code": item.get("custom_order_code") or template_order_code or item.item_code,
         "color_code": get_item_cor(item.name, item),
         "color_name": _variant_attributes(item.name).get("Cor") or item.get("custom_pos_short_name") or "",
         "name": item.get("custom_chinese_name") or item.item_name,
@@ -138,7 +138,7 @@ def _build_public_card(template_code):
         "image": template.get("image") or "",
         "spec_summary": template.get("custom_spec_summary") or "",
         "stock_uom": template.get("stock_uom") or "",
-        "variants": [_public_variant(item) for item in variants],
+        "variants": [_public_variant(item, template.get("custom_order_code") or template.item_code) for item in variants],
     }
 
 

@@ -835,6 +835,18 @@ def add_sales_color_print_fields():
         },
         {
             "dt": "Sales Invoice",
+            "fieldname": "custom_print_merge_order_code",
+            "label": "客户打印合并同款货号",
+            "fieldtype": "Check",
+            "insert_after": "custom_print_sku",
+            "default": "0",
+            "allow_on_submit": 1,
+            "hidden": 1,
+            "read_only": 1,
+            "description": "只影响客户打印；销售发票内部数据仍保留每个颜色变体的独立行",
+        },
+        {
+            "dt": "Sales Invoice",
             "fieldname": "custom_print_color_code",
             "label": "销售单显示固定色号",
             "fieldtype": "Check",
@@ -864,12 +876,15 @@ def add_sales_color_print_fields():
 
     for field in fields:
         try:
-            if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
+            existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
+            if not existing:
                 frappe.get_doc({
                     "doctype": "Custom Field",
                     **field,
                     "owner": "Administrator",
                 }).insert(ignore_permissions=True)
+            elif field["fieldname"] == "custom_print_merge_order_code":
+                frappe.db.set_value("Custom Field", existing, {"hidden": 1, "read_only": 1})
         except Exception as e:
             frappe.log_error(
                 f"销售单打印开关创建失败 [{field.get('fieldname')}]: {e}",
@@ -897,7 +912,8 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
         {"dt": "Sales Order", "fieldname": "custom_print_sku", "label": "订单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
-        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Sales Order", "fieldname": "custom_print_merge_order_code", "label": "客户打印合并同款货号", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_sku", "description": "只影响客户打印；销售订单内部仍保留每个颜色变体的独立行"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_merge_order_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
@@ -940,6 +956,8 @@ def add_wholesale_fields(commit=True):
             updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
+        elif field["dt"] == "Sales Order" and field["fieldname"] == "custom_print_merge_order_code":
+            frappe.db.set_value("Custom Field", existing, {"hidden": 1, "read_only": 1})
 
     for field_name, prop, value, prop_type in (
         ("address_and_contact_tab", "label", "送货与开票", "Data"),

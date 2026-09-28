@@ -34,6 +34,12 @@ frappe.ui.form.on("Sales Invoice", {
 					default: frm.doc.custom_print_cor == null ? 0 : frm.doc.custom_print_cor,
 				},
 				{
+					fieldname: "merge_order_code",
+					label: __("合并同款对外货号"),
+					fieldtype: "Check",
+					default: frm.doc.custom_print_merge_order_code ? 1 : 0,
+				},
+				{
 					fieldname: "show_description",
 					label: __("显示商品描述"),
 					fieldtype: "Check",
@@ -59,6 +65,7 @@ frappe.ui.form.on("Sales Invoice", {
 						custom_print_sku: values.show_sku ? 1 : 0,
 						custom_print_color_code: values.show_color_code ? 1 : 0,
 						custom_print_cor: values.show_cor ? 1 : 0,
+						custom_print_merge_order_code: values.merge_order_code ? 1 : 0,
 						custom_print_description: values.show_description ? 1 : 0,
 						custom_print_color_images: values.show_images ? 1 : 0,
 						custom_print_color_qr: values.show_qr ? 1 : 0,

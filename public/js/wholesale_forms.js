@@ -433,6 +433,7 @@
 	function print_wholesale(frm) {
 		const format = print_formats[frm.doctype];
 		const has_column_switches = ["Sales Order", "Delivery Note"].includes(frm.doctype);
+		const has_customer_merge_switch = frm.doctype === "Sales Order";
 		const dialog = new frappe.ui.Dialog({
 			title: __("打印选项"),
 			fields: [
@@ -442,6 +443,9 @@
 					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
 					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
+				] : []),
+				...(has_customer_merge_switch ? [
+					{ fieldname: "merge_order_code", label: __("合并同款对外货号"), fieldtype: "Check", default: frm.doc.custom_print_merge_order_code ? 1 : 0 },
 				] : []),
 				...(frm.doctype === "Delivery Note" ? [
 					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before },
@@ -464,6 +468,9 @@
 					if (frm.fields_dict.custom_print_sku) changes.custom_print_sku = values.show_sku ? 1 : 0;
 					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color_code ? 1 : 0;
 					if (frm.fields_dict.custom_print_description) changes.custom_print_description = values.show_description ? 1 : 0;
+				}
+				if (has_customer_merge_switch && frm.fields_dict.custom_print_merge_order_code) {
+					changes.custom_print_merge_order_code = values.merge_order_code ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_ordered_before) {
 					changes.custom_print_ordered_before = values.show_ordered_before ? 1 : 0;

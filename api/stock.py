@@ -141,6 +141,12 @@ def before_validate_item(doc, method=None):
                 alert=True,
             )
 
+    # 变体默认继承模板的对外货号；保留显式值，方便其他商品继续使用独立货号。
+    if doc.get("variant_of") and frappe.db.has_column("Item", "custom_order_code") and not doc.get("custom_order_code"):
+        inherited_order_code = frappe.db.get_value("Item", doc.variant_of, "custom_order_code")
+        if inherited_order_code:
+            doc.custom_order_code = inherited_order_code
+
 
 def validate_item(doc, method=None):
     """物料保存时验证"""
@@ -179,13 +185,20 @@ def validate_item(doc, method=None):
     # generate, or deduplicate new items from it.
 
     if frappe.db.has_column("Item", "custom_order_code") and doc.get("custom_order_code"):
-        existing = frappe.db.get_value(
+        current_family = doc.get("variant_of") or doc.get("name") or doc.get("item_code")
+        existing = frappe.get_all(
             "Item",
-            {"custom_order_code": doc.custom_order_code, "name": ["!=", doc.name]},
-            "name",
+            filters={"custom_order_code": doc.custom_order_code, "name": ["!=", doc.name]},
+            fields=["name", "variant_of", "has_variants"],
         )
-        if existing:
-            frappe.throw(_("对外订货货号 {0} 已被物料 {1} 使用").format(doc.custom_order_code, existing))
+        conflict = next(
+            (row for row in existing if (row.get("variant_of") or row.get("name")) != current_family),
+            None,
+        )
+        if conflict:
+            frappe.throw(_("对外订货货号 {0} 已被其他款式物料 {1} 使用；同一模板的颜色变体可以共用").format(
+                doc.custom_order_code, conflict.get("name")
+            ))
 
     # 物料名称校验：只拦截危险字符（< > " '），放开常见字符（如 /、&、:、（））
     # 2026-08-15 用户要求放开：导入真实物料时名称常含 "/"（如 "140×200 / Algodão"），
