@@ -5,7 +5,6 @@
 # =========================================
 
 import frappe
-from frappe import _
 from frappe.utils import flt
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 
@@ -34,14 +33,6 @@ class CustomSalesInvoice(SalesInvoice):
             payment.amount = -abs(flt(payment.amount))
         return super().verify_payment_amount_is_negative()
 
-    def validate(self):
-        """保存时验证（重写父类方法）"""
-        # 调用父类的 validate（保留原有所有验证逻辑）
-        super().validate()
-
-        # 添加自定义验证
-        self.custom_validate_approval()
-
     def on_submit(self):
         """提交时执行（重写父类方法）"""
         # 调用父类的 on_submit
@@ -54,17 +45,6 @@ class CustomSalesInvoice(SalesInvoice):
         """取消时执行（重写父类方法）"""
         super().on_cancel()
         self.custom_after_cancel()
-
-    # ==================== 自定义方法 ====================
-
-    def custom_validate_approval(self):
-        """自定义审批验证"""
-        # 大额审批
-        if self.grand_total > 100000 and not self.get("custom_approver"):
-            frappe.throw(_("金额超过 100,000，必须指定审批人"))
-
-        if self.get("custom_approver") and not self.get("custom_approval_date"):
-            self.set("custom_approval_date", frappe.utils.nowdate())
 
     def custom_after_submit(self):
         """提交后的自定义操作"""
