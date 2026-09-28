@@ -159,9 +159,10 @@ jinja = {
         "solua_home.printing.wholesale.get_delivery_invoice_names",
         "solua_home.printing.wholesale.get_driver_phone",
         "solua_home.printing.wholesale.get_pick_list_print_data",
-        "solua_home.printing.wholesale.get_print_total_qty",
+        "solua_home.printing.a4_designer.get_a4_print_data",
         "solua_home.printing.wholesale.format_print_money",
         "solua_home.printing.wholesale.format_print_qty",
+        "solua_home.printing.wholesale.get_print_total_qty",
         "solua_home.printing.wholesale.get_solua_print_css",
         "solua_home.printing.wholesale.get_wholesale_print_data",
     ],
@@ -226,6 +227,8 @@ app_include_js = [
 # Custom JS for standard pages
 page_js = {
     "print-designer": "public/js/print_designer_zh.js",
+    # page_js is read as a filesystem path; a query string makes get_js() miss the file.
+    "a4-print-designer": "public/js/a4_print_designer_logo_scale.js",
 }
 
 # Custom JS for Item form: template page shows per-color and total stock.
@@ -233,12 +236,12 @@ doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
     "Sales Invoice": ["public/js/sales_invoice_print_options.js", "public/js/document_table_export.js"],
-    "Sales Order": ["public/js/wholesale_forms_v2.js", "public/js/document_table_export.js"],
-    "Delivery Note": ["public/js/wholesale_forms_v2.js", "public/js/document_table_export.js"],
+    "Sales Order": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
+    "Delivery Note": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
     "Pick List": "public/js/document_table_export.js",
 
-    "Purchase Receipt": "public/js/wholesale_forms_v2.js",
-    "Stock Reconciliation": "public/js/wholesale_forms_v2.js",
+    "Purchase Receipt": "public/js/wholesale_forms.js",
+    "Stock Reconciliation": "public/js/wholesale_forms.js",
     # 打印格式的「单据类型」下拉只列本项目会用到的单据类型（与 DocType 列表同一份白名单）
     "Print Format": "public/js/doctype_module_filter.js",
 }

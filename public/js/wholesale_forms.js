@@ -438,6 +438,7 @@
 			fields: [
 				...(has_column_switches ? [
 					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name },
+					{ fieldname: "show_spu", label: __("显示 SPU"), fieldtype: "Check", default: frm.doc.custom_print_spu == null ? 0 : frm.doc.custom_print_spu },
 					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
 					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
@@ -445,6 +446,7 @@
 				...(frm.doctype === "Delivery Note" ? [
 					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before },
 					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining },
+					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity },
 					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability },
 				] : []),
 				{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
@@ -458,6 +460,7 @@
 				const changes = {};
 				if (has_column_switches) {
 					if (frm.fields_dict.custom_print_item_name) changes.custom_print_item_name = values.show_item_name ? 1 : 0;
+					if (frm.fields_dict.custom_print_spu) changes.custom_print_spu = values.show_spu ? 1 : 0;
 					if (frm.fields_dict.custom_print_sku) changes.custom_print_sku = values.show_sku ? 1 : 0;
 					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color_code ? 1 : 0;
 					if (frm.fields_dict.custom_print_description) changes.custom_print_description = values.show_description ? 1 : 0;
@@ -467,6 +470,9 @@
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_current_remaining) {
 					changes.custom_print_current_remaining = values.show_current_remaining ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_quantity) {
+				    changes.custom_print_quantity = values.show_quantity ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_traceability) {
 					changes.custom_print_traceability = values.show_traceability ? 1 : 0;

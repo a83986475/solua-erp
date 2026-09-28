@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
+import json
+
 import frappe
+
+PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
 
 
 def ensure_solua_stock_entry_types():
@@ -129,6 +133,7 @@ def after_install():
     configure_pos_tax()
     ensure_solua_stock_entry_types()
     sync_standard_print_formats()
+    configure_pick_list_printing()
     sync_standard_pages()
     add_member_system_fields()
     frappe.db.commit()
@@ -137,6 +142,34 @@ def after_install():
 def after_migrate():
     """每次迁移后执行"""
     after_install()
+
+
+def configure_pick_list_printing():
+    """拣货单默认打印格式 + 单据单位下拉只列已维护换算关系的单位
+
+    2026-09-26：现场拣货用「拣货单（简版）」（SPU/SKU/数量 + 拣货人/司机双列确认）。
+    Stock Settings 的 allow_uom_with_conversion_rate_defined_in_item 打开后，
+    单据行的单位下拉只列出该货号 UOM Conversion Detail 里已维护的单位（ERPNext
+    保证每个物料至少有一行本位单位），避免选到没有换算关系的单位而被按 1:1 算错数量。
+    幂等：默认格式只在未设置时写一次，不覆盖管理员后来的选择。
+    """
+    from frappe.utils import cint
+
+    if not frappe.db.exists("Print Format", PICK_LIST_PRINT_FORMAT):
+        return
+    if not frappe.get_meta("Pick List").default_print_format:
+        frappe.make_property_setter(
+            {
+                "doctype": "Pick List",
+                "doctype_or_field": "DocType",
+                "property": "default_print_format",
+                "value": PICK_LIST_PRINT_FORMAT,
+                "property_type": "Link",
+            },
+            validate_fields_for_doctype=False,
+        )
+    if not cint(frappe.db.get_single_value("Stock Settings", "allow_uom_with_conversion_rate_defined_in_item")):
+        frappe.db.set_single_value("Stock Settings", "allow_uom_with_conversion_rate_defined_in_item", 1)
 
 
 def sync_standard_print_formats():
@@ -864,8 +897,9 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
         {"dt": "Sales Order", "fieldname": "custom_print_sku", "label": "订单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
-        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
-        {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
         {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "contact_info"},
@@ -887,11 +921,13 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_print_color_qr", "label": "送货单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Delivery Note", "fieldname": "custom_print_item_name", "label": "送货单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
         {"dt": "Delivery Note", "fieldname": "custom_print_sku", "label": "送货单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
-        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
-        {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_cor", "label": "送货单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Delivery Note", "fieldname": "custom_print_ordered_before", "label": "送货单显示订购/此前已交付", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
         {"dt": "Delivery Note", "fieldname": "custom_print_current_remaining", "label": "送货单显示本次/剩余", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_ordered_before"},
-        {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_quantity", "label": "送货单显示数量列", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "独立控制 Guia de Remessa 商品明细中的数量列；不依赖本次/剩余开关"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_quantity", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
@@ -925,7 +961,6 @@ def add_wholesale_fields(commit=True):
             "property": prop, "property_type": prop_type, "value": value,
         })
 
-    # Standard DocFields ignore insert_after for ordering in Frappe v16.
     frappe.clear_cache(doctype="Delivery Note")
     order = [field.fieldname for field in frappe.get_meta("Delivery Note").fields]
     delivery_fields = [
@@ -944,14 +979,14 @@ def add_wholesale_fields(commit=True):
         order[position:position] = present
         frappe.make_property_setter({
             "doctype": "Delivery Note", "doctype_or_field": "DocType",
-            "property": "field_order", "value": frappe.as_json(order),
+            "property": "field_order", "value": json.dumps(order),
         })
     if commit:
         frappe.db.commit()
 
 
 def add_print_settings_fields():
-    """Add the single global font/density control used by Solua Print Formats."""
+    """Add the global controls used by Solua Print Formats."""
     fields = [
         {
             "dt": "Print Settings",
@@ -971,6 +1006,15 @@ def add_print_settings_fields():
             "default": "紧凑",
             "description": "紧凑减少行间距；标准增加可读空间",
             "insert_after": "custom_solua_print_font_size",
+        },
+        {
+            "dt": "Print Settings",
+            "fieldname": "custom_solua_print_item_borders",
+            "label": "Solua 商品信息边框",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "控制商品明细表是否显示单元格边框",
+            "insert_after": "custom_solua_print_density",
         },
     ]
     for field in fields:

@@ -3,6 +3,7 @@
 import html
 import json
 import re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import frappe
 from frappe import _
@@ -21,8 +22,12 @@ def _print_setting(name, default):
     return value if value not in (None, "") else default
 
 
-def get_solua_print_css():
-    """Shared print CSS; settings are read at render time for preview and PDF."""
+def get_solua_print_css(with_logo=True):
+    """Shared print CSS; settings are read at render time for preview and PDF.
+
+    ``with_logo=False`` 供小纸格式使用（如 50×30mm 价格标签）：公司 logo 是
+    15.4×12.3mm，在标签纸上会盖住商品名，所以由调用方显式关掉。
+    """
     try:
         parsed_font_size = int(float(_print_setting("custom_solua_print_font_size", 10)))
         font_size = 10 if parsed_font_size <= 0 else max(8, min(14, parsed_font_size))
@@ -30,18 +35,33 @@ def get_solua_print_css():
         font_size = 10
     density = str(_print_setting("custom_solua_print_density", "紧凑")).strip().lower()
     compact = density not in {"标准", "standard", "normal"}
+    border_setting = str(_print_setting("custom_solua_print_item_borders", 1)).strip().lower()
+    item_border = "1px solid #d1d8dd" if border_setting not in {"0", "false", "no", "off"} else "0"
+    logo = _company_logo_url(COMPANY_NAME) if with_logo else ""
+    # 公司抬头：logo 与居中标题同一行。
+    # 旧写法把 logo 直接绝对定位在 .print-format 的 left:0/top:0（即容器边框盒的角落），
+    # 而 .print-format 有 padding（屏幕预览 0.2in/0.75in），所以 logo 落在内容区之外、
+    # 贴着容器边捅进标题。改成用一个零高度定位盒（.solua-brand）承载，logo 就从内容区
+    # 左上角开始；随后的标题占满 12.3mm 行高并垂直居中，两者自然对齐。
+    logo_css = (
+        ".print-format{position:relative}"
+        ".print-format .solua-brand{position:relative;height:0;margin:0}"
+        ".print-format .solua-brand .solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain}"
+        ".print-format .company-header{position:relative;min-height:12.3mm;padding:0;background:none;margin:0 0 2mm}"
+        ".print-format > h2:first-of-type,.print-format .company-header h2{min-height:12.3mm;margin:0 0 2mm;"
+        "display:flex;align-items:center;justify-content:center;text-align:center;color:#99732c}"
+    ) if logo else ""
+    logo_html = (f'<div class="solua-brand"><img class="solua-global-logo" '
+                 f'src="{html.escape(logo, quote=True)}" alt="Company Logo"></div>') if logo else ""
     line_height = "1.12" if compact else "1.35"
     cell_padding = "3px 4px" if compact else "6px 6px"
     block_margin = "7px" if compact else "12px"
     return Markup("""
 <style id="solua-print-shared">
-:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; }}
+:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; --solua-item-border: {item_border}; }}
 .print-format, .print-format * {{ box-sizing: border-box; }}
 .print-format {{ font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }}
 .print-format h1, .print-format h2, .print-format h3 {{ line-height: 1.15; }}
-.print-format .company-header {{ position: relative; min-height: 18mm; margin-bottom: var(--solua-block-margin); }}
-.print-format .company-logo {{ position: absolute; top: 0; left: 0; max-width: 42mm; max-height: 16mm; object-fit: contain; }}
-.print-format .company-header h2 {{ margin: 0; padding-top: 5mm; text-align: center; }}
 .print-format table {{ width: 100%; border-collapse: collapse; table-layout: auto; }}
 .print-format th, .print-format td {{ padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); overflow-wrap: normal; word-break: normal; }}
 .print-format th {{ white-space: normal; }}
@@ -57,10 +77,14 @@ def get_solua_print_css():
 .print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}
 .print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
 .print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
+.print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td {{ border: var(--solua-item-border) !important; }}
+.print-format table.items > tbody > tr, .print-format table.wholesale-items > tbody > tr {{ break-inside: avoid; page-break-inside: avoid; }}
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
 @media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
+{logo_css}
 </style>
-""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin))
+{logo_html}
+""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html))
 
 
 def validate_print_settings(doc, method=None):
@@ -75,6 +99,8 @@ def validate_print_settings(doc, method=None):
         frappe.throw(_("打印基础字号必须在 8 到 14 pt 之间"))
     if doc.get("custom_solua_print_density") not in (None, "", "紧凑", "标准", "compact", "standard"):
         frappe.throw(_("打印密度只能选择紧凑或标准"))
+    if doc.get("custom_solua_print_item_borders") not in (None, "", 0, 1, "0", "1", True, False):
+        frappe.throw(_("商品信息边框只能选择开启或关闭"))
 
 
 def _clean_item_text(value):
@@ -158,6 +184,17 @@ def _value(doctype, name, field):
     return ""
 
 
+def _company_logo_url(company):
+    try:
+        logo = _value("Company", company, "company_logo")
+    except Exception:
+        return ""
+    if not logo:
+        return ""
+    get_url = getattr(getattr(frappe, "utils", None), "get_url", None)
+    return get_url(logo) if callable(get_url) else logo
+
+
 def _snapshot(doc):
     raw = doc.get("custom_wholesale_snapshot")
     if not raw:
@@ -171,17 +208,22 @@ def _snapshot(doc):
 def get_company_print_info(doc):
     frozen = _snapshot(doc)
     if frozen:
-        company = dict(frozen["company"])
-        company.setdefault("logo", _value("Company", doc.get("company"), "company_logo"))
-        return company
+        company_info = dict(frozen.get("company") or {})
+        company_info.setdefault("logo", _company_logo_url(company_info.get("name") or doc.get("company")))
+        return company_info
     company = doc.get("company") or ""
+    if not company:
+        defaults = getattr(frappe, "defaults", None)
+        get_default = getattr(defaults, "get_global_default", None)
+        company = get_default("company") if callable(get_default) else ""
+    company = company or COMPANY_NAME
     own = company == COMPANY_NAME
     return {
         "name": company,
         "nuit": _value("Company", company, "tax_id") or ("402216468" if own else ""),
         "address": doc.get("company_address_display") or (COMPANY_ADDRESS_LINE if own else ""),
         "phone": _value("Company", company, "phone_no") or ("860515423" if own else ""),
-        "logo": _value("Company", company, "company_logo"),
+        "logo": _company_logo_url(company),
     }
 
 
@@ -240,13 +282,73 @@ def _sum_qty(rows, key):
     return int(total) if float(total).is_integer() else round(total, 6)
 
 
+def format_print_qty(value):
+    """Render document quantities as whole units; source data remains unchanged."""
+    try:
+        amount = Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0"
+    return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
+
+
+def format_print_money(value, currency=None, precision=0):
+    """Render document money with zero decimals while retaining ERP currency formatting.
+
+    打印模板会显式传 ``precision``（如 ``format_print_money(item.rate, precision=0)``）；
+    不接受该参数会让整张格式渲染失败（模板第 6 行抛 TypeError，单据完全打不出来）。
+    默认仍为 0 位小数，保持既有格式的输出不变。
+    """
+    return frappe.utils.fmt_money(value or 0, currency=currency,
+                                  precision=0 if precision is None else precision)
+
+
 def get_print_total_qty(data):
     """打印表格底部的总数量；快照与实时数据都适用。"""
     return _sum_qty((data or {}).get("items") or [], "qty")
 
 
+PACK_UOM = "箱/Caixa"
+
+
+def get_item_pack_factor(item_code, uom=PACK_UOM):
+    """1 箱 = N 个本位单位；货号自身没有换算时回退到模板（杆的颜色变体只在模板上维护）。"""
+    if not item_code or not uom:
+        return 0.0
+    codes = [item_code, frappe.db.get_value("Item", item_code, "variant_of")]
+    for code in codes:
+        if not code:
+            continue
+        factor = frappe.db.get_value("UOM Conversion Detail", {"parent": code, "uom": uom},
+                                     "conversion_factor")
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            continue
+        if factor > 1:
+            return factor
+    return 0.0
+
+
+def get_pick_list_row_pack(uom, qty, conversion_factor, stock_qty, item_code):
+    """拣货单行按整箱折算的提示文本；行单位本身就是箱、或没有换算关系时返回空。"""
+    if (uom or "") == PACK_UOM:
+        return ""
+    factor = get_item_pack_factor(item_code)
+    if factor <= 1:
+        return ""
+    try:
+        base_qty = float(stock_qty) if stock_qty not in (None, "") else float(qty or 0) * float(conversion_factor or 1)
+    except (TypeError, ValueError):
+        return ""
+    if not base_qty:
+        return ""
+    boxes = base_qty / factor
+    boxes = int(boxes) if float(boxes).is_integer() else round(boxes, 2)
+    return f"{boxes:g} {PACK_UOM}"
+
+
 def get_pick_list_rows(doc):
-    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述。"""
+    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述与整箱提示。"""
     from solua_home.printing.color_card import get_item_color_info
 
     rows = []
@@ -267,6 +369,8 @@ def get_pick_list_rows(doc):
             "qty": row.get("qty"),
             "picked_qty": row.get("picked_qty"),
             "uom": row.get("uom") or row.get("stock_uom") or "",
+            "pack_uom": get_pick_list_row_pack(row.get("uom") or row.get("stock_uom"), row.get("qty"),
+                                               row.get("conversion_factor"), row.get("stock_qty"), item_code),
             "warehouse": row.get("warehouse") or "",
             "sales_order": row.get("sales_order") or "",
         })
@@ -274,14 +378,19 @@ def get_pick_list_rows(doc):
 
 
 def get_pick_list_print_data(doc):
-    """拣货单打印数据：行 + 需求数量/已拣数量合计。"""
+    """拣货单打印数据：行 + 需求数量/已拣数量合计。
+
+    ``total_uom``：所有行单位一致时回填该单位，否则留空。数量列改以「箱」为主位后，
+    合计仍是本位单位的和，不标单位会被误读成箱。
+    """
     rows = get_pick_list_rows(doc)
+    uoms = {row.get("uom") for row in rows if row.get("uom")}
     return {
         "items": rows,
         "total_qty": _sum_qty(rows, "qty"),
         "total_picked": _sum_qty(rows, "picked_qty"),
+        "total_uom": next(iter(uoms)) if len(uoms) == 1 else "",
         "company": doc.get("company") or "",
-        "company_logo": _value("Company", doc.get("company"), "company_logo"),
         "purpose": doc.get("purpose") or "",
         "customer": doc.get("customer_name") or doc.get("customer") or "",
         "source": doc.get("work_order") or doc.get("material_request") or "",
@@ -312,7 +421,7 @@ def _collect(doc):
         })
     return {
         "version": 1, "company": get_company_print_info(doc), "customer": get_customer_print_info(doc),
-        "order": get_delivery_order_info(doc), "items": items,
+        "order": get_delivery_order_info(doc), "items": items, "total_qty": _sum_qty(items, "qty"),
         "transport": {
             "driver_name": doc.get("driver_name") or _value("Driver", doc.get("driver"), "full_name"),
             "vehicle_no": doc.get("vehicle_no") or "", "driver_phone": get_driver_phone(doc),
@@ -447,10 +556,21 @@ def get_wholesale_print_data(doc):
     frozen = _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc)
-    if frozen:
-        data = dict(data)
-        data["company"] = dict(data.get("company") or {})
-        data["company"].setdefault("logo", _value("Company", doc.get("company"), "company_logo"))
+    if frozen and doc.doctype == "Sales Order":
+        live_rows = doc.get("items") or []
+        snapshot_rows = data.get("items") or []
+        same_rows = len(live_rows) == len(snapshot_rows) and all(
+            live.get("item_code") == saved.get("item_code")
+            for live, saved in zip(live_rows, snapshot_rows)
+        )
+        if live_rows and same_rows:
+            # Snapshot keeps stable display data; transaction values must follow the edited order.
+            for live, saved in zip(live_rows, snapshot_rows):
+                for key in ("uom", "qty", "rate", "amount", "warehouse"):
+                    saved[key] = live.get(key)
+            data["total_qty"] = _sum_qty(snapshot_rows, "qty")
+        elif live_rows:
+            data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
@@ -459,14 +579,7 @@ def get_wholesale_print_data(doc):
             for item in data.get("items", [])
             for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
         )
+    data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0
     return data
-
-# Registered by the production Jinja hooks.
-def format_print_money(value, currency=None):
-    return frappe.utils.fmt_money(value or 0, currency=currency)
-
-
-def format_print_qty(value):
-    return f"{frappe.utils.flt(value, 3):g}"
