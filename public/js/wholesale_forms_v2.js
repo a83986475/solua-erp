@@ -7,7 +7,7 @@
 	const sales_order_paste_api = "solua_home.api.sales.preview_sales_order_paste";
 	const sales_order_rows_api = "solua_home.api.sales.preview_sales_order_rows";
 	const sales_order_search_api = "solua_home.api.sales.search_sales_order_items";
-	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa" };
+	const print_formats = { "Sales Order": "客户订单确认单（颜色版）-紧凑版", "Delivery Note": "Guia de Remessa" };
 
 	const is_positive_integer = (value) => {
 		if (value == null || String(value).trim() === "") return false;
@@ -438,6 +438,7 @@
 			fields: [
 				...(has_column_switches ? [
 					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name },
+					{ fieldname: "show_spu", label: __("显示 SPU编码"), fieldtype: "Check", default: 0 },
 					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
 					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
@@ -475,7 +476,7 @@
 				if (frm.fields_dict.custom_print_color_qr) changes.custom_print_color_qr = values.show_qr ? 1 : 0;
 				if (Object.keys(changes).length) await frm.set_value(changes);
 				if (frm.is_dirty()) await frm.save(frm.doc.docstatus === 1 ? "Update" : undefined);
-				const params = new URLSearchParams({ doctype: frm.doctype, name: frm.doc.name, format, no_letterhead: "0", trigger_print: "1" });
+				const params = new URLSearchParams({ doctype: frm.doctype, name: frm.doc.name, format, no_letterhead: "0", trigger_print: "1", show_spu: values.show_spu ? "1" : "0" });
 				window.open(`/printview?${params.toString()}`, "_blank");
 				dialog.hide();
 				} finally {
