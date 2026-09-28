@@ -88,15 +88,24 @@ def _get_discount_approval_settings(doc):
     return enabled, threshold, _try_decrypt(pwd_hash)
 
 
+def requires_large_invoice_approval(doc):
+    """大额发票审批仅适用于普通账号；管理员角色直接放行。"""
+    if flt(doc.get("grand_total")) <= 100000:
+        return False
+    return frappe.session.user != "Administrator" and not frappe.has_role("Accounts Manager")
+
+
 def validate_sales_invoice(doc, method=None):
     """销售发票保存时验证"""
     validate_transaction_quantities(doc)
 
-    # 示例1：大额审批控制
-    if doc.grand_total > 100000:
-        frappe.throw(_("金额超过 100,000，需要额外审批"))
+    if requires_large_invoice_approval(doc):
+        if not doc.get("custom_approver"):
+            frappe.throw(_("金额超过 100,000，普通员工必须指定审批人"))
+        if not doc.get("custom_approval_date"):
+            doc.custom_approval_date = frappe.utils.nowdate()
 
-    # 示例2：检查客户信用额度
+    # 检查客户信用额度
     customer_credit_limit = frappe.db.get_value(
         "Customer", doc.customer, "custom_credit_limit"
     )
@@ -177,11 +186,6 @@ def verify_discount_approval_password(password, company=None):
     if not enabled or not approval_pwd:
         return {"ok": True}
     return {"ok": password == approval_pwd}
-
-    # 示例3：检查自定义字段
-    if doc.get("custom_approver") and not doc.get("custom_approval_date"):
-        frappe.msgprint(_("请填写审批日期"))
-
 
 def on_invoice_submitted(doc, method=None):
     """销售发票提交后执行"""

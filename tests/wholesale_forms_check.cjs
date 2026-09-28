@@ -12,7 +12,7 @@ class Dialog {
     for (const f of options.fields) {
       this.values[f.fieldname] = f.default ?? "";
       const field = {...f,df:{...f},$input:input(),$wrapper:{html(){},empty(){}}};
-      if (f.fieldtype === "Table") field.grid={refresh(){}};
+      if (f.fieldtype === "Table") field.grid={get data(){return field.df.data || [];},get_selected_children(){return this.data.filter(row=>row.__checked);},refresh(){}};
       this.fields_dict[f.fieldname] = field;
     }
     dialogs.push(this);
@@ -32,7 +32,7 @@ class Dialog {
 }
 const rows = new Map();
 const frappe = {
-  ui:{Dialog, form:{on(dt, value){handlers[dt]=value;}}},
+  ui:{Dialog, form:{on(dt, value){handlers[dt]={...(handlers[dt] || {}),...value};}}},
   utils:{escape_html:String},
   call(){return new Promise((resolve,reject)=>requests.push({resolve,reject}));},
   model:{async set_value(dt,name,key,value){
@@ -63,14 +63,15 @@ async function query(d,code="A"){
 (async()=>{
 	assert.equal(salesTools.is_positive_integer("2"),true);
 	assert.equal(salesTools.is_positive_integer("2.5"),false);
- const selection=[{include:0},{include:1},{include:0}];
- salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.include),[1,1,1]);
- salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.include),[0,0,0]);
+ const selection=[{__checked:0},{__checked:1},{__checked:0}];
+ salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.__checked),[1,1,1]);
+ salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.__checked),[0,0,0]);
 	for(const dt of ["Purchase Receipt","Stock Reconciliation"]) assert.equal(form(dt,1).buttons.length,0);
 	const salesOrder = form("Sales Order");
 	salesOrder.buttons[0].fn();
 	assert.equal(dialogs.at(-1).label, "查询颜色");
 	const salesColor = dialogs.at(-1);
+	salesColor.values.default_qty=4;
 	salesColor.values.barcode="TPL";salesColor.fields_dict.barcode.$input.events.input();
 	let salesLookup=salesColor.action();
 	requests.at(-1).resolve({message:{has_template:true,variants:[
@@ -79,9 +80,15 @@ async function query(d,code="A"){
 	]}});
 	await salesLookup;
 	assert.equal(salesColor.fields_dict.variant_items.df.data.length,2);
-	salesColor.fields_dict.variant_select_all.$input.events.click();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.qty),[4,4]);
+	salesColor.fields_dict.variant_select_all.$input.events["click.solua"]();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.__checked),[1,1]);
+	salesColor.fields_dict.variant_invert.$input.events["click.solua"]();
+	assert.deepEqual(salesColor.fields_dict.variant_items.df.data.map(row=>row.__checked),[0,0]);
+	salesColor.fields_dict.variant_invert.$input.events["click.solua"]();
 	salesColor.fields_dict.variant_items.df.data[0].qty=2;
 	salesColor.fields_dict.variant_items.df.data[1].qty=3;
+	salesColor.fields_dict.variant_items.df.data[0].__checked=1;
 	const batchAdd=salesColor.action();
 	requests.at(-1).resolve({message:{rows:[
 		{item_code:"red",item_name:"Red",description:"Red desc",uom:"条",stock_uom:"条",rate:430,price_list_rate:430,warehouse:"W1",qty:2,custom_item_barcode:"BAR-RED"},
@@ -118,16 +125,18 @@ async function query(d,code="A"){
  c.values.qty="0";await c.action();assert.equal(count.doc.items.length,1);assert.equal(count.doc.items[0].qty,0);
  async function assert_print_switches(dt) {
   const submitted=form(dt,1);submitted.is_new=()=>false;
-  submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt === "Delivery Note" ? {custom_print_ordered_before:{}} : {})};
+ submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_quantity:{}} : {})};
   let saved_changes;submitted.set_value=async changes=>{saved_changes=changes;};submitted.is_dirty=()=>true;
   let save_mode;submitted.save=async mode=>{save_mode=mode;};
   handlers[dt].refresh(submitted);
   assert.equal(submitted.buttons.length,1);
   submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
-  await print_dialog.action({show_item_name:0,show_sku:1,show_color_code:0,show_description:0,show_ordered_before:0,show_images:1,show_qr:0});
+ await print_dialog.action({show_item_name:0,show_sku:1,show_color_code:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_quantity:0,show_images:1,show_qr:0});
   assert.equal(save_mode,"Update");
-  const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};
-  if(dt === "Delivery Note") expected.custom_print_ordered_before=0;
+ const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};
+ if(dt === "Sales Invoice") expected.custom_print_cor=0;
+ if(dt !== "Delivery Note") expected.custom_print_merge_order_code=1;
+  if(dt === "Delivery Note") { expected.custom_print_ordered_before=0; expected.custom_print_quantity=0; }
   const stable=value=>JSON.stringify(Object.fromEntries(Object.entries(value).sort()));
   assert.equal(stable(saved_changes),stable(expected));
  }
