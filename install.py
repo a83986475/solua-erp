@@ -4,6 +4,8 @@ import json
 import frappe
 
 PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
+WHATSAPP_MODULE = "WhatsApp Inbox"
+WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
 
 
 def ensure_solua_stock_entry_types():
@@ -55,6 +57,31 @@ def ensure_wholesale_module():
     )
     if not module or module.app_name != "solua_home":
         raise RuntimeError("Invalid Module Def Solua Wholesale")
+    return module
+
+
+def ensure_whatsapp_module():
+    """Register the app-owned WhatsApp module and support roles idempotently."""
+    if not frappe.db.exists("Module Def", WHATSAPP_MODULE):
+        frappe.get_doc({
+            "doctype": "Module Def",
+            "module_name": WHATSAPP_MODULE,
+            "app_name": "solua_home",
+            "custom": 0,
+        }).insert(ignore_permissions=True)
+    module = frappe.db.get_value(
+        "Module Def", WHATSAPP_MODULE, ["name", "app_name"], as_dict=True
+    )
+    if not module or module.app_name != "solua_home":
+        raise RuntimeError("Invalid WhatsApp Inbox Module Def")
+    for role in WHATSAPP_ROLES:
+        if not frappe.db.exists("Role", role):
+            frappe.get_doc({
+                "doctype": "Role",
+                "role_name": role,
+                "desk_access": 0,
+                "is_custom": 1,
+            }).insert(ignore_permissions=True)
     return module
 
 
@@ -136,6 +163,8 @@ def after_install():
     configure_pick_list_printing()
     sync_standard_pages()
     add_member_system_fields()
+    ensure_whatsapp_module()
+    sync_whatsapp_doctypes()
     frappe.db.commit()
 
 
@@ -213,6 +242,22 @@ def sync_standard_pages():
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"页面导入失败 [{json_path}]: {e}", "solua_home.pages")
+
+
+def sync_whatsapp_doctypes():
+    """Import the app-owned inbox DocTypes without exposing them in Desk."""
+    import os
+    from frappe.modules.import_file import import_file_by_path
+
+    ensure_whatsapp_module()
+    frappe.cache().delete_value("app_modules")
+    frappe.setup_module_map(include_all_apps=True)
+    base = os.path.join(os.path.dirname(__file__), "whatsapp_inbox", "doctype")
+    for doctype_name in ("whatsapp_conversation", "whatsapp_message"):
+        json_path = os.path.join(base, doctype_name, doctype_name + ".json")
+        if not os.path.exists(json_path):
+            raise RuntimeError("Missing WhatsApp DocType: " + json_path)
+        import_file_by_path(json_path, force=True, ignore_version=True)
 
 
 def add_translations():

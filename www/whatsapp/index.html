@@ -1,0 +1,173 @@
+{% extends "templates/web.html" %}
+
+{% block head_include %}
+<link rel="manifest" href="/assets/solua_home/whatsapp/manifest.json">
+<meta name="theme-color" content="#075e54">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{% endblock %}
+
+{% block page_content %}
+<style>
+    :root { --wa-green: #075e54; --wa-soft: #e9f5f2; --wa-border: #dfe7e5; }
+    .wa-app { max-width: 1180px; margin: 0 auto; padding: 18px 12px 48px; }
+    .wa-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .wa-header h1 { margin: 0; color: var(--wa-green); font-size: 24px; }
+    .wa-layout { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; min-height: 620px; border: 1px solid var(--wa-border); border-radius: 12px; overflow: hidden; background: #fff; }
+    .wa-list { border-right: 1px solid var(--wa-border); background: #fbfdfc; }
+    .wa-list-tools, .wa-composer { padding: 12px; border-bottom: 1px solid var(--wa-border); }
+    .wa-list-tools { display: flex; gap: 8px; }
+    .wa-list-tools button, .wa-composer button { min-height: 42px; }
+    .wa-items { max-height: 560px; overflow: auto; }
+    .wa-item { display: block; width: 100%; border: 0; border-bottom: 1px solid var(--wa-border); padding: 13px; text-align: left; background: transparent; cursor: pointer; }
+    .wa-item:hover, .wa-item.active { background: var(--wa-soft); }
+    .wa-item-title { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+    .wa-item-meta, .wa-muted { color: #6b7775; font-size: 13px; }
+    .wa-item-preview { margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wa-badge { display: inline-block; border-radius: 999px; padding: 2px 8px; background: #e2f0ed; color: var(--wa-green); font-size: 12px; }
+    .wa-chat { min-width: 0; display: flex; flex-direction: column; }
+    .wa-chat-head { padding: 14px; border-bottom: 1px solid var(--wa-border); }
+    .wa-chat-head h2 { margin: 0 0 5px; font-size: 19px; }
+    .wa-chat-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .wa-messages { flex: 1; min-height: 340px; max-height: 470px; overflow: auto; padding: 16px; background: #f5faf8; }
+    .wa-message { max-width: 78%; margin: 0 0 10px; padding: 9px 11px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .wa-message.in { background: #fff; border: 1px solid var(--wa-border); }
+    .wa-message.out { margin-left: auto; background: #d9fdd3; }
+    .wa-message.note { margin-left: auto; margin-right: auto; max-width: 90%; background: #fff5c4; border: 1px dashed #d6ba48; }
+    .wa-message small { display: block; margin-top: 5px; color: #6b7775; font-size: 11px; }
+    .wa-composer { border-top: 1px solid var(--wa-border); border-bottom: 0; }
+    .wa-composer textarea { min-height: 74px; resize: vertical; }
+    .wa-composer-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+    .wa-login { padding: 32px; text-align: center; }
+    @media (max-width: 760px) {
+        .wa-app { padding: 10px 0 28px; }
+        .wa-header { padding: 0 12px; }
+        .wa-layout { display: block; border-left: 0; border-right: 0; border-radius: 0; }
+        .wa-list { border-right: 0; }
+        .wa-items { max-height: 36vh; }
+        .wa-chat { min-height: 58vh; }
+        .wa-messages { max-height: none; min-height: 260px; }
+    }
+</style>
+
+<div class="wa-app" id="wa-app">
+    {% if whatsapp_user == "Guest" %}
+    <div class="wa-login">
+        <h1>WhatsApp 收件箱</h1>
+        <p class="wa-muted">请先登录 ERPNext。</p>
+        <a class="btn btn-primary" href="/login?redirect-to=/whatsapp">登录</a>
+    </div>
+    {% else %}
+    <div class="wa-header">
+        <h1>WhatsApp 收件箱</h1>
+        <span class="wa-muted" id="wa-status">加载中…</span>
+    </div>
+    <div class="wa-layout">
+        <aside class="wa-list">
+            <div class="wa-list-tools">
+                <button class="btn btn-default btn-sm" data-filter="">全部</button>
+                <button class="btn btn-default btn-sm" data-filter="未分配">未分配</button>
+                <button class="btn btn-default btn-sm" data-filter="处理中">处理中</button>
+            </div>
+            <div class="wa-items" id="wa-items"></div>
+        </aside>
+        <main class="wa-chat">
+            <div class="wa-chat-head" id="wa-chat-head"><span class="wa-muted">选择一个会话</span></div>
+            <div class="wa-messages" id="wa-messages"><span class="wa-muted">未选择会话</span></div>
+            <div class="wa-composer" id="wa-composer" hidden>
+                <textarea class="form-control" id="wa-body" maxlength="4096" placeholder="输入回复…"></textarea>
+                <div class="wa-composer-row">
+                    <label class="wa-muted"><input type="checkbox" id="wa-note"> 内部备注</label>
+                    <button class="btn btn-primary" id="wa-send">发送</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+{% if whatsapp_user != "Guest" %}
+<script>
+(() => {
+    const state = { filter: "", items: [], current: null, supervisors: false };
+    const $ = (id) => document.getElementById(id);
+    const call = async (method, args = {}) => {
+        const csrf = window.frappe?.csrf_token || window.csrf_token || "";
+        const response = await fetch(`/api/method/${method}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": csrf },
+            body: JSON.stringify(args),
+            credentials: "same-origin",
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.exc) throw new Error(payload._server_messages || payload.message || "请求失败");
+        return payload.message;
+    };
+    const esc = (value) => String(value || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const formatTime = (value) => value ? new Date(value).toLocaleString() : "";
+    const setStatus = (text) => { $("wa-status").textContent = text; };
+
+    async function loadInbox() {
+        const data = await call("solua_home.api.whatsapp.get_inbox", { status: state.filter, limit: 100 });
+        state.items = data.items || [];
+        state.supervisors = !!data.is_supervisor;
+        $("wa-items").innerHTML = state.items.length ? state.items.map((item) => `
+            <button class="wa-item ${state.current && state.current.name === item.name ? "active" : ""}" data-name="${esc(item.name)}">
+                <div class="wa-item-title"><span>${esc(item.display_name)}</span><span class="wa-badge">${esc(item.status)}</span></div>
+                <div class="wa-item-meta">${esc(item.phone)} · ${esc(item.assigned_to || "未分配")}</div>
+                <div class="wa-item-preview">${esc(item.last_message_preview)}</div>
+            </button>`).join("") : '<div class="wa-muted" style="padding:18px">暂无会话</div>';
+        $("wa-items").querySelectorAll("[data-name]").forEach((node) => node.addEventListener("click", () => openConversation(node.dataset.name)));
+        setStatus(`共 ${state.items.length} 个会话`);
+    }
+
+    function renderConversation(conversation) {
+        state.current = conversation;
+        $("wa-chat-head").innerHTML = `
+            <h2>${esc(conversation.display_name)} <span class="wa-muted">${esc(conversation.phone)}</span></h2>
+            <div class="wa-item-meta">${esc(conversation.status)} · ${esc(conversation.assigned_to || "未分配")} · 服务窗口至 ${esc(formatTime(conversation.service_window_until))}</div>
+            <div class="wa-chat-actions">
+                ${!conversation.assigned_to ? '<button class="btn btn-primary btn-sm" id="wa-claim">领取会话</button>' : ""}
+                ${state.supervisors ? '<input class="form-control input-sm" id="wa-assignee" placeholder="输入员工账号后转交" style="max-width:220px"><button class="btn btn-default btn-sm" id="wa-assign">转交</button>' : ""}
+                <input class="form-control input-sm" id="wa-reminder" type="datetime-local" style="max-width:220px"><button class="btn btn-default btn-sm" id="wa-set-reminder">提醒</button>
+            </div>`;
+        $("wa-messages").innerHTML = (conversation.messages || []).map((message) => {
+            const cls = message.direction === "客户消息" ? "in" : message.direction === "内部备注" ? "note" : "out";
+            return `<div class="wa-message ${cls}">${esc(message.body)}<small>${esc(message.direction)} · ${esc(message.status)} · ${esc(formatTime(message.creation))}</small></div>`;
+        }).join("") || '<span class="wa-muted">暂无消息</span>';
+        $("wa-messages").scrollTop = $("wa-messages").scrollHeight;
+        $("wa-composer").hidden = false;
+        $("wa-claim")?.addEventListener("click", async () => { await call("solua_home.api.whatsapp.claim_conversation", { name: conversation.name }); await openConversation(conversation.name); await loadInbox(); });
+        $("wa-assign")?.addEventListener("click", async () => { await call("solua_home.api.whatsapp.assign_conversation", { name: conversation.name, assigned_to: $("wa-assignee").value }); await loadInbox(); await openConversation(conversation.name); });
+        $("wa-set-reminder")?.addEventListener("click", async () => { if (!$("wa-reminder").value) return; await call("solua_home.api.whatsapp.set_reminder", { name: conversation.name, reminder_at: $("wa-reminder").value }); alert("提醒已创建"); });
+    }
+
+    async function openConversation(name) {
+        try { renderConversation(await call("solua_home.api.whatsapp.get_conversation", { name })); }
+        catch (error) { alert(error.message); }
+    }
+
+    $("wa-send").addEventListener("click", async () => {
+        if (!state.current || !$("wa-body").value.trim()) return;
+        const body = $("wa-body").value.trim();
+        const note = $("wa-note").checked;
+        $("wa-send").disabled = true;
+        try {
+            if (note) await call("solua_home.api.whatsapp.add_internal_note", { name: state.current.name, body });
+            else await call("solua_home.api.whatsapp.send_message", { name: state.current.name, body, client_message_id: crypto.randomUUID() });
+            $("wa-body").value = "";
+            $("wa-note").checked = false;
+            if (note) await openConversation(state.current.name);
+        } catch (error) { alert(error.message); }
+        finally { $("wa-send").disabled = false; }
+    });
+    document.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", async () => { state.filter = button.dataset.filter; await loadInbox(); }));
+    if (window.frappe?.realtime) frappe.realtime.on("whatsapp_inbox_updated", loadInbox);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { scope: "/whatsapp/" }).catch(() => {});
+    loadInbox().catch((error) => { setStatus(error.message); });
+    setInterval(() => loadInbox().catch(() => {}), 20000);
+})();
+</script>
+{% endif %}
+{% endblock %}
