@@ -529,7 +529,7 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 candidates.extend(_list(
                     "Item", {"disabled": 0},
                     ["name", "item_code", "item_name", "has_variants", "variant_of"], limit=20,
-                    or_filters=[[field, "=", barcode] for field in fields],
+                    or_filters=[[field, "like", f"%{barcode}%"] for field in fields],
                 ))
     if not candidates:
         return {"state": "no_data", "templates": []}

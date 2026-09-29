@@ -179,11 +179,12 @@
 			size: "extra-large",
 			fields: [
 				{ fieldname: "warehouse", label: __("明确订单仓库/范围"), fieldtype: "Link", options: "Warehouse", default: frm.doc.set_warehouse || "", reqd: 1 },
+				{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, reqd: 1, description: __("搜索结果加入销售订单时的初始数量，可在结果表中逐行调整") },
 				{ fieldtype: "Column Break" },
 				{ fieldname: "item_group", label: __("商品组"), fieldtype: "Link", options: "Item Group" },
 				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item", get_query: () => ({ filters: { disabled: 0, has_variants: 1 } }) },
 				{ fieldname: "color", label: __("颜色/固定色号"), fieldtype: "Data" },
-				{ fieldname: "search", label: __("搜索货号/名称"), fieldtype: "Data" },
+				{ fieldname: "search", label: __("搜索货号/SKU/物料名称"), fieldtype: "Data", description: __("支持部分货号、SKU 或物料名称") },
 				{ fieldname: "in_stock", label: __("只看有库存"), fieldtype: "Check" },
 				{ fieldtype: "Button", fieldname: "search_items", label: __("搜索") },
 				{ fieldtype: "Button", fieldname: "select_all", label: __("当前筛选结果全选") },
@@ -207,7 +208,9 @@
 			primary_action_label: __("加入销售订单"),
 			primary_action: async () => {
 				if (busy) return;
+				const default_qty = Number(dialog.get_value("default_qty"));
 				const rows = dialog.fields_dict.results.grid.get_selected_children();
+				if (!is_positive_integer(default_qty)) return frappe.msgprint(__("默认数量必须为正整数"));
 				const invalid = rows.filter((row) => !is_positive_integer(row.qty));
 				if (!rows.length) return frappe.msgprint(__("请先勾选物料"));
 				if (invalid.length) return frappe.msgprint(__("数量必须为正整数"));
@@ -216,9 +219,16 @@
 					const response = await frappe.call({ method: sales_order_rows_api, args: { rows: JSON.stringify(rows.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse }))), context: JSON.stringify(sales_order_context(frm, dialog.get_value("warehouse"))) } });
 					const result = response.message || {};
 					append_sales_order_rows(frm, result.rows || []);
-					if (result.errors?.length) frappe.msgprint({ title: __("部分行未加入"), message: error_summary(result.errors), indicator: "orange" });
-					else frappe.show_alert({ message: __("已加入当前销售订单草稿，请保存"), indicator: "green" });
-					dialog.hide();
+					if (result.errors?.length) {
+						frappe.msgprint({ title: __("部分行未加入"), message: error_summary(result.errors), indicator: "orange" });
+					} else {
+						frappe.show_alert({ message: __("已加入当前销售订单草稿，可继续添加"), indicator: "green" });
+						set_selection(false);
+						dialog.fields_dict.results.df.data = [];
+						dialog.fields_dict.results.grid.refresh();
+						for (const field of ["template", "color", "search"]) await dialog.set_value(field, "");
+						dialog.fields_dict.hint.$wrapper.html(`<div class="text-muted small">${__("已加入，可继续选择下一个款式；仓库和默认数量已保留")}</div>`);
+					}
 				} finally { busy = false; }
 			},
 		});
@@ -237,7 +247,9 @@
 				context: JSON.stringify(sales_order_context(frm, warehouse)),
 				filters: JSON.stringify({ warehouse, item_group: dialog.get_value("item_group"), template: dialog.get_value("template"), color: dialog.get_value("color"), search: dialog.get_value("search"), in_stock: dialog.get_value("in_stock") ? 1 : 0 }),
 			} });
-			const rows = (response.message?.items || []).map((row) => ({ ...row, __checked: 0, qty: 1 }));
+			const default_qty = Number(dialog.get_value("default_qty"));
+			if (!is_positive_integer(default_qty)) return frappe.msgprint(__("默认数量必须为正整数"));
+			const rows = (response.message?.items || []).map((row) => ({ ...row, __checked: 0, qty: default_qty }));
 			dialog.fields_dict.results.df.data = rows;
 			dialog.fields_dict.results.grid.refresh();
 			dialog.fields_dict.hint.$wrapper.html(`<div class="text-muted small">${__("找到 {0} 条，库存口径：actual_qty - reserved_qty", [rows.length])}</div>`);
@@ -256,7 +268,7 @@
 		const dialog = new frappe.ui.Dialog({
 			title: is_receipt ? __("按色扫码收货") : is_sales_order ? __("销售开单选颜色") : __("按色扫码盘点"),
 			fields: [
-				{ fieldname: "barcode", label: is_sales_order ? __("条码 / SKU / 物料名称") : __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: is_sales_order ? __("可输入厂家条码、SKU/货号或物料名称；找到款式后选择具体颜色") : __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
+				{ fieldname: "barcode", label: is_sales_order ? __("条码 / SKU / 物料名称") : __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: is_sales_order ? __("支持部分条码、SKU/货号或物料名称；找到款式后选择具体颜色") : __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
 				...(is_sales_order ? [{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, hidden: 1, description: __("加入所选颜色时的初始数量，可在表格中逐行调整") }] : []),
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },

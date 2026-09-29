@@ -28,6 +28,7 @@ class Dialog {
     }
     return fn();
   };}
+  hide(){this.hidden=true;}
   show(){}
 }
 const rows = new Map();
@@ -112,6 +113,26 @@ async function query(d,code="A"){
 	assert.equal(bulkPicker.fields_dict.template.df.get_query().filters.has_variants,1);
 	requests.at(-1).resolve({message:{items:[]}});
 	await flush();
+ assert.equal(bulkPicker.get_value("default_qty"),1);
+ bulkPicker.values.default_qty=4;
+ bulkPicker.fields_dict.search_items.$input.events.click();
+ requests.at(-1).resolve({message:{items:[
+  {item_code:"rod-red",item_name:"Rod Red",available_qty:9,warehouse:"W1"},
+  {item_code:"rod-blue",item_name:"Rod Blue",available_qty:9,warehouse:"W1"},
+ ]}});
+ await flush();
+ assert.deepEqual(bulkPicker.fields_dict.results.df.data.map(row=>row.qty),[4,4]);
+ bulkPicker.fields_dict.results.df.data.forEach(row=>{row.__checked=1;});
+ const bulkAdd=bulkPicker.action();
+ requests.at(-1).resolve({message:{rows:[
+  {item_code:"rod-red",item_name:"Rod Red",warehouse:"W1",qty:4},
+  {item_code:"rod-blue",item_name:"Rod Blue",warehouse:"W1",qty:4},
+ ]}});
+ await bulkAdd;
+ assert.equal(bulkPicker.hidden,undefined);
+ assert.equal(bulkPicker.get_value("warehouse"),"W1");
+ assert.equal(bulkPicker.get_value("default_qty"),4);
+ assert.equal(bulkPicker.fields_dict.results.df.data.length,0);
 	assert.equal(salesColor.values.barcode,"");
 	const receipt=form("Purchase Receipt");receipt.buttons[0].fn();const d=dialogs.at(-1);
  d.values.barcode="missing";let p=d.action();requests.at(-1).resolve({message:{templates:[]}});await p;

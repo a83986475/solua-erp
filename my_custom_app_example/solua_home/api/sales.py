@@ -643,7 +643,7 @@ def search_sales_order_items(context=None, filters=None):
         item_filters["item_group"] = filters.item_group
     if filters.get("template"):
         item_filters["variant_of"] = filters.template
-    fields = ["name", "item_name", "item_group", "variant_of", "has_variants", "disabled", "is_stock_item"]
+    fields = ["name", "item_code", "item_name", "item_group", "variant_of", "has_variants", "disabled", "is_stock_item"]
     for field in ("custom_order_code", "custom_swatch_image", "image"):
         if frappe.get_meta("Item").has_field(field):
             fields.append(field)
@@ -651,12 +651,13 @@ def search_sales_order_items(context=None, filters=None):
     or_filters = None
     if query:
         like = f"%{query}%"
-        or_filters = [[field, "like", like] for field in ("name", "item_name", "custom_order_code") if field in fields]
+        or_filters = [[field, "like", like] for field in ("name", "item_code", "item_name", "custom_order_code") if field in fields]
     items = frappe.get_all("Item", filters=item_filters, or_filters=or_filters, fields=fields, limit=100, order_by="name asc")
     if query and not filters.get("template") and "custom_order_code" in fields:
         template_names = frappe.get_all(
             "Item",
-            filters={"disabled": 0, "has_variants": 1, "custom_order_code": query},
+            filters={"disabled": 0, "has_variants": 1},
+            or_filters=[[field, "like", like] for field in ("name", "item_code", "item_name", "custom_order_code") if field in fields],
             pluck="name",
         )
         if template_names:
