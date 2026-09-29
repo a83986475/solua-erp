@@ -608,7 +608,7 @@ def _recover_delivery_quantities(doc, data):
     )
 
 
-def get_wholesale_print_data(doc):
+def get_wholesale_print_data(doc, merge_customer_rows=None):
     frozen = _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc)
@@ -628,7 +628,8 @@ def get_wholesale_print_data(doc):
         elif live_rows:
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
-    if doc.doctype in ("Sales Order", "Sales Invoice") and doc.get("custom_print_merge_order_code"):
+    should_merge = doc.get("custom_print_merge_order_code") if merge_customer_rows is None else merge_customer_rows
+    if doc.doctype in ("Sales Order", "Sales Invoice") and should_merge:
         data["items"] = _merge_customer_print_items(data.get("items"))
         data["customer_merged"] = True
     if doc.doctype == "Delivery Note":

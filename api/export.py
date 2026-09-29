@@ -70,11 +70,12 @@ def get_export_document(doctype, name):
     return doc
 
 
-def _wholesale_rows(doc):
+def _wholesale_rows(doc, merge_order_code=0):
     """Reuse the print data so the export matches the printed table exactly."""
     from solua_home.printing.wholesale import get_wholesale_print_data
 
-    data = get_wholesale_print_data(doc)
+    merge_customer_rows = bool(cint(merge_order_code)) if doc.doctype in ("Sales Order", "Sales Invoice") else None
+    data = get_wholesale_print_data(doc, merge_customer_rows=merge_customer_rows)
     rows = []
     for position, item in enumerate(data.get("items") or [], start=1):
         row = {"idx": position}
@@ -111,8 +112,8 @@ def _pick_list_rows(doc):
     return rows
 
 
-def get_item_rows(doc):
-    return _pick_list_rows(doc) if doc.doctype == "Pick List" else _wholesale_rows(doc)
+def get_item_rows(doc, merge_order_code=0):
+    return _pick_list_rows(doc) if doc.doctype == "Pick List" else _wholesale_rows(doc, merge_order_code)
 
 
 def _selected_columns(doctype, columns):
@@ -164,10 +165,10 @@ def _total_row(rows, columns):
     return total
 
 
-def build_table(doc, columns=None, include_header=1, include_total=1):
+def build_table(doc, columns=None, include_header=1, include_total=1, merge_order_code=0):
     """Rows ready for xlsx/csv: [[...], ...] with a header block and a totals row."""
     selected = _selected_columns(doc.doctype, columns)
-    rows = get_item_rows(doc)
+    rows = get_item_rows(doc, merge_order_code)
     table = []
     if cint(include_header):
         table.extend(_header_rows(doc))
@@ -214,14 +215,15 @@ def get_export_options(doctype):
             {"value": "xlsx", "label": _("Excel (.xlsx)")},
             {"value": "csv", "label": _("CSV (.csv)")},
         ],
+        "allow_merge_order_code": doctype in ("Sales Order", "Sales Invoice"),
     }
 
 
 @frappe.whitelist()
-def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1):
+def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1, merge_order_code=0):
     """下载单据明细表格：fmt=xlsx（默认）或 csv。"""
     doc = get_export_document(doctype, name)
-    table = build_table(doc, columns, include_header, include_total)
+    table = build_table(doc, columns, include_header, include_total, merge_order_code)
     filename = "-".join([frappe.scrub(doctype).replace("_", "-"), doc.name, nowdate()])
     if str(fmt or "").lower() == "csv":
         _send_csv(table, filename)
