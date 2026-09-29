@@ -34,7 +34,47 @@ const approval_value = (label, value, class_name = "") => `
 
 function approval_route_name() {
 	const route = frappe.get_route();
-	return route[1] || new URLSearchParams(window.location.search).get("invoice");
+	const route_name = route[0] === "sales-invoice-approval" ? route[1] : null;
+	return route_name || new URLSearchParams(window.location.search).get("invoice");
+}
+
+function load_sales_invoice_approval(page, invoice_name) {
+	page.main.html(`<div class="solua-approval-page"><div class="solua-approval-loading text-muted">${__("正在读取发票信息…")}</div></div>`);
+	frappe.call({
+		method: "solua_home.api.sales.get_sales_invoice_approval_data",
+		args: { invoice_name },
+	}).then((response) => render_sales_invoice_approval_page(page, response.message || {}));
+}
+
+function render_sales_invoice_selector(page) {
+	page.main.html(`
+		<div class="solua-approval-page">
+			<div class="solua-approval-selector">
+				<div class="solua-approval-eyebrow">${__("销售发票提交检查")}</div>
+				<h1>${__("选择销售发票")}</h1>
+				<p class="text-muted">${__("可直接搜索发票；从发票表单进入时会自动带入当前发票。")}</p>
+				<div class="solua-approval-invoice-selector"></div>
+			</div>
+		</div>
+	`);
+
+	let control;
+	const df = {
+		fieldtype: "Link",
+		fieldname: "invoice_name",
+		label: __("销售发票"),
+		options: "Sales Invoice",
+		onchange() {
+			const invoice_name = control && control.get_value();
+			if (invoice_name) load_sales_invoice_approval(page, invoice_name);
+		},
+	};
+	control = frappe.ui.form.make_control({
+		parent: page.main.find(".solua-approval-invoice-selector"),
+		df,
+		render_input: true,
+	});
+	control.refresh();
 }
 
 function render_sales_invoice_approval_page(page, data) {
@@ -107,13 +147,12 @@ function render_sales_invoice_approval_page(page, data) {
 frappe.pages["sales-invoice-approval"].on_page_show = function () {
 	const page = frappe.pages["sales-invoice-approval"].page;
 	const invoice_name = approval_route_name();
-	if (!page || !invoice_name) {
-		frappe.msgprint(__("缺少销售发票编号"));
+	if (!page) {
 		return;
 	}
-	page.main.html(`<div class="solua-approval-page"><div class="solua-approval-loading text-muted">${__("正在读取发票信息…")}</div></div>`);
-	frappe.call({
-		method: "solua_home.api.sales.get_sales_invoice_approval_data",
-		args: { invoice_name },
-	}).then((response) => render_sales_invoice_approval_page(page, response.message || {}));
+	if (!invoice_name) {
+		render_sales_invoice_selector(page);
+		return;
+	}
+	load_sales_invoice_approval(page, invoice_name);
 };
