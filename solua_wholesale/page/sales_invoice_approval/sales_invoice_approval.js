@@ -54,20 +54,22 @@ function render_sales_invoice_selector(page) {
 				<h1>${__("选择销售发票")}</h1>
 				<p class="text-muted">${__("可直接搜索发票；从发票表单进入时会自动带入当前发票。")}</p>
 				<div class="solua-approval-invoice-selector"></div>
+				<button class="btn btn-primary solua-approval-load" type="button">${__("加载检查")}</button>
 			</div>
 		</div>
 	`);
 
 	let control;
+	const load_selected_invoice = () => {
+		const invoice_name = control && control.get_value();
+		if (invoice_name) load_sales_invoice_approval(page, invoice_name);
+	};
 	const df = {
 		fieldtype: "Link",
 		fieldname: "invoice_name",
 		label: __("销售发票"),
 		options: "Sales Invoice",
-		onchange() {
-			const invoice_name = control && control.get_value();
-			if (invoice_name) load_sales_invoice_approval(page, invoice_name);
-		},
+		onchange: load_selected_invoice,
 	};
 	control = frappe.ui.form.make_control({
 		parent: page.main.find(".solua-approval-invoice-selector"),
@@ -75,6 +77,7 @@ function render_sales_invoice_selector(page) {
 		render_input: true,
 	});
 	control.refresh();
+	page.main.find(".solua-approval-load").on("click", load_selected_invoice);
 }
 
 function render_sales_invoice_approval_page(page, data) {
