@@ -364,35 +364,32 @@ def prepare_delivery_snapshot(doc, method=None):
 
 
 def auto_create_item_price(doc, method=None):
-    """Variant 创建时自动从模板生成 Item Price"""
-    if not doc.variant_of:
-        return  # 不是 Variant，跳过
-
-    # 获取模板价格
-    if not doc.standard_rate:
-        # 如果 Variant 没有价格，尝试从模板继承
-        template_rate = frappe.db.get_value("Item", doc.variant_of, "standard_rate")
-        if not template_rate:
-            return  # 模板也没有价格，跳过
+    """Create the entered selling rate in the first-level wholesale price list."""
+    price_list = "Wholesale Selling"
+    rate = flt(doc.get("standard_rate"))
+    if not rate and doc.get("variant_of"):
+        rate = flt(frappe.db.get_value("Item", doc.variant_of, "standard_rate"))
+    if rate <= 0:
+        return
 
     # 检查是否已有 Item Price
     existing = frappe.db.get_value("Item Price",
-        {"item_code": doc.name, "price_list": "Standard Selling", "selling": 1},
+        {"item_code": doc.name, "price_list": price_list, "selling": 1},
         "name"
     )
     if existing:
         return  # 已存在，不重复创建
 
     # 获取默认货币
-    currency = frappe.defaults.get_user_default("currency") or "MZN"
+    currency = frappe.db.get_value("Price List", price_list, "currency") or frappe.defaults.get_user_default("currency") or "MZN"
 
     # 创建 Item Price
     try:
         price_doc = frappe.get_doc({
             "doctype": "Item Price",
             "item_code": doc.name,
-            "price_list": "Standard Selling",
-            "price_list_rate": doc.standard_rate,
+            "price_list": price_list,
+            "price_list_rate": rate,
             "selling": 1,
             "currency": currency,
         })

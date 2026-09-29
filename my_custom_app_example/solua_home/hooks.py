@@ -216,6 +216,7 @@ web_include_css = "/assets/solua_home/css/login.css?v=login-logo-3"
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
     "/assets/solua_home/js/solua_home_global.js?v=sales-order-date-20260917",
+    "/assets/solua_home/js/item_quick_entry.js?v=item-wholesale-price-20260929-v5",
     "/assets/solua_home/js/quantity_validation.js",
     "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
