@@ -491,12 +491,13 @@ def _resolve_sales_item(input_row, context, strict=True):
     if cint(master.get("is_stock_item")) and not warehouse:
         errors.append("没有默认仓库或订单仓库")
 
-    actual_qty = reserved_qty = available_qty = 0
+    actual_qty = projected_qty = reserved_qty = available_qty = 0
     if warehouse:
         from erpnext.stock.get_item_details import get_bin_details
 
         bin_details = get_bin_details(item_code, warehouse, context.get("company"), include_child_warehouses=True)
         actual_qty = flt(bin_details.get("actual_qty"))
+        projected_qty = flt(bin_details.get("projected_qty"))
         reserved_qty = flt(bin_details.get("reserved_qty"))
         available_qty = actual_qty - reserved_qty
 
@@ -518,6 +519,7 @@ def _resolve_sales_item(input_row, context, strict=True):
         "uom": details.get("uom") or details.get("stock_uom") or "",
         "stock_uom": details.get("stock_uom") or "",
         "conversion_factor": flt(details.get("conversion_factor") or 1),
+        "stock_qty": flt(details.get("stock_qty") or input_row.get("qty", 1) * flt(details.get("conversion_factor") or 1)),
         "rate": rate,
         "price_list_rate": price_list_rate,
         "warehouse": warehouse,
@@ -529,6 +531,7 @@ def _resolve_sales_item(input_row, context, strict=True):
         "image": color.get("image") or "",
         "template_code": color.get("template_code") or master.get("variant_of") or "",
         "actual_qty": actual_qty,
+        "projected_qty": projected_qty,
         "reserved_qty": reserved_qty,
         "available_qty": available_qty,
         "wholesale_rate": _display_price(item_code, context, "Wholesale Selling", warehouse),

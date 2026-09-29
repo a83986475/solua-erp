@@ -92,10 +92,21 @@ async function query(d,code="A"){
 	const batchAdd=salesColor.action();
 	requests.at(-1).resolve({message:{rows:[
 		{item_code:"red",item_name:"Red",description:"Red desc",uom:"条",stock_uom:"条",rate:430,price_list_rate:430,warehouse:"W1",qty:2,custom_item_barcode:"BAR-RED"},
-		{item_code:"blue",item_name:"Blue",description:"Blue desc",uom:"条",stock_uom:"条",rate:430,price_list_rate:430,warehouse:"W1",qty:3,custom_item_barcode:"BAR-BLUE"},
+		{item_code:"blue",item_name:"Blue",description:"Blue desc",uom:"条",stock_uom:"条",rate:430,price_list_rate:430,warehouse:"W1",qty:3,custom_item_barcode:"BAR-BLUE",actual_qty:50,projected_qty:50,stock_qty:3},
 	]}});
 	await batchAdd;
 	assert.deepEqual(salesOrder.doc.items.map(row=>row.qty),[2,3]);
+	assert.equal(salesOrder.doc.items[1].actual_qty,50);
+	assert.equal(salesOrder.doc.items[1].projected_qty,50);
+	assert.equal(salesOrder.doc.items[1].stock_qty,3);
+	const refreshStock = salesOrder.buttons.find((button) => button.label === "刷新库存").fn();
+	requests.at(-1).resolve({message:{rows:[
+		{item_code:"red",warehouse:"W1",actual_qty:10,projected_qty:10,stock_qty:2},
+		{item_code:"blue",warehouse:"W1",actual_qty:50,projected_qty:50,stock_qty:3},
+	]}});
+	await refreshStock;
+	assert.equal(salesOrder.doc.items[0].actual_qty,10);
+	assert.equal(salesOrder.doc.items[0].projected_qty,10);
 	assert.equal(salesColor.values.barcode,"");
 	const receipt=form("Purchase Receipt");receipt.buttons[0].fn();const d=dialogs.at(-1);
  d.values.barcode="missing";let p=d.action();requests.at(-1).resolve({message:{templates:[]}});await p;

@@ -55,9 +55,12 @@
 				uom: source.uom,
 				stock_uom: source.stock_uom,
 				conversion_factor: source.conversion_factor || 1,
+				stock_qty: source.stock_qty,
 				rate: source.rate,
 				price_list_rate: source.price_list_rate,
 				warehouse: source.warehouse,
+				actual_qty: source.actual_qty || 0,
+				projected_qty: source.projected_qty || 0,
 				qty: next_qty,
 				custom_item_barcode: source.custom_item_barcode || source.barcode || "",
 			});
@@ -65,6 +68,40 @@
 		frm.dirty();
 		frm.refresh_field("items");
 		frm.trigger?.("calculate_taxes_and_totals");
+	}
+
+	async function refresh_sales_order_stock(frm) {
+		if (frm.__solua_stock_refreshing) return;
+		const items = (frm.doc.items || []).filter((row) => row.item_code && row.warehouse);
+		if (!items.length) return frappe.msgprint(__("订单中没有可刷新的库存行"));
+		frm.__solua_stock_refreshing = true;
+		try {
+			const response = await frappe.call({
+				method: sales_order_rows_api,
+				args: {
+					rows: JSON.stringify(items.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse }))),
+					context: JSON.stringify(sales_order_context(frm)),
+				},
+			});
+			const result = response.message || {};
+			const resolved = new Map((result.rows || []).map((row) => [`${row.item_code}\u0000${row.warehouse}`, row]));
+			let updated = 0;
+			for (const row of items) {
+				const source = resolved.get(`${row.item_code}\u0000${row.warehouse}`);
+				if (!source) continue;
+				row.actual_qty = Number(source.actual_qty || 0);
+				row.projected_qty = Number(source.projected_qty || 0);
+				if (source.stock_qty != null) row.stock_qty = Number(source.stock_qty);
+				updated += 1;
+			}
+			frm.dirty();
+			frm.refresh_field("items");
+			frm.trigger?.("calculate_taxes_and_totals");
+			frappe.show_alert({ message: __("已刷新 {0} 行库存，请保存订单", [updated]), indicator: "green" });
+			if (result.errors?.length) frappe.msgprint({ title: __("部分物料未刷新"), message: error_summary(result.errors), indicator: "orange" });
+		} finally {
+			frm.__solua_stock_refreshing = false;
+		}
 	}
 
 	function open_sales_order_preview(frm, result, title) {
@@ -576,6 +613,7 @@
 				frm.add_custom_button(__("上传订单表格"), () => open_sales_order_upload(frm), __("工具"));
 				frm.add_custom_button(__("批量添加物料"), () => open_sales_order_bulk_picker(frm), __("工具"));
 				frm.add_custom_button(__("粘贴货号 + 数量"), () => open_sales_order_paste(frm), __("工具"));
+				frm.add_custom_button(__("刷新库存"), () => refresh_sales_order_stock(frm), __("工具"));
 			}
 			const label = __(doctype === "Sales Order" ? "客户订单确认单" : "Guia de Remessa");
 			if (!frm.is_new()) frm.add_custom_button(label, () => print_wholesale(frm), __("打印"));
