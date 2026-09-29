@@ -554,6 +554,7 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
             )}
     result = []
     for template_doc in templates:
+        template_order_code = template_doc.get("custom_order_code") or template_doc.item_code
         variant_rows = _list(
             "Item", {"variant_of": template_doc.name, "disabled": 0},
             item_fields, limit=0, order_by="name asc",
@@ -572,7 +573,7 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 "color": attributes.get(row.name, ""),
                 # Native Cor is current; custom_color_code is legacy-only compatibility.
                 "color_code": attributes.get(row.name) or row.get("custom_color_code") or "",
-                "order_code": row.get("custom_order_code") or "",
+                "order_code": row.get("custom_order_code") or template_order_code,
             } for row in variant_rows],
         })
     return {"state": "ok" if result else "no_data", "templates": result}

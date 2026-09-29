@@ -164,6 +164,15 @@ assert returned_snapshot["qty"]==-2 and returned_snapshot["remaining_qty"] is No
 
 # 表格底部的总数量：空快照/缺行/字符串数字都不能破坏打印
 assert module.get_print_total_qty({"items": [{"qty": 2}, {"qty": None}, {"qty": 0.5}]}) == 2.5
+
+merged_customer_rows = module._merge_customer_print_items([
+    {"item_code": "STYLE-1", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 10, "rate": 100, "amount": 1000, "uom": "根"},
+    {"item_code": "STYLE-2", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 5, "rate": 100, "amount": 500, "uom": "根"},
+    {"item_code": "STYLE-3", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 2, "rate": 120, "amount": 240, "uom": "根"},
+])
+assert len(merged_customer_rows) == 2
+assert merged_customer_rows[0]["qty"] == 15 and merged_customer_rows[0]["amount"] == 1500
+assert merged_customer_rows[1]["qty"] == 2 and merged_customer_rows[1]["amount"] == 240
 assert module.get_print_total_qty({"items": [{"qty": "3"}, {}]}) == 3
 assert module.get_print_total_qty({"items": []}) == 0 and module.get_print_total_qty(None) == 0
 

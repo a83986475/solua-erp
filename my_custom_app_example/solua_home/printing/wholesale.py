@@ -282,6 +282,47 @@ def _sum_qty(rows, key):
     return int(total) if float(total).is_integer() else round(total, 6)
 
 
+def _print_number_key(value):
+    try:
+        return Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value or "")
+
+
+def _add_print_numbers(left, right):
+    try:
+        return float(left or 0) + float(right or 0)
+    except (TypeError, ValueError):
+        return left if right in (None, "") else right
+
+
+def _merge_customer_print_items(items):
+    """Merge customer-facing rows while keeping the transaction rows untouched."""
+    merged = []
+    positions = {}
+    for source in items or []:
+        order_code = str(source.get("order_code") or source.get("item_code") or "").strip()
+        if not order_code:
+            merged.append(dict(source))
+            continue
+        key = (order_code, str(source.get("uom") or ""), _print_number_key(source.get("rate")))
+        position = positions.get(key)
+        if position is None:
+            row = dict(source)
+            row["order_code"] = order_code
+            row["item_name"] = source.get("template_name") or source.get("item_name")
+            merged.append(row)
+            positions[key] = len(merged) - 1
+            continue
+        target = merged[position]
+        for fieldname in ("qty", "amount", "ordered_qty", "delivered_before_qty", "remaining_qty"):
+            value = source.get(fieldname)
+            if value is None:
+                continue
+            target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
+    return merged
+
+
 def format_print_qty(value):
     """Render document quantities as whole units; source data remains unchanged."""
     try:
@@ -366,6 +407,7 @@ def get_pick_list_rows(doc):
             "description": display.get("description") or "",
             "image": color.get("image") or "",
             "template_code": color.get("template_code") or "",
+            "template_name": color.get("template_name") or "",
             "qty": row.get("qty"),
             "picked_qty": row.get("picked_qty"),
             "uom": row.get("uom") or row.get("stock_uom") or "",
@@ -410,6 +452,7 @@ def _collect(doc):
             "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
             "barcode": sales_display["barcode"], "description": sales_display["description"],
             "image": color.get("image") or "", "template_code": color.get("template_code") or "",
+            "template_name": color.get("template_name") or "",
             "uom": row.get("uom") or row.get("stock_uom") or "",
             "qty": row.get("qty"), "rate": row.get("rate"), "amount": row.get("amount"),
             "ordered_qty": row.get("custom_ordered_qty") if row.get("so_detail") and not doc.get("is_return") else None,
@@ -572,6 +615,9 @@ def get_wholesale_print_data(doc):
         elif live_rows:
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
+    if doc.doctype in ("Sales Order", "Sales Invoice") and doc.get("custom_print_merge_order_code"):
+        data["items"] = _merge_customer_print_items(data.get("items"))
+        data["customer_merged"] = True
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(

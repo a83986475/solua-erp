@@ -653,6 +653,18 @@ def search_sales_order_items(context=None, filters=None):
         like = f"%{query}%"
         or_filters = [[field, "like", like] for field in ("name", "item_name", "custom_order_code") if field in fields]
     items = frappe.get_all("Item", filters=item_filters, or_filters=or_filters, fields=fields, limit=100, order_by="name asc")
+    if query and not filters.get("template") and "custom_order_code" in fields:
+        template_names = frappe.get_all(
+            "Item",
+            filters={"disabled": 0, "has_variants": 1, "custom_order_code": query},
+            pluck="name",
+        )
+        if template_names:
+            variant_filters = {"disabled": 0, "has_variants": 0, "variant_of": ["in", template_names]}
+            if filters.get("item_group"):
+                variant_filters["item_group"] = filters.item_group
+            items.extend(frappe.get_all("Item", filters=variant_filters, fields=fields, limit=100, order_by="name asc"))
+    items = list({item.name: item for item in items}.values())
     results = []
     color_query = str(filters.get("color") or "").strip().lower()
     for item in items:
