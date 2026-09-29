@@ -598,7 +598,7 @@ def get_sales_order_color_variants(barcode, context=None):
     from solua_home.api.home import get_color_variants
 
     context = _sales_context(context)
-    result = get_color_variants(barcode=barcode, barcode_only=True)
+    result = get_color_variants(barcode=barcode, barcode_only=False)
     if result.get("state") != "ok":
         return {"state": result.get("state") or "no_data", "templates": [], "variants": []}
 

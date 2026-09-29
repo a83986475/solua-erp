@@ -107,6 +107,11 @@ async function query(d,code="A"){
 	await refreshStock;
 	assert.equal(salesOrder.doc.items[0].actual_qty,10);
 	assert.equal(salesOrder.doc.items[0].projected_qty,10);
+	salesOrder.buttons[2].fn();
+	const bulkPicker = dialogs.at(-1);
+	assert.equal(bulkPicker.fields_dict.template.df.get_query().filters.has_variants,1);
+	requests.at(-1).resolve({message:{items:[]}});
+	await flush();
 	assert.equal(salesColor.values.barcode,"");
 	const receipt=form("Purchase Receipt");receipt.buttons[0].fn();const d=dialogs.at(-1);
  d.values.barcode="missing";let p=d.action();requests.at(-1).resolve({message:{templates:[]}});await p;

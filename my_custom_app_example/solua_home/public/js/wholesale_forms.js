@@ -181,9 +181,9 @@
 				{ fieldname: "warehouse", label: __("明确订单仓库/范围"), fieldtype: "Link", options: "Warehouse", default: frm.doc.set_warehouse || "", reqd: 1 },
 				{ fieldtype: "Column Break" },
 				{ fieldname: "item_group", label: __("商品组"), fieldtype: "Link", options: "Item Group" },
-				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item" },
+				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item", get_query: () => ({ filters: { disabled: 0, has_variants: 1 } }) },
 				{ fieldname: "color", label: __("颜色/固定色号"), fieldtype: "Data" },
-				{ fieldname: "search", label: __("搜索货号"), fieldtype: "Data" },
+				{ fieldname: "search", label: __("搜索货号/名称"), fieldtype: "Data" },
 				{ fieldname: "in_stock", label: __("只看有库存"), fieldtype: "Check" },
 				{ fieldtype: "Button", fieldname: "search_items", label: __("搜索") },
 				{ fieldtype: "Button", fieldname: "select_all", label: __("当前筛选结果全选") },
@@ -232,7 +232,7 @@
 		};
 		const search = async () => {
 			const warehouse = dialog.get_value("warehouse");
-			if (!warehouse) return frappe.msgprint(__("请选择明确订单仓库或仓库范围"));
+			if (!warehouse) return;
 			const response = await frappe.call({ method: sales_order_search_api, args: {
 				context: JSON.stringify(sales_order_context(frm, warehouse)),
 				filters: JSON.stringify({ warehouse, item_group: dialog.get_value("item_group"), template: dialog.get_value("template"), color: dialog.get_value("color"), search: dialog.get_value("search"), in_stock: dialog.get_value("in_stock") ? 1 : 0 }),
@@ -256,7 +256,7 @@
 		const dialog = new frappe.ui.Dialog({
 			title: is_receipt ? __("按色扫码收货") : is_sales_order ? __("销售开单选颜色") : __("按色扫码盘点"),
 			fields: [
-				{ fieldname: "barcode", label: __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
+				{ fieldname: "barcode", label: is_sales_order ? __("条码 / SKU / 物料名称") : __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: is_sales_order ? __("可输入厂家条码、SKU/货号或物料名称；找到款式后选择具体颜色") : __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
 				...(is_sales_order ? [{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, hidden: 1, description: __("加入所选颜色时的初始数量，可在表格中逐行调整") }] : []),
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },
