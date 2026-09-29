@@ -1,0 +1,1174 @@
+{
+  "audit_stage": "pre-rename-after-field-write",
+  "barcodes": [
+    {
+      "barcode": "2026061151138",
+      "idx": 1,
+      "item_code": "SH151138-2MS"
+    },
+    {
+      "barcode": "2026061151145",
+      "idx": 1,
+      "item_code": "SH151145-2MD"
+    },
+    {
+      "barcode": "2026061151152",
+      "idx": 1,
+      "item_code": "SH151152-3MS"
+    },
+    {
+      "barcode": "2026061151169",
+      "idx": 1,
+      "item_code": "SH151169-3MD"
+    }
+  ],
+  "bins": [
+    {
+      "actual_qty": 480,
+      "item_code": "SH151138-2MS-1",
+      "modified": "2026-09-19 22:17:59.281256",
+      "stock_value": 109920,
+      "valuation_rate": 229,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151138-2MS-1",
+      "modified": "2026-09-19 22:17:59.044286",
+      "stock_value": 0,
+      "valuation_rate": 229,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 480,
+      "item_code": "SH151138-2MS-2",
+      "modified": "2026-09-19 22:17:59.292931",
+      "stock_value": 109920,
+      "valuation_rate": 229,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151138-2MS-2",
+      "modified": "2026-09-19 22:17:59.054663",
+      "stock_value": 0,
+      "valuation_rate": 229,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 240,
+      "item_code": "SH151138-2MS-DR",
+      "modified": "2026-09-19 22:17:59.305700",
+      "stock_value": 54960,
+      "valuation_rate": 229,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151138-2MS-DR",
+      "modified": "2026-09-19 22:17:59.065980",
+      "stock_value": 0,
+      "valuation_rate": 229,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 1200,
+      "item_code": "SH151138-2MS-PR",
+      "modified": "2026-09-19 22:17:59.318314",
+      "stock_value": 274800,
+      "valuation_rate": 229,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151138-2MS-PR",
+      "modified": "2026-09-19 22:17:59.076881",
+      "stock_value": 0,
+      "valuation_rate": 229,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 720,
+      "item_code": "SH151138-2MS-PT",
+      "modified": "2026-09-19 22:17:59.330423",
+      "stock_value": 164880,
+      "valuation_rate": 229,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151138-2MS-PT",
+      "modified": "2026-09-19 22:17:59.087628",
+      "stock_value": 0,
+      "valuation_rate": 229,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 180,
+      "item_code": "SH151145-2MD-1",
+      "modified": "2026-09-19 22:17:59.342957",
+      "stock_value": 65520,
+      "valuation_rate": 364,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151145-2MD-1",
+      "modified": "2026-09-19 22:17:59.098129",
+      "stock_value": 0,
+      "valuation_rate": 364,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 180,
+      "item_code": "SH151145-2MD-2",
+      "modified": "2026-09-19 22:17:59.355058",
+      "stock_value": 65520,
+      "valuation_rate": 364,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151145-2MD-2",
+      "modified": "2026-09-19 22:17:59.108453",
+      "stock_value": 0,
+      "valuation_rate": 364,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 120,
+      "item_code": "SH151145-2MD-DR",
+      "modified": "2026-09-19 22:17:59.367145",
+      "stock_value": 43680,
+      "valuation_rate": 364,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151145-2MD-DR",
+      "modified": "2026-09-19 22:17:59.118661",
+      "stock_value": 0,
+      "valuation_rate": 364,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 480,
+      "item_code": "SH151145-2MD-PR",
+      "modified": "2026-09-19 22:17:59.379832",
+      "stock_value": 174720,
+      "valuation_rate": 364,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151145-2MD-PR",
+      "modified": "2026-09-19 22:17:59.129269",
+      "stock_value": 0,
+      "valuation_rate": 364,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 360,
+      "item_code": "SH151145-2MD-PT",
+      "modified": "2026-09-19 22:17:59.393750",
+      "stock_value": 131040,
+      "valuation_rate": 364,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151145-2MD-PT",
+      "modified": "2026-09-19 22:17:59.139586",
+      "stock_value": 0,
+      "valuation_rate": 364,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 480,
+      "item_code": "SH151152-3MS-1",
+      "modified": "2026-09-19 22:17:59.408063",
+      "stock_value": 153120,
+      "valuation_rate": 319,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151152-3MS-1",
+      "modified": "2026-09-19 22:17:59.151686",
+      "stock_value": 0,
+      "valuation_rate": 319,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 480,
+      "item_code": "SH151152-3MS-2",
+      "modified": "2026-09-19 22:17:59.421879",
+      "stock_value": 153120,
+      "valuation_rate": 319,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151152-3MS-2",
+      "modified": "2026-09-19 22:17:59.162634",
+      "stock_value": 0,
+      "valuation_rate": 319,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 240,
+      "item_code": "SH151152-3MS-DR",
+      "modified": "2026-09-19 22:17:59.435967",
+      "stock_value": 76560,
+      "valuation_rate": 319,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151152-3MS-DR",
+      "modified": "2026-09-19 22:17:59.173854",
+      "stock_value": 0,
+      "valuation_rate": 319,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 1200,
+      "item_code": "SH151152-3MS-PR",
+      "modified": "2026-09-19 22:17:59.449611",
+      "stock_value": 382800,
+      "valuation_rate": 319,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151152-3MS-PR",
+      "modified": "2026-09-19 22:17:59.187926",
+      "stock_value": 0,
+      "valuation_rate": 319,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 720,
+      "item_code": "SH151152-3MS-PT",
+      "modified": "2026-09-19 22:17:59.462227",
+      "stock_value": 229680,
+      "valuation_rate": 319,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151152-3MS-PT",
+      "modified": "2026-09-19 22:17:59.198582",
+      "stock_value": 0,
+      "valuation_rate": 319,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 60,
+      "item_code": "SH151169-3MD-1",
+      "modified": "2026-09-19 22:17:59.477576",
+      "stock_value": 31800,
+      "valuation_rate": 530,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151169-3MD-1",
+      "modified": "2026-09-19 22:17:59.210687",
+      "stock_value": 0,
+      "valuation_rate": 530,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 60,
+      "item_code": "SH151169-3MD-2",
+      "modified": "2026-09-19 22:17:59.490725",
+      "stock_value": 31800,
+      "valuation_rate": 530,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151169-3MD-2",
+      "modified": "2026-09-19 22:17:59.222068",
+      "stock_value": 0,
+      "valuation_rate": 530,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 60,
+      "item_code": "SH151169-3MD-DR",
+      "modified": "2026-09-19 22:17:59.503440",
+      "stock_value": 31800,
+      "valuation_rate": 530,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151169-3MD-DR",
+      "modified": "2026-09-19 22:17:59.234242",
+      "stock_value": 0,
+      "valuation_rate": 530,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 240,
+      "item_code": "SH151169-3MD-PR",
+      "modified": "2026-09-19 22:17:59.516447",
+      "stock_value": 127200,
+      "valuation_rate": 530,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151169-3MD-PR",
+      "modified": "2026-09-19 22:17:59.247281",
+      "stock_value": 0,
+      "valuation_rate": 530,
+      "warehouse": "Stores - SH"
+    },
+    {
+      "actual_qty": 60,
+      "item_code": "SH151169-3MD-PT",
+      "modified": "2026-09-19 22:17:59.529405",
+      "stock_value": 31800,
+      "valuation_rate": 530,
+      "warehouse": "Receiving - SH"
+    },
+    {
+      "actual_qty": 0,
+      "item_code": "SH151169-3MD-PT",
+      "modified": "2026-09-19 22:17:59.258721",
+      "stock_value": 0,
+      "valuation_rate": 530,
+      "warehouse": "Stores - SH"
+    }
+  ],
+  "captured_at": "2026-09-19 23:52:07.808558",
+  "custom_fields": [
+    {
+      "fieldname": "custom_color_abbreviation_item_code",
+      "fieldtype": "Data",
+      "insert_after": "custom_order_code",
+      "label": "Color Abbreviation Item Code",
+      "name": "Item-custom_color_abbreviation_item_code",
+      "options": null
+    },
+    {
+      "fieldname": "custom_item_description_en",
+      "fieldtype": "Data",
+      "insert_after": "custom_order_code",
+      "label": "English Item Description",
+      "name": "Item-custom_item_description_en",
+      "options": null
+    },
+    {
+      "fieldname": "custom_item_description_pt",
+      "fieldtype": "Data",
+      "insert_after": "custom_order_code",
+      "label": "Portuguese Item Description",
+      "name": "Item-custom_item_description_pt",
+      "options": null
+    },
+    {
+      "fieldname": "custom_item_name_en",
+      "fieldtype": "Data",
+      "insert_after": "custom_order_code",
+      "label": "English Item Name",
+      "name": "Item-custom_item_name_en",
+      "options": null
+    },
+    {
+      "fieldname": "custom_item_name_pt",
+      "fieldtype": "Data",
+      "insert_after": "custom_order_code",
+      "label": "Portuguese Item Name",
+      "name": "Item-custom_item_name_pt",
+      "options": null
+    }
+  ],
+  "items": [
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets",
+      "custom_item_description_pt": "25/28 mm; 2 suportes",
+      "custom_item_name_en": "Single Curtain Rod 2m",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151138-2MS",
+      "description": "规格：25/28；2个支架；厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。",
+      "has_variants": 1,
+      "image": null,
+      "item_code": "SH151138-2MS",
+      "item_name": "2米单杆螺旋头 ",
+      "variant_of": null
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "1",
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Red Antique",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Vermelha",
+      "custom_item_name_en": "Single Curtain Rod 2m - Red Antique",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m - Vermelha",
+      "custom_order_code": "SH151138-2MS-1",
+      "custom_spu_code": "SH151138-2MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-single-vermelha-v2.png",
+      "item_code": "SH151138-2MS-1",
+      "item_name": "2米单杆螺旋头  / 红古",
+      "variant_of": "SH151138-2MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "2",
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Antique Bronze",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Bronze Antigo",
+      "custom_item_name_en": "Single Curtain Rod 2m - Antique Bronze",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m - Bronze Antigo",
+      "custom_order_code": "SH151138-2MS-2",
+      "custom_spu_code": "SH151138-2MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-single-bronze-antigo-v2.png",
+      "item_code": "SH151138-2MS-2",
+      "item_name": "2米单杆螺旋头  / 青古",
+      "variant_of": "SH151138-2MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151138-2MS-DR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Gold",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Dourado",
+      "custom_item_name_en": "Single Curtain Rod 2m - Gold",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m - Dourado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151138-2MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dourado.png",
+      "item_code": "SH151138-2MS-DR",
+      "item_name": "2米单杆螺旋头  / 金色",
+      "variant_of": "SH151138-2MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151138-2MS-PR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Black",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Preto",
+      "custom_item_name_en": "Single Curtain Rod 2m - Black",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m - Preto",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151138-2MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-preto.png",
+      "item_code": "SH151138-2MS-PR",
+      "item_name": "2米单杆螺旋头  / 黑色",
+      "variant_of": "SH151138-2MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151138-2MS-PT",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Silver",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Prateado",
+      "custom_item_name_en": "Single Curtain Rod 2m - Silver",
+      "custom_item_name_pt": "Varão de Cortina Simples 2m - Prateado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151138-2MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-prata.png",
+      "item_code": "SH151138-2MS-PT",
+      "item_name": "2米单杆螺旋头  / 银色",
+      "variant_of": "SH151138-2MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets",
+      "custom_item_description_pt": "25/28 mm; 2 suportes",
+      "custom_item_name_en": "Double Curtain Rod 2m",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151145-2MD",
+      "description": "规格：25/28；2个支架；厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。",
+      "has_variants": 1,
+      "image": null,
+      "item_code": "SH151145-2MD",
+      "item_name": "2米双杆螺旋头 ",
+      "variant_of": null
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "1",
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Red Antique",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Vermelha",
+      "custom_item_name_en": "Double Curtain Rod 2m - Red Antique",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m - Vermelha",
+      "custom_order_code": "SH151145-2MD-1",
+      "custom_spu_code": "SH151145-2MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-vermelha-v2.png",
+      "item_code": "SH151145-2MD-1",
+      "item_name": "2米双杆螺旋头  / 红古",
+      "variant_of": "SH151145-2MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "2",
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Antique Bronze",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Bronze Antigo",
+      "custom_item_name_en": "Double Curtain Rod 2m - Antique Bronze",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m - Bronze Antigo",
+      "custom_order_code": "SH151145-2MD-2",
+      "custom_spu_code": "SH151145-2MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-bronze-antigo-v2.png",
+      "item_code": "SH151145-2MD-2",
+      "item_name": "2米双杆螺旋头  / 青古",
+      "variant_of": "SH151145-2MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151145-2MD-DR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Gold",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Dourado",
+      "custom_item_name_en": "Double Curtain Rod 2m - Gold",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m - Dourado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151145-2MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-dourado-v2.png",
+      "item_code": "SH151145-2MD-DR",
+      "item_name": "2米双杆螺旋头  / 金色",
+      "variant_of": "SH151145-2MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151145-2MD-PR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Black",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Preto",
+      "custom_item_name_en": "Double Curtain Rod 2m - Black",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m - Preto",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151145-2MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-preto-v2.png",
+      "item_code": "SH151145-2MD-PR",
+      "item_name": "2米双杆螺旋头  / 黑色",
+      "variant_of": "SH151145-2MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151145-2MD-PT",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 2 brackets; Color: Silver",
+      "custom_item_description_pt": "25/28 mm; 2 suportes; Cor: Prateado",
+      "custom_item_name_en": "Double Curtain Rod 2m - Silver",
+      "custom_item_name_pt": "Varão de Cortina Duplo 2m - Prateado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151145-2MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-prata-v2.png",
+      "item_code": "SH151145-2MD-PT",
+      "item_name": "2米双杆螺旋头  / 银色",
+      "variant_of": "SH151145-2MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets",
+      "custom_item_description_pt": "25/28 mm; 3 suportes",
+      "custom_item_name_en": "Single Curtain Rod 3m",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151152-3MS",
+      "description": "规格：25/28；3个支架；厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。",
+      "has_variants": 1,
+      "image": null,
+      "item_code": "SH151152-3MS",
+      "item_name": "3米单杆螺旋头 ",
+      "variant_of": null
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "1",
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Red Antique",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Vermelha",
+      "custom_item_name_en": "Single Curtain Rod 3m - Red Antique",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m - Vermelha",
+      "custom_order_code": "SH151152-3MS-1",
+      "custom_spu_code": "SH151152-3MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-single-vermelha-v2.png",
+      "item_code": "SH151152-3MS-1",
+      "item_name": "3米单杆螺旋头  / 红古",
+      "variant_of": "SH151152-3MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "2",
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Antique Bronze",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Bronze Antigo",
+      "custom_item_name_en": "Single Curtain Rod 3m - Antique Bronze",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m - Bronze Antigo",
+      "custom_order_code": "SH151152-3MS-2",
+      "custom_spu_code": "SH151152-3MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-single-bronze-antigo-v2.png",
+      "item_code": "SH151152-3MS-2",
+      "item_name": "3米单杆螺旋头  / 青古",
+      "variant_of": "SH151152-3MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151152-3MS-DR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Gold",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Dourado",
+      "custom_item_name_en": "Single Curtain Rod 3m - Gold",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m - Dourado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151152-3MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dourado.png",
+      "item_code": "SH151152-3MS-DR",
+      "item_name": "3米单杆螺旋头  / 金色",
+      "variant_of": "SH151152-3MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151152-3MS-PR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Black",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Preto",
+      "custom_item_name_en": "Single Curtain Rod 3m - Black",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m - Preto",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151152-3MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-preto.png",
+      "item_code": "SH151152-3MS-PR",
+      "item_name": "3米单杆螺旋头  / 黑色",
+      "variant_of": "SH151152-3MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151152-3MS-PT",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Silver",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Prateado",
+      "custom_item_name_en": "Single Curtain Rod 3m - Silver",
+      "custom_item_name_pt": "Varão de Cortina Simples 3m - Prateado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151152-3MS",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-prata.png",
+      "item_code": "SH151152-3MS-PT",
+      "item_name": "3米单杆螺旋头  / 银色",
+      "variant_of": "SH151152-3MS"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets",
+      "custom_item_description_pt": "25/28 mm; 3 suportes",
+      "custom_item_name_en": "Double Curtain Rod 3m",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151169-3MD",
+      "description": "规格：25/28；3个支架；厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。",
+      "has_variants": 1,
+      "image": null,
+      "item_code": "SH151169-3MD",
+      "item_name": "3米双杆螺旋头 ",
+      "variant_of": null
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "1",
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Red Antique",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Vermelha",
+      "custom_item_name_en": "Double Curtain Rod 3m - Red Antique",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m - Vermelha",
+      "custom_order_code": "SH151169-3MD-1",
+      "custom_spu_code": "SH151169-3MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-vermelha-v2.png",
+      "item_code": "SH151169-3MD-1",
+      "item_name": "3米双杆螺旋头  / 红古",
+      "variant_of": "SH151169-3MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": null,
+      "custom_color_code": "2",
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Antique Bronze",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Bronze Antigo",
+      "custom_item_name_en": "Double Curtain Rod 3m - Antique Bronze",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m - Bronze Antigo",
+      "custom_order_code": "SH151169-3MD-2",
+      "custom_spu_code": "SH151169-3MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-bronze-antigo-v2.png",
+      "item_code": "SH151169-3MD-2",
+      "item_name": "3米双杆螺旋头  / 青古",
+      "variant_of": "SH151169-3MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151169-3MD-DR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Gold",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Dourado",
+      "custom_item_name_en": "Double Curtain Rod 3m - Gold",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m - Dourado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151169-3MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-dourado-v2.png",
+      "item_code": "SH151169-3MD-DR",
+      "item_name": "3米双杆螺旋头  / 金色",
+      "variant_of": "SH151169-3MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151169-3MD-PR",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Black",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Preto",
+      "custom_item_name_en": "Double Curtain Rod 3m - Black",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m - Preto",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151169-3MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-preto-v2.png",
+      "item_code": "SH151169-3MD-PR",
+      "item_name": "3米双杆螺旋头  / 黑色",
+      "variant_of": "SH151169-3MD"
+    },
+    {
+      "custom_color_abbreviation_item_code": "SH151169-3MD-PT",
+      "custom_color_code": null,
+      "custom_item_description_en": "25/28 mm; 3 brackets; Color: Silver",
+      "custom_item_description_pt": "25/28 mm; 3 suportes; Cor: Prateado",
+      "custom_item_name_en": "Double Curtain Rod 3m - Silver",
+      "custom_item_name_pt": "Varão de Cortina Duplo 3m - Prateado",
+      "custom_order_code": null,
+      "custom_spu_code": "SH151169-3MD",
+      "description": null,
+      "has_variants": 0,
+      "image": "/assets/solua_home/images/curtain_cards/curtain-swatch-dual-prata-v2.png",
+      "item_code": "SH151169-3MD-PT",
+      "item_name": "3米双杆螺旋头  / 银色",
+      "variant_of": "SH151169-3MD"
+    }
+  ],
+  "prices": [
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151138-2MS-1",
+      "price_list": "Standard Selling",
+      "price_list_rate": 300,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151138-2MS-2",
+      "price_list": "Standard Selling",
+      "price_list_rate": 300,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151138-2MS-DR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 300,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151138-2MS-PR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 300,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151138-2MS-PT",
+      "price_list": "Standard Selling",
+      "price_list_rate": 300,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151145-2MD-1",
+      "price_list": "Standard Selling",
+      "price_list_rate": 460,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151145-2MD-2",
+      "price_list": "Standard Selling",
+      "price_list_rate": 460,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151145-2MD-DR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 460,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151145-2MD-PR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 460,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151145-2MD-PT",
+      "price_list": "Standard Selling",
+      "price_list_rate": 460,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151152-3MS-1",
+      "price_list": "Standard Selling",
+      "price_list_rate": 410,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151152-3MS-2",
+      "price_list": "Standard Selling",
+      "price_list_rate": 410,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151152-3MS-DR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 410,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151152-3MS-PR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 410,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151152-3MS-PT",
+      "price_list": "Standard Selling",
+      "price_list_rate": 410,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151169-3MD-1",
+      "price_list": "Standard Selling",
+      "price_list_rate": 660,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151169-3MD-2",
+      "price_list": "Standard Selling",
+      "price_list_rate": 660,
+      "selling": 1,
+      "valid_from": "2026-09-18",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151169-3MD-DR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 660,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151169-3MD-PR",
+      "price_list": "Standard Selling",
+      "price_list_rate": 660,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    },
+    {
+      "buying": 0,
+      "currency": "MZN",
+      "item_code": "SH151169-3MD-PT",
+      "price_list": "Standard Selling",
+      "price_list_rate": 660,
+      "selling": 1,
+      "valid_from": "2026-09-16",
+      "valid_upto": null
+    }
+  ],
+  "site": "erp.solua.one",
+  "variant_attributes": [
+    {
+      "attribute": "Cor",
+      "attribute_value": null,
+      "item_code": "SH151138-2MS"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Vermelha",
+      "item_code": "SH151138-2MS-1"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Bronze Antigo",
+      "item_code": "SH151138-2MS-2"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Dourado",
+      "item_code": "SH151138-2MS-DR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Preto",
+      "item_code": "SH151138-2MS-PR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Prata",
+      "item_code": "SH151138-2MS-PT"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": null,
+      "item_code": "SH151145-2MD"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Vermelha",
+      "item_code": "SH151145-2MD-1"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Bronze Antigo",
+      "item_code": "SH151145-2MD-2"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Dourado",
+      "item_code": "SH151145-2MD-DR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Preto",
+      "item_code": "SH151145-2MD-PR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Prata",
+      "item_code": "SH151145-2MD-PT"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": null,
+      "item_code": "SH151152-3MS"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Vermelha",
+      "item_code": "SH151152-3MS-1"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Bronze Antigo",
+      "item_code": "SH151152-3MS-2"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Dourado",
+      "item_code": "SH151152-3MS-DR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Preto",
+      "item_code": "SH151152-3MS-PR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Prata",
+      "item_code": "SH151152-3MS-PT"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": null,
+      "item_code": "SH151169-3MD"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Vermelha",
+      "item_code": "SH151169-3MD-1"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Bronze Antigo",
+      "item_code": "SH151169-3MD-2"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Dourado",
+      "item_code": "SH151169-3MD-DR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Preto",
+      "item_code": "SH151169-3MD-PR"
+    },
+    {
+      "attribute": "Cor",
+      "attribute_value": "Prata",
+      "item_code": "SH151169-3MD-PT"
+    }
+  ],
+  "color_mapping": [
+    {
+      "suffix": "1",
+      "portuguese": "Vermelha",
+      "english": "Red Antique",
+      "source": "ERP Item Attribute Cor and user-confirmed color card"
+    },
+    {
+      "suffix": "2",
+      "portuguese": "Bronze Antigo",
+      "english": "Antique Bronze",
+      "source": "ERP Item Attribute Cor and user-confirmed color card"
+    },
+    {
+      "suffix": "3",
+      "portuguese": "Prateado",
+      "english": "Silver",
+      "source": "user-confirmed physical color card"
+    },
+    {
+      "suffix": "4",
+      "portuguese": "Dourado",
+      "english": "Gold",
+      "source": "user-confirmed physical color card"
+    },
+    {
+      "suffix": "5",
+      "portuguese": "Preto",
+      "english": "Black",
+      "source": "user-confirmed physical color card"
+    }
+  ],
+  "user_color_card_source": "C:\\Users\\Yang\\AppData\\Local\\Temp\\codex-clipboard-ae8a6144-8d10-4f2e-9dac-0b47c03cee89.png",
+  "planned_renames": [
+    {
+      "from_suffix": "PR",
+      "to_suffix": "5",
+      "color": "Preto / Black"
+    },
+    {
+      "from_suffix": "PT",
+      "to_suffix": "3",
+      "color": "Prateado / Silver"
+    },
+    {
+      "from_suffix": "DR",
+      "to_suffix": "4",
+      "color": "Dourado / Gold"
+    }
+  ],
+  "backup": {
+    "site": "erp.solua.one",
+    "directory": "/home/frappe/frappe-bench/sites/erp.solua.one/private/backups",
+    "timestamp": "20260919_234637",
+    "files": [
+      {
+        "path": "20260919_234637-erp_solua_one-site_config_backup.json",
+        "sha256": "0d7de2fb87c9737f8f402e9b33df9469434257c6d97e92e0429e99f81b4b3c39"
+      },
+      {
+        "path": "20260919_234637-erp_solua_one-database.sql.gz",
+        "sha256": "163b73358cb91dc69199bf752530e431d97537f0e1c3261528e1ba231bd82a39"
+      },
+      {
+        "path": "20260919_234637-erp_solua_one-files.tgz",
+        "sha256": "03cba1ac5aed25979a9509a1d1f303fff15c48e8746458d5a073ca29600fd676"
+      },
+      {
+        "path": "20260919_234637-erp_solua_one-private-files.tgz",
+        "sha256": "d159776d1839f41af661d587e691670478e2547fc439f747e440d4411e85db8c"
+      }
+    ]
+  }
+}

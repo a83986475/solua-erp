@@ -1,0 +1,51 @@
+{
+  "source_photo": "C:\\Users\\Yang\\AppData\\Local\\Temp\\codex-clipboard-e5f60ad2-0c5d-47fb-93b0-0598572b16f7.jpg",
+  "changed_cards": [
+    "SH151060-06.png",
+    "SH151060-07.png",
+    "SH151060-09.png"
+  ],
+  "copied_unchanged_cards": [
+    "SH151060-01.png",
+    "SH151060-02.png",
+    "SH151060-03.png",
+    "SH151060-04.png",
+    "SH151060-05.png",
+    "SH151060-08.png",
+    "SH151060-10.png"
+  ],
+  "sample_boxes_xyxy": {
+    "06": [
+      1050,
+      590,
+      1205,
+      720
+    ],
+    "07": [
+      65,
+      965,
+      375,
+      1070
+    ],
+    "09": [
+      1080,
+      940,
+      1245,
+      1115
+    ]
+  },
+  "card_count": 10,
+  "thumbnail_count": 10,
+  "card_dimensions": [
+    [
+      1254,
+      1254
+    ]
+  ],
+  "thumbnail_dimensions": [
+    [
+      160,
+      160
+    ]
+  ]
+}

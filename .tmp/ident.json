@@ -1,0 +1,119 @@
+{
+ "ref_page1_lines": 153,
+ "rows": [
+  {
+   "format": "Sales Order DIY",
+   "html_lines": 680,
+   "hit_page1": 72,
+   "hit_all": 280,
+   "ratio_page1": 0.471,
+   "missing_page1": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "NUIT: 402216468",
+    "Tel: 860515423",
+    "N.\u00ba / \u7f16\u53f7: SAL-ORD-2026-00015",
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014"
+   ]
+  },
+  {
+   "format": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09",
+   "html_lines": 560,
+   "hit_page1": 64,
+   "hit_all": 172,
+   "ratio_page1": 0.418,
+   "missing_page1": [
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "Cliente / \u5ba2\u2f3e: HOME STORE, LDA",
+    "Loja / \u2ed4\u5e97: 2\u5e97",
+    "Data / \u2f47\u671f: 2026-09-23",
+    "Prazo de entrega / \u4ea4\u671f: \u2014"
+   ]
+  },
+  {
+   "format": "A4-Designer-Deploy-20260926-v8",
+   "html_lines": 681,
+   "hit_page1": 63,
+   "hit_all": 184,
+   "ratio_page1": 0.412,
+   "missing_page1": [
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "Cliente / \u5ba2\u2f3e: HOME STORE, LDA",
+    "Loja / \u2ed4\u5e97: 2\u5e97",
+    "Data / \u2f47\u671f: 2026-09-23",
+    "Prazo de entrega / \u4ea4\u671f: \u2014"
+   ]
+  },
+  {
+   "format": "Sales Order with Item Image",
+   "html_lines": 361,
+   "hit_page1": 62,
+   "hit_all": 222,
+   "ratio_page1": 0.405,
+   "missing_page1": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "NUIT: 402216468",
+    "MAPUTO",
+    "0001",
+    "Mozambique"
+   ]
+  },
+  {
+   "format": "Sales Order Standard",
+   "html_lines": 366,
+   "hit_page1": 62,
+   "hit_all": 222,
+   "ratio_page1": 0.405,
+   "missing_page1": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "NUIT: 402216468",
+    "MAPUTO",
+    "0001",
+    "Mozambique"
+   ]
+  },
+  {
+   "format": "A4-Designer-Deploy-20260926-v7",
+   "html_lines": 673,
+   "hit_page1": 57,
+   "hit_all": 177,
+   "ratio_page1": 0.373,
+   "missing_page1": [
+    "NUIT: 402216468",
+    "Tel: 860515423",
+    "N.\u00ba / \u7f16\u53f7: SAL-ORD-2026-00015",
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "SAL-ORD-2026-00015 \u00b7 \u8ba2\u8d2d / Encomenda"
+   ]
+  },
+  {
+   "format": "Sales Order PD v2",
+   "html_lines": 24,
+   "hit_page1": 5,
+   "hit_all": 6,
+   "ratio_page1": 0.033,
+   "missing_page1": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Solua Home, Lda",
+    "NUIT: 402216468",
+    "AV.DO TRABALHO N281",
+    "MAPUTO"
+   ]
+  },
+  {
+   "format": "PRINT DESIGN \u9500\u552e\u8ba2\u5355",
+   "error": "the JSON object must be str, bytes or bytearray, not NoneType"
+  },
+  {
+   "format": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248",
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  {
+   "format": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248",
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  {
+   "format": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09",
+   "error": "Error in print format on line 7: format_print_money() got an unexpected keyword argument 'precision'"
+  }
+ ]
+}

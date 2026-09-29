@@ -1,0 +1,35 @@
+{
+ "steps": [],
+ "pf": {
+  "custom_format": 1,
+  "type": "Jinja",
+  "standard": "No",
+  "doc_type": "Sales Order",
+  "module": "Solua Wholesale"
+ },
+ "pf_html_len": 4306,
+ "pf_has_sku_bug": false,
+ "shared_logo_css": [
+  ".solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain;}"
+ ],
+ "so": "SAL-ORD-2026-00015",
+ "html_probe": {
+  "no_jinja": true,
+  "no_undefined": true,
+  "sku_cells": [
+   "",
+   "SKU / \u8d27\u53f7",
+   "SH151015",
+   "SH151022",
+   "SH151039"
+  ],
+  "title": [
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  "global_logo": [
+   "http://erp.solua.one/private/files/SOLUA LOGO.png"
+  ],
+  "company_logo_img": false
+ },
+ "pdf_bytes": 150541
+}

@@ -1,0 +1,60 @@
+{
+  "generated_cards": 38,
+  "dimensions": [
+    1672,
+    941
+  ],
+  "files": [
+    "SH151046-Color-09.png",
+    "SH151046-Color-10.png",
+    "SH151046-Color-11.png",
+    "SH151046-Color-19.png",
+    "SH151046-Color-21.png",
+    "SH151046-Color-27.png",
+    "SH151046-Color-34.png",
+    "SH151046-Color-37.png",
+    "SH151046-Color-43.png",
+    "SH151046-Color-44.png",
+    "SH151060-Color-04.png",
+    "SH151060-Color-06.png",
+    "SH151060-Color-07.png",
+    "SH151060-Color-09.png",
+    "SH151060-Color-11.png",
+    "SH151060-Color-13.png",
+    "SH151060-Color-14.png",
+    "SH151060-Color-15.png",
+    "SH151060-Color-16.png",
+    "SH151060-Color-20.png",
+    "SH151107-Color-01.png",
+    "SH151107-Color-02.png",
+    "SH151107-Color-03.png",
+    "SH151107-Color-04.png",
+    "SH151107-Color-05.png",
+    "SH151107-Color-06.png",
+    "SH151107-Color-07.png",
+    "SH151107-Color-08.png",
+    "SH151107-Color-09.png",
+    "SH151107-Color-10.png",
+    "SH151107-Color-11.png",
+    "SH151107-Color-12.png",
+    "SH151107-Color-13.png",
+    "SH151107-Color-14.png",
+    "SH151107-Color-15.png",
+    "SH151107-Color-16.png",
+    "SH151107-Color-17.png",
+    "SH151107-Color-18.png"
+  ],
+  "follow_up_completion": {
+    "final_white_square_cards": 56,
+    "added_set": "SH151114-01 through SH151114-18, using the user-confirmed SH151107 swatch set",
+    "repaired_cards": [
+      "SH151107-10",
+      "SH151107-11",
+      "SH151046-43",
+      "SH151046-44"
+    ],
+    "output_directory": "final_white_square"
+  },
+  "preview": "thumbnail_preview.png",
+  "mapping_manifest": "mapping_manifest.json"
+}

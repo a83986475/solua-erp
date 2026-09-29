@@ -1,0 +1,123 @@
+{
+ "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+  "print_designer": {
+   "type": "int",
+   "value": "1"
+  },
+  "print_designer_print_format": {
+   "type": "NoneType",
+   "value": "None"
+  },
+  "print_designer_settings": {
+   "type": "NoneType",
+   "value": "None"
+  },
+  "print_designer_header": {
+   "len": 110,
+   "head": "[{\"type\":\"page\",\"childrens\":[],\"firstPage\":true,\"oddPage\":true,\"evenPage\":true,\"lastPage\":true,\"DOMRef\":null}]"
+  },
+  "print_designer_body": {
+   "len": 74,
+   "head": "[{\"type\":\"page\",\"index\":0,\"DOMRef\":null,\"isDropZone\":true,\"childrens\":[]}]"
+  },
+  "print_designer_footer": {
+   "len": 110,
+   "head": "[{\"type\":\"page\",\"childrens\":[],\"firstPage\":true,\"oddPage\":true,\"evenPage\":true,\"lastPage\":true,\"DOMRef\":null}]"
+  },
+  "print_designer_template_app": {
+   "len": 14,
+   "head": "print_designer"
+  },
+  "print_designer_after_table": {
+   "type": "NoneType",
+   "value": "None"
+  },
+  "print_designer_preview_img": {
+   "type": "NoneType",
+   "value": "None"
+  }
+ },
+ "Sales Order PD v2": {
+  "print_designer": {
+   "type": "int",
+   "value": "1"
+  },
+  "print_designer_print_format": {
+   "len": 169769,
+   "head": "{\"header\": {\"firstPage\": [{\"id\": \"nVgRJEHLip\", \"type\": \"rectangle\", \"DOMRef\": null, \"childrens\": [{\"id\": \"LqVzlEKDUJ\", \""
+  },
+  "print_designer_settings": {
+   "len": 6739,
+   "head": "{\"page\":{\"UOM\":\"mm\",\"footerHeight\":148.76171875,\"footerHeightWithMargin\":148.76171875,\"headerHeight\":164.93359375,\"heade"
+  },
+  "print_designer_header": {
+   "len": 31184,
+   "head": "[{\"type\": \"page\", \"childrens\": [{\"id\": \"LqVzlEKDUJ\", \"type\": \"image\", \"isDraggable\": true, \"isResizable\": true, \"isDropZ"
+  },
+  "print_designer_body": {
+   "len": 19093,
+   "head": "[{\"index\": 0, \"type\": \"page\", \"childrens\": [{\"id\": \"QMAeGfVLFx\", \"type\": \"text\", \"content\": \"\", \"contenteditable\": false"
+  },
+  "print_designer_footer": {
+   "len": 2645,
+   "head": "[{\"type\": \"page\", \"childrens\": [{\"id\": \"JaWMTSQSyq\", \"type\": \"text\", \"content\": \"\", \"contenteditable\": false, \"isDynamic"
+  },
+  "print_designer_template_app": {
+   "len": 14,
+   "head": "print_designer"
+  },
+  "print_designer_after_table": {
+   "type": "NoneType",
+   "value": "None"
+  },
+  "print_designer_preview_img": {
+   "len": 65,
+   "head": "/private/files/print_designer-sales_order_pd_v2-preview3f12d3.jpg"
+  }
+ },
+ "Sales Order DIY": {
+  "print_designer": {
+   "type": "int",
+   "value": "1"
+  },
+  "print_designer_print_format": {
+   "len": 163763,
+   "head": "{\"header\":{\"firstPage\":[{\"id\":\"PqTfEeaKTf\",\"type\":\"rectangle\",\"DOMRef\":null,\"childrens\":[{\"id\":\"LqVzlEKDUJ\",\"type\":\"imag"
+  },
+  "print_designer_settings": {
+   "len": 6739,
+   "head": "{\"page\":{\"UOM\":\"mm\",\"footerHeight\":148.76171875,\"footerHeightWithMargin\":148.76171875,\"headerHeight\":164.93359375,\"heade"
+  },
+  "print_designer_header": {
+   "len": 30942,
+   "head": "[{\"type\":\"page\",\"childrens\":[{\"id\":\"LqVzlEKDUJ\",\"type\":\"image\",\"isDraggable\":true,\"isResizable\":true,\"isDropZone\":false,"
+  },
+  "print_designer_body": {
+   "len": 17548,
+   "head": "[{\"index\":0,\"type\":\"page\",\"childrens\":[{\"id\":\"QMAeGfVLFx\",\"type\":\"text\",\"content\":\"\",\"contenteditable\":true,\"isDynamic\":"
+  },
+  "print_designer_footer": {
+   "len": 2529,
+   "head": "[{\"type\":\"page\",\"childrens\":[{\"id\":\"JaWMTSQSyq\",\"type\":\"text\",\"content\":\"\",\"contenteditable\":false,\"isDynamic\":true,\"isF"
+  },
+  "print_designer_template_app": {
+   "len": 14,
+   "head": "print_designer"
+  },
+  "print_designer_after_table": {
+   "type": "NoneType",
+   "value": "None"
+  },
+  "print_designer_preview_img": {
+   "type": "NoneType",
+   "value": "None"
+  }
+ },
+ "_apps": [
+  "frappe",
+  "erpnext",
+  "solua_home",
+  "print_designer",
+  "xpos"
+ ]
+}

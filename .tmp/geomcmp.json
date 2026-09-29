@@ -1,0 +1,177 @@
+{
+ "designer_current_template": {
+  "logo": [
+   [
+    19.5,
+    16.2,
+    15.2,
+    12.4
+   ]
+  ],
+  "title": [
+   [
+    20.0,
+    57.4,
+    79.7,
+    3.9
+   ]
+  ],
+  "left_x": [
+   14.3,
+   15.6,
+   15.9
+  ],
+  "right_x": [
+   70.4,
+   73.8,
+   87.4
+  ],
+  "first_parties_top": 37.6,
+  "lines": [
+   [
+    14.6,
+    14.3,
+    ".print-format{position:relative}.solua-globa"
+   ],
+   [
+    17.2,
+    14.3,
+    "fit:contain;}"
+   ],
+   [
+    20.0,
+    57.4,
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    20.2,
+    118.7,
+    "\u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    37.6,
+    16.0,
+    "Solua Home, Lda"
+   ],
+   [
+    40.2,
+    16.0,
+    "NUIT: 402216468"
+   ],
+   [
+    42.8,
+    16.0,
+    "AV.DO TRABALHO N281"
+   ],
+   [
+    45.5,
+    16.0,
+    "MAPUTO"
+   ]
+  ]
+ },
+ "sales_order_color_format": {
+  "logo": [
+   [
+    10.4,
+    3.4,
+    192.9,
+    156.1
+   ]
+  ],
+  "title": [],
+  "left_x": [
+   3.4
+  ],
+  "right_x": [],
+  "first_parties_top": null,
+  "lines": [
+   [
+    3.8,
+    3.4,
+    ".print-format{position:relative}.solua-globa"
+   ],
+   [
+    7.3,
+    3.4,
+    "\ufb01t:contain;}"
+   ],
+   [
+    10.4,
+    3.4,
+    "546.9x442.6pt"
+   ]
+  ]
+ },
+ "reference_sample": {
+  "logo": [
+   [
+    11.9,
+    11.9,
+    15.4,
+    12.3
+   ]
+  ],
+  "title": [
+   [
+    15.4,
+    66.9,
+    76.0,
+    5.0
+   ]
+  ],
+  "left_x": [
+   11.9,
+   14.0,
+   32.6
+  ],
+  "right_x": [
+   66.9,
+   107.0,
+   128.2
+  ],
+  "first_parties_top": 30.3,
+  "lines": [
+   [
+    15.4,
+    66.9,
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    30.3,
+    14.0,
+    "Solua Home, Lda"
+   ],
+   [
+    34.0,
+    14.0,
+    "NUIT: 402216468"
+   ],
+   [
+    37.7,
+    14.0,
+    "AV.DO TRABALHO N281"
+   ],
+   [
+    41.3,
+    14.0,
+    "MAPUTO"
+   ],
+   [
+    45.0,
+    14.0,
+    "0001"
+   ],
+   [
+    48.7,
+    14.0,
+    "Mozambique"
+   ],
+   [
+    59.6,
+    14.0,
+    "Tel: 860515423"
+   ]
+  ]
+ }
+}

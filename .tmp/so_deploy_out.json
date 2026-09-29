@@ -1,0 +1,175 @@
+{
+ "exists": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09",
+ "pf": {
+  "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09",
+  "doc_type": "Sales Order",
+  "module": "Solua Wholesale",
+  "standard": "No",
+  "custom_format": 1,
+  "disabled": 0
+ },
+ "html_tokens": {
+  "company-header": true,
+  "company-logo": true,
+  "print-format table.items": false,
+  "solua-global-logo": false
+ },
+ "html_len": 4383,
+ "all_so_formats": [
+  {
+   "name": "A4-Designer-Deploy-20260926-v7",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "A4-Designer-Deploy-20260926-v8",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-SalesOrder",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-SalesOrder-Final",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "PRINT DESIGN \u9500\u552e\u8ba2\u5355",
+   "module": "Selling",
+   "disabled": 0
+  },
+  {
+   "name": "Sales Order DIY",
+   "module": "Selling",
+   "disabled": 0
+  },
+  {
+   "name": "Sales Order PD v2",
+   "module": "Selling",
+   "disabled": 1
+  },
+  {
+   "name": "Sales Order Standard",
+   "module": "Selling",
+   "disabled": 0
+  },
+  {
+   "name": "Sales Order with Item Image",
+   "module": "Selling",
+   "disabled": 0
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248",
+   "module": "Solua Wholesale",
+   "disabled": 0
+  }
+ ],
+ "renders": {
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09": {
+   "ok": true,
+   "has_header": true,
+   "has_logo_img": true,
+   "logo_src": [],
+   "title_center": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   "no_jinja": true,
+   "items": 4
+  }
+ },
+ "so": {
+  "name": "SAL-ORD-2026-00015",
+  "customer": "HOME STORE, LDA",
+  "rows": 64,
+  "docstatus": 1
+ },
+ "company_keys": [
+  "address",
+  "logo",
+  "name",
+  "nuit",
+  "phone"
+ ],
+ "company_logo": "http://erp.solua.one/private/files/SOLUA LOGO.png",
+ "regression": {
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "A4-Designer-Deploy-20260927-v9-SalesOrder-Final": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "A4-Designer-Deploy-20260927-v9-SalesOrder": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "A4-Designer-Deploy-20260926-v8": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "A4-Designer-Deploy-20260926-v7": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+   "ok": false,
+   "error": "the JSON object must be str, bytes or bytearray, not NoneType"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248": {
+   "ok": false,
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248": {
+   "ok": false,
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09": {
+   "ok": false,
+   "error": "Error in print format on line 7: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "Sales Order DIY": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "Sales Order with Item Image": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "Sales Order Standard": {
+   "ok": true,
+   "no_jinja": true
+  },
+  "Sales Order PD v2": {
+   "ok": true,
+   "no_jinja": true
+  }
+ }
+}

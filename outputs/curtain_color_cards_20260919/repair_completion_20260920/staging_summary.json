@@ -1,0 +1,41 @@
+{
+  "staged_cards": 22,
+  "staged_thumbnails": 22,
+  "dimensions": [
+    [
+      1254,
+      1254
+    ]
+  ],
+  "cards": [
+    "SH151046-43.png",
+    "SH151046-44.png",
+    "SH151107-10.png",
+    "SH151107-11.png",
+    "SH151114-01.png",
+    "SH151114-02.png",
+    "SH151114-03.png",
+    "SH151114-04.png",
+    "SH151114-05.png",
+    "SH151114-06.png",
+    "SH151114-07.png",
+    "SH151114-08.png",
+    "SH151114-09.png",
+    "SH151114-10.png",
+    "SH151114-11.png",
+    "SH151114-12.png",
+    "SH151114-13.png",
+    "SH151114-14.png",
+    "SH151114-15.png",
+    "SH151114-16.png",
+    "SH151114-17.png",
+    "SH151114-18.png"
+  ],
+  "source_set_for_SH151114": "SH151107-01..18 (user-confirmed same swatch set)",
+  "swatch_pixel_sources": [
+    "SH151107-color-10-source.png upper swatch",
+    "SH151107-color-11-source.png upper swatch",
+    "SH151046-color-43-source.png",
+    "SH151046-color-44-source.png"
+  ]
+}

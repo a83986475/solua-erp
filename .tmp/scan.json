@@ -1,0 +1,67 @@
+[
+ {
+  "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248",
+  "doc_type": "Sales Order",
+  "modified": "2026-09-24 16:27:03.604297",
+  "disabled": 0,
+  "html_base64": 7687,
+  "has_company_img_in_html": true,
+  "h2_center_in_css": true,
+  "rules": [
+   ".print-format .company-header h2{color:#99732c}",
+   ".meta td{width:50%}"
+  ]
+ },
+ {
+  "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248",
+  "doc_type": "Sales Order",
+  "modified": "2026-09-24 16:27:03.502577",
+  "disabled": 0,
+  "html_base64": 7687,
+  "has_company_img_in_html": true,
+  "h2_center_in_css": true,
+  "rules": [
+   ".print-format .company-header h2{color:#99732c}",
+   ".meta td{width:50%}"
+  ]
+ },
+ {
+  "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09",
+  "doc_type": "Sales Order",
+  "modified": "2026-09-24 14:20:48.840727",
+  "disabled": 0,
+  "html_base64": 5516,
+  "has_company_img_in_html": true,
+  "h2_center_in_css": false,
+  "rules": [
+   ".print-format .company-header h2{font-size:18pt;color:#99732c}",
+   ".print-format .meta td{width:50%;border:1px solid #aeb8be;padding:1.5mm;vertical-align:top}"
+  ]
+ },
+ {
+  "name": "\u6279\u53d1\u9500\u552e\u5355\uff08\u989c\u8272\u7248\uff09",
+  "doc_type": "Sales Invoice",
+  "modified": "2026-09-23 23:40:15.057565",
+  "disabled": 0,
+  "html_base64": 4385,
+  "has_company_img_in_html": false,
+  "h2_center_in_css": true,
+  "rules": []
+ },
+ {
+  "name": "XPOS PO A4",
+  "doc_type": "Purchase Order",
+  "modified": "2026-03-10 12:00:00",
+  "disabled": 0,
+  "html_base64": 10014,
+  "has_company_img_in_html": true,
+  "h2_center_in_css": true,
+  "rules": [
+   ".company-logo { max-height: 60px; max-width: 120px; margin-bottom: 6px; }",
+   ".meta-cell { width: 33.333%; padding: 6px 10px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; }",
+   ".meta-cell:nth-child(3n) { border-right: none; }",
+   ".meta-cell .label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; font-weight: 600; margin-bottom: 1px; }",
+   ".meta-cell .value { font-size: 11px; font-weight: 700; color: #222; }"
+  ]
+ }
+]

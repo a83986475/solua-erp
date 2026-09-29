@@ -1,0 +1,110 @@
+{
+ "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+  "creation": "2026-09-26 11:58:58.963613",
+  "modified": "2026-09-26 11:58:58.963613",
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "disabled": 0
+ },
+ "Sales Order DIY": {
+  "creation": "2026-09-22 23:48:34.863112",
+  "modified": "2026-09-26 12:03:40.398143",
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "disabled": 0
+ },
+ "Sales Order PD v2": {
+  "creation": "2024-04-03 12:21:25.382520",
+  "modified": "2024-09-30 12:33:27.571349",
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "disabled": 1
+ },
+ "property_setters": [
+  {
+   "name": "Pick List-main-default_print_format",
+   "doc_type": "Pick List",
+   "value": "\u62e3\u8d27\u5355\uff08\u7b80\u7248\uff09",
+   "creation": "2026-09-26 22:11:51.179419",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Delivery Note-main-default_print_format",
+   "doc_type": "Delivery Note",
+   "value": "Guia de Remessa",
+   "creation": "2026-09-23 23:56:16.579767",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Sales Order-main-default_print_format",
+   "doc_type": "Sales Order",
+   "value": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09",
+   "creation": "2026-09-23 22:20:48.333352",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Request for Quotation-main-default_print_format",
+   "doc_type": "Request for Quotation",
+   "value": "Request for Quotation with Item Image",
+   "creation": "2026-07-16 04:03:21.829672",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Quotation-main-default_print_format",
+   "doc_type": "Quotation",
+   "value": "Quotation with Item Image",
+   "creation": "2026-07-16 04:03:21.784426",
+   "owner": "Administrator"
+  },
+  {
+   "name": "POS Invoice-main-default_print_format",
+   "doc_type": "POS Invoice",
+   "value": "POS Invoice with Item Image",
+   "creation": "2026-07-16 04:03:21.728114",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Purchase Invoice-main-default_print_format",
+   "doc_type": "Purchase Invoice",
+   "value": "Purchase Invoice with Item Image",
+   "creation": "2026-07-16 04:03:21.660518",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Purchase Order-main-default_print_format",
+   "doc_type": "Purchase Order",
+   "value": "Purchase Order with Item Image",
+   "creation": "2026-07-16 04:03:21.603648",
+   "owner": "Administrator"
+  },
+  {
+   "name": "Sales Invoice-main-default_print_format",
+   "doc_type": "Sales Invoice",
+   "value": "Sales Invoice with Item Image",
+   "creation": "2026-07-16 04:03:21.482819",
+   "owner": "Administrator"
+  }
+ ],
+ "doctype_default": [],
+ "default_letterhead": "Company Letterhead - Grey",
+ "company_letterhead": [
+  {
+   "name": "Solua Home, Lda",
+   "default_letter_head": null
+  }
+ ],
+ "doc_letterhead_so": [
+  {
+   "name": "SAL-ORD-2026-00015",
+   "letter_head": "Company Letterhead - Grey"
+  },
+  {
+   "name": "SAL-ORD-2026-00014",
+   "letter_head": "Company Letterhead - Grey"
+  },
+  {
+   "name": "SAL-ORD-2026-00013",
+   "letter_head": "Company Letterhead - Grey"
+  }
+ ]
+}

@@ -1,0 +1,158 @@
+{
+ "designer_current_template": {
+  "logo": [
+   [
+    12.8,
+    7.1,
+    15.2,
+    12.2
+   ]
+  ],
+  "title": [
+   [
+    13.7,
+    63.2,
+    106.3,
+    5.2
+   ]
+  ],
+  "title_center_mm": [
+   116.3
+  ],
+  "party_left_x": [
+   6.8,
+   7.1
+  ],
+  "party_right_x": [
+   71.9,
+   76.9
+  ],
+  "first_party_top": 31.2,
+  "head": [
+   [
+    5.6,
+    5.1,
+    ".print-format{position:relative}.solua-global-"
+   ],
+   [
+    9.5,
+    5.1,
+    "fit:contain;}"
+   ],
+   [
+    13.7,
+    63.2,
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    14.0,
+    144.9,
+    "\u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    31.2,
+    6.8,
+    "Solua Home, Lda"
+   ],
+   [
+    35.1,
+    6.8,
+    "NUIT: 402216468"
+   ]
+  ]
+ },
+ "sales_order_color_format": {
+  "logo": [
+   [
+    10.4,
+    3.4,
+    192.9,
+    156.1
+   ]
+  ],
+  "title": [],
+  "title_center_mm": [],
+  "party_left_x": [],
+  "party_right_x": [],
+  "first_party_top": null,
+  "head": [
+   [
+    3.8,
+    3.4,
+    ".print-format{position:relative}.solua-global-"
+   ],
+   [
+    7.3,
+    3.4,
+    "\ufb01t:contain;}"
+   ],
+   [
+    10.4,
+    3.4,
+    ""
+   ]
+  ]
+ },
+ "reference_sample": {
+  "logo": [
+   [
+    11.9,
+    11.9,
+    15.4,
+    12.3
+   ]
+  ],
+  "title": [
+   [
+    15.4,
+    66.9,
+    76.0,
+    5.0
+   ]
+  ],
+  "title_center_mm": [
+   104.9
+  ],
+  "party_left_x": [
+   14.0,
+   32.6
+  ],
+  "party_right_x": [
+   107.0,
+   128.2
+  ],
+  "first_party_top": 30.3,
+  "head": [
+   [
+    15.4,
+    66.9,
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    30.3,
+    14.0,
+    "Solua Home, Lda"
+   ],
+   [
+    34.0,
+    14.0,
+    "NUIT: 402216468"
+   ],
+   [
+    37.7,
+    14.0,
+    "AV.DO TRABALHO N281"
+   ],
+   [
+    41.3,
+    14.0,
+    "MAPUTO"
+   ],
+   [
+    45.0,
+    14.0,
+    "0001"
+   ]
+  ]
+ }
+}

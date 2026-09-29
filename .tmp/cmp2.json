@@ -1,0 +1,152 @@
+{
+ "ref_lines": 153,
+ "candidates": [
+  {
+   "pdf": "/tmp/cand_Sales_Order_Standard.pdf",
+   "lines": 153,
+   "common": 62,
+   "ratio": 0.405,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "NUIT: 402216468",
+    "MAPUTO",
+    "0001",
+    "Mozambique",
+    "Tel: 860515423"
+   ],
+   "only_cand": [
+    "Customer Name: HOME STORE, LDA",
+    "Delievery Date: 24-09-2026",
+    "Sales Order: SAL-ORD-2026-00015",
+    "Posting Date: 23-09-2026",
+    "Bill From:",
+    "MAPUTO, 0001, Mozambique"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_Sales_Order_with_Item_Image.pdf",
+   "lines": 167,
+   "common": 60,
+   "ratio": 0.392,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Solua Home, Lda",
+    "NUIT: 402216468",
+    "AV.DO TRABALHO N281",
+    "MAPUTO",
+    "0001"
+   ],
+   "only_cand": [
+    "Customer Name:",
+    "HOME STORE, LDA",
+    "Sales Order:",
+    "SAL-ORD-2026-00015",
+    "Bill to:",
+    "Order Date:"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_____________.pdf",
+   "lines": 51,
+   "common": 35,
+   "ratio": 0.229,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "Cliente / \u5ba2\u2f3e: HOME STORE, LDA",
+    "Loja / \u2ed4\u5e97: 2\u5e97",
+    "Data / \u2f47\u671f: 2026-09-23",
+    "Prazo de entrega / \u4ea4\u671f: \u2014"
+   ],
+   "only_cand": [
+    ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-",
+    "\ufb01t:contain;}",
+    "Con\ufb01rma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Cliente / \u5ba2\u6237\u5ba2\u6237: HOME STORE, LDA",
+    "Loja / \u95e8\u5e97: 2\u5e97",
+    "N.\u00ba encomenda cliente / \u5ba2\u6237\u8ba2\u5355\u53f7: \u2014"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_A4-Designer-Deploy-20260926-v8.pdf",
+   "lines": 99,
+   "common": 25,
+   "ratio": 0.163,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "Cliente / \u5ba2\u2f3e: HOME STORE, LDA",
+    "Loja / \u2ed4\u5e97: 2\u5e97",
+    "Data / \u2f47\u671f: 2026-09-23",
+    "Prazo de entrega / \u4ea4\u671f: \u2014"
+   ],
+   "only_cand": [
+    ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-",
+    "\ufb01t:contain;}",
+    "Con\ufb01rma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Cliente / \u5ba2\u6237\u5ba2\u6237: HOME STORE, LDA",
+    "Loja / \u95e8\u5e97: 2\u5e97",
+    "N.\u00ba encomenda cliente / \u5ba2\u6237\u8ba2\u5355\u53f7: \u2014"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_A4-Designer-Deploy-20260926-v7.pdf",
+   "lines": 108,
+   "common": 19,
+   "ratio": 0.124,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "NUIT: 402216468",
+    "Tel: 860515423",
+    "N.\u00ba / \u7f16\u53f7: SAL-ORD-2026-00015",
+    "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014",
+    "SAL-ORD-2026-00015 \u00b7 \u8ba2\u8d2d / Encomenda"
+   ],
+   "only_cand": [
+    ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-",
+    "\ufb01t:contain;}",
+    "Con\ufb01rma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Remetente / \u53d1\u8d27\u4eba\u53d1\u8d27\u4eba",
+    "402216468",
+    "860515423"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_Sales_Order_DIY.pdf",
+   "lines": 26,
+   "common": 0,
+   "ratio": 0.0,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Solua Home, Lda",
+    "NUIT: 402216468",
+    "AV.DO TRABALHO N281",
+    "MAPUTO",
+    "0001"
+   ],
+   "only_cand": [
+    "\u771f\u5b9e\u5546\u54c1\u6761\u7801",
+    "\u7d20\u96c5",
+    "\u91cd\u78c5\u65d7\u8230\u6b3e \uff08",
+    "\u906e\u5149\uff09",
+    "\u7d20\u96c5",
+    "\u6697\u5f71 \uff08"
+   ]
+  },
+  {
+   "pdf": "/tmp/cand_Sales_Order_PD_v2.pdf",
+   "lines": 0,
+   "common": 0,
+   "ratio": 0.0,
+   "only_ref": [
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355",
+    "Solua Home, Lda",
+    "NUIT: 402216468",
+    "AV.DO TRABALHO N281",
+    "MAPUTO",
+    "0001"
+   ],
+   "only_cand": []
+  }
+ ]
+}

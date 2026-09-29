@@ -1,0 +1,91 @@
+{
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09": {
+  "html_len": 5516,
+  "css_len": 1841,
+  "type": "Jinja",
+  "custom_format": 1,
+  "precision_calls": [
+   "format_print_money(item.rate, precision=0)",
+   "format_print_money(item.amount, precision=0)",
+   "format_print_money(doc.grand_total, currency=doc.currency, precision=0)",
+   "format_print_money(p.deposit, precision=0)",
+   "format_print_money(row.payment_amount, precision=0)"
+  ],
+  "fmt_money_calls": [],
+  "has_company_header": true,
+  "h2": [
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  "line6": "<table class=\"items\"><colgroup>{% if show_item_name %}<col data-col=\"name\" class=\"col-item\">{% endif %}{% if show_sku %}<col data-col=\"sku\" class=\"col-sku\">{% endif %}{% if show_color_code %}<col data-col=\"cor\" class=\"col-color-code\">{% endif %}<col data-col=\"barcode\" class=\"col-barcode\">{% if show_description %}<col data-col=\"description\" class=\"col-description\">{% endif %}<col data-col=\"qty\" cla"
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248": {
+  "html_len": 7687,
+  "css_len": 2967,
+  "type": "Jinja",
+  "custom_format": 1,
+  "precision_calls": [
+   "format_print_money(so_item.rate, currency=doc.currency, precision=0)",
+   "format_print_money(item.rate, currency=doc.currency, precision=0)",
+   "format_print_money(item.amount, currency=doc.currency, precision=0)",
+   "format_print_money(doc.grand_total, currency=doc.currency, precision=0)",
+   "format_print_money(p.deposit, currency=doc.currency, precision=0)",
+   "format_print_money(row.payment_amount, currency=doc.currency, precision=0)"
+  ],
+  "fmt_money_calls": [],
+  "has_company_header": true,
+  "h2": [
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  "line6": "{% set so_dynamic = namespace(qty_chars=1, rate_chars=1) %}{% for so_item in p['items'] %}{% set so_qty_text = format_print_qty(so_item.qty) %}{% set so_rate_text = format_print_money(so_item.rate, currency=doc.currency, precision=0) %}{% if so_qty_text|length > so_dynamic.qty_chars %}{% set so_dynamic.qty_chars = so_qty_text|length %}{% endif %}{% if so_rate_text|length > so_dynamic.rate_chars %}"
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248": {
+  "html_len": 7687,
+  "css_len": 3211,
+  "type": "Jinja",
+  "custom_format": 1,
+  "precision_calls": [
+   "format_print_money(so_item.rate, currency=doc.currency, precision=0)",
+   "format_print_money(item.rate, currency=doc.currency, precision=0)",
+   "format_print_money(item.amount, currency=doc.currency, precision=0)",
+   "format_print_money(doc.grand_total, currency=doc.currency, precision=0)",
+   "format_print_money(p.deposit, currency=doc.currency, precision=0)",
+   "format_print_money(row.payment_amount, currency=doc.currency, precision=0)"
+  ],
+  "fmt_money_calls": [],
+  "has_company_header": true,
+  "h2": [
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  "line6": "{% set so_dynamic = namespace(qty_chars=1, rate_chars=1) %}{% for so_item in p['items'] %}{% set so_qty_text = format_print_qty(so_item.qty) %}{% set so_rate_text = format_print_money(so_item.rate, currency=doc.currency, precision=0) %}{% if so_qty_text|length > so_dynamic.qty_chars %}{% set so_dynamic.qty_chars = so_qty_text|length %}{% endif %}{% if so_rate_text|length > so_dynamic.rate_chars %}"
+ },
+ "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+  "type": "Jinja",
+  "custom_format": 0,
+  "standard": "No",
+  "html_len": 0,
+  "css_len": 0,
+  "html_none": true,
+  "css_none": true,
+  "raw_printing": 0,
+  "print_format_builder": 0,
+  "html_head": "",
+  "fields": [
+   "default_print_language",
+   "print_designer",
+   "print_designer_after_table",
+   "print_designer_body",
+   "print_designer_footer",
+   "print_designer_header",
+   "print_designer_preview_img",
+   "print_designer_print_format",
+   "print_designer_settings",
+   "print_designer_template_app",
+   "print_format_builder",
+   "print_format_builder_beta",
+   "print_format_for",
+   "print_format_type",
+   "raw_commands",
+   "raw_printing"
+  ]
+ }
+}

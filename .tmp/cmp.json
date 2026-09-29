@@ -1,0 +1,466 @@
+{
+ "reference": {
+  "texts": 153,
+  "images": [
+   {
+    "kind": "image",
+    "bbox": [
+     33.7,
+     773.3,
+     77.4,
+     808.2
+    ],
+    "size": [
+     43.6,
+     34.9
+    ]
+   }
+  ],
+  "first_lines": [
+   [
+    [
+     189.7,
+     784.2,
+     405.1,
+     798.3
+    ],
+    "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+   ],
+   [
+    [
+     39.6,
+     746.8,
+     115.1,
+     756.1
+    ],
+    "Solua Home, Lda"
+   ],
+   [
+    [
+     39.6,
+     736.4,
+     112.0,
+     745.7
+    ],
+    "NUIT: 402216468"
+   ]
+  ]
+ },
+ "matched": {
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09": {
+   "pdf": "/tmp/cand_____________.pdf",
+   "texts": 51,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": [
+    {
+     "kind": "image",
+     "bbox": [
+      9.8,
+      370.1,
+      556.6,
+      812.7
+     ],
+     "size": [
+      546.9,
+      442.6
+     ]
+    }
+   ]
+  },
+  "A4-Designer-Deploy-20260926-v8": {
+   "pdf": "/tmp/cand_A4-Designer-Deploy-20260926-v8.pdf",
+   "texts": 99,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": [
+    {
+     "kind": "image",
+     "bbox": [
+      68.7,
+      430.3,
+      474.0,
+      758.3
+     ],
+     "size": [
+      405.3,
+      328.0
+     ]
+    }
+   ]
+  },
+  "A4-Designer-Deploy-20260926-v7": {
+   "pdf": "/tmp/cand_A4-Designer-Deploy-20260926-v7.pdf",
+   "texts": 108,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": [
+    {
+     "kind": "image",
+     "bbox": [
+      68.7,
+      430.3,
+      474.0,
+      758.3
+     ],
+     "size": [
+      405.3,
+      328.0
+     ]
+    }
+   ]
+  },
+  "Sales Order DIY": {
+   "pdf": "/tmp/cand_Sales_Order_DIY.pdf",
+   "texts": 26,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": []
+  },
+  "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+   "error": "the JSON object must be str, bytes or bytearray, not NoneType"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248": {
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248": {
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09": {
+   "error": "Error in print format on line 7: format_print_money() got an unexpected keyword argument 'precision'"
+  },
+  "Sales Order Standard": {
+   "pdf": "/tmp/cand_Sales_Order_Standard.pdf",
+   "texts": 153,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": []
+  },
+  "Sales Order with Item Image": {
+   "pdf": "/tmp/cand_Sales_Order_with_Item_Image.pdf",
+   "texts": 167,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": [
+    {
+     "kind": "image",
+     "bbox": [
+      72.6,
+      713.0,
+      86.4,
+      726.8
+     ],
+     "size": [
+      13.8,
+      13.8
+     ]
+    }
+   ]
+  },
+  "Sales Order PD v2": {
+   "pdf": "/tmp/cand_Sales_Order_PD_v2.pdf",
+   "texts": 0,
+   "exact_hits": 0,
+   "ratio": 0.0,
+   "images": []
+  }
+ },
+ "ranking": [
+  [
+   "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09",
+   0.0
+  ],
+  [
+   "Sales Order with Item Image",
+   0.0
+  ],
+  [
+   "Sales Order Standard",
+   0.0
+  ]
+ ],
+ "best_layout_head": [
+  [
+   [
+    9.8,
+    822.0,
+    537.0,
+    831.2
+   ],
+   "text",
+   ".print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:24mm;height:16mm;object-"
+  ],
+  [
+   [
+    9.8,
+    812.2,
+    65.5,
+    821.4
+   ],
+   "text",
+   "\ufb01t:contain;}"
+  ],
+  [
+   [
+    9.8,
+    344.7,
+    241.1,
+    357.0
+   ],
+   "text",
+   "Con\ufb01rma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  [
+   [
+    15.5,
+    323.5,
+    102.9,
+    332.7
+   ],
+   "text",
+   "Solua Home, Lda"
+  ],
+  [
+   [
+    15.5,
+    313.7,
+    95.3,
+    322.9
+   ],
+   "text",
+   "NUIT: 402216468"
+  ],
+  [
+   [
+    15.5,
+    303.9,
+    123.9,
+    313.1
+   ],
+   "text",
+   "AV.DO TRABALHO N281"
+  ],
+  [
+   [
+    15.5,
+    294.1,
+    55.0,
+    303.3
+   ],
+   "text",
+   "MAPUTO"
+  ],
+  [
+   [
+    15.5,
+    284.3,
+    39.0,
+    293.6
+   ],
+   "text",
+   "0001"
+  ],
+  [
+   [
+    15.5,
+    274.5,
+    74.3,
+    283.8
+   ],
+   "text",
+   "Mozambique"
+  ],
+  [
+   [
+    15.5,
+    245.1,
+    86.6,
+    254.4
+   ],
+   "text",
+   "Tel: 860515423"
+  ],
+  [
+   [
+    302.8,
+    323.0,
+    470.2,
+    332.7
+   ],
+   "text",
+   "Cliente / \u5ba2\u6237\u5ba2\u6237: HOME STORE, LDA"
+  ],
+  [
+   [
+    302.8,
+    313.7,
+    382.6,
+    322.9
+   ],
+   "text",
+   "NUIT: 401661646"
+  ],
+  [
+   [
+    302.8,
+    303.4,
+    370.1,
+    313.1
+   ],
+   "text",
+   "Loja / \u95e8\u5e97: 2\u5e97"
+  ],
+  [
+   [
+    302.8,
+    294.1,
+    417.1,
+    303.3
+   ],
+   "text",
+   "AV.JOSINA MACHEL N115"
+  ]
+ ],
+ "ref_head": [
+  [
+   [
+    189.7,
+    784.2,
+    405.1,
+    798.3
+   ],
+   "text",
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  [
+   [
+    39.6,
+    746.8,
+    115.1,
+    756.1
+   ],
+   "text",
+   "Solua Home, Lda"
+  ],
+  [
+   [
+    39.6,
+    736.4,
+    112.0,
+    745.7
+   ],
+   "text",
+   "NUIT: 402216468"
+  ],
+  [
+   [
+    39.6,
+    725.9,
+    144.5,
+    735.2
+   ],
+   "text",
+   "AV.DO TRABALHO N281"
+  ],
+  [
+   [
+    39.6,
+    715.4,
+    79.2,
+    724.7
+   ],
+   "text",
+   "MAPUTO"
+  ],
+  [
+   [
+    39.6,
+    704.9,
+    60.3,
+    714.2
+   ],
+   "text",
+   "0001"
+  ],
+  [
+   [
+    39.6,
+    694.5,
+    92.9,
+    703.8
+   ],
+   "text",
+   "Mozambique"
+  ],
+  [
+   [
+    39.6,
+    663.6,
+    103.3,
+    672.9
+   ],
+   "text",
+   "Tel: 860515423"
+  ],
+  [
+   [
+    39.6,
+    620.0,
+    178.0,
+    631.2
+   ],
+   "text",
+   "N.\u00ba / \u7f16\u53f7: SAL-ORD-2026-00015"
+  ],
+  [
+   [
+    39.6,
+    609.5,
+    201.8,
+    620.8
+   ],
+   "text",
+   "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014"
+  ],
+  [
+   [
+    39.6,
+    581.0,
+    218.1,
+    592.2
+   ],
+   "text",
+   "SAL-ORD-2026-00015 \u00b7 \u8ba2\u8d2d / Encomenda"
+  ],
+  [
+   [
+    303.2,
+    746.8,
+    453.1,
+    758.1
+   ],
+   "text",
+   "Cliente / \u5ba2\u2f3e: HOME STORE, LDA"
+  ],
+  [
+   [
+    303.2,
+    736.4,
+    375.7,
+    745.7
+   ],
+   "text",
+   "NUIT: 401661646"
+  ],
+  [
+   [
+    303.2,
+    725.9,
+    366.9,
+    737.2
+   ],
+   "text",
+   "Loja / \u2ed4\u5e97: 2\u5e97"
+  ]
+ ]
+}

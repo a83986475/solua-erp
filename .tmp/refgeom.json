@@ -1,0 +1,579 @@
+{
+ "page_height_pt": 841.9,
+ "header_items": [
+  {
+   "kind": "image",
+   "x_mm": [
+    11.9,
+    27.3
+   ],
+   "from_top_mm": [
+    11.9,
+    24.2
+   ],
+   "w_mm": 15.4,
+   "h_mm": 12.3
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    66.9,
+    142.9
+   ],
+   "from_top_mm": [
+    15.4,
+    20.4
+   ],
+   "w_mm": 76.0,
+   "h_mm": 5.0,
+   "text": "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    159.8
+   ],
+   "from_top_mm": [
+    29.6,
+    33.5
+   ],
+   "w_mm": 52.9,
+   "h_mm": 4.0,
+   "text": "Cliente / \u5ba2\u2f3e: HOME STORE, LDA"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    40.6
+   ],
+   "from_top_mm": [
+    30.3,
+    33.5
+   ],
+   "w_mm": 26.6,
+   "h_mm": 3.3,
+   "text": "Solua Home, Lda"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    39.5
+   ],
+   "from_top_mm": [
+    33.9,
+    37.2
+   ],
+   "w_mm": 25.6,
+   "h_mm": 3.3,
+   "text": "NUIT: 402216468"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    132.5
+   ],
+   "from_top_mm": [
+    33.9,
+    37.2
+   ],
+   "w_mm": 25.6,
+   "h_mm": 3.3,
+   "text": "NUIT: 401661646"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    129.4
+   ],
+   "from_top_mm": [
+    36.9,
+    40.9
+   ],
+   "w_mm": 22.5,
+   "h_mm": 4.0,
+   "text": "Loja / \u2ed4\u5e97: 2\u5e97"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    51.0
+   ],
+   "from_top_mm": [
+    37.6,
+    40.9
+   ],
+   "w_mm": 37.0,
+   "h_mm": 3.3,
+   "text": "AV.DO TRABALHO N281"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    28.0
+   ],
+   "from_top_mm": [
+    41.3,
+    44.6
+   ],
+   "w_mm": 14.0,
+   "h_mm": 3.3,
+   "text": "MAPUTO"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    146.4
+   ],
+   "from_top_mm": [
+    41.3,
+    44.6
+   ],
+   "w_mm": 39.4,
+   "h_mm": 3.3,
+   "text": "AV.JOSINA MACHEL N115"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    21.3
+   ],
+   "from_top_mm": [
+    45.0,
+    48.3
+   ],
+   "w_mm": 7.3,
+   "h_mm": 3.3,
+   "text": "0001"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    122.7
+   ],
+   "from_top_mm": [
+    45.0,
+    48.3
+   ],
+   "w_mm": 15.8,
+   "h_mm": 3.3,
+   "text": "MACHAVA"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    32.8
+   ],
+   "from_top_mm": [
+    48.7,
+    52.0
+   ],
+   "w_mm": 18.8,
+   "h_mm": 3.3,
+   "text": "Mozambique"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    120.2
+   ],
+   "from_top_mm": [
+    48.7,
+    52.0
+   ],
+   "w_mm": 13.2,
+   "h_mm": 3.3,
+   "text": "MATOLA"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    114.3
+   ],
+   "from_top_mm": [
+    52.2,
+    55.5
+   ],
+   "w_mm": 7.3,
+   "h_mm": 3.3,
+   "text": "0001"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    125.8
+   ],
+   "from_top_mm": [
+    55.9,
+    59.2
+   ],
+   "w_mm": 18.8,
+   "h_mm": 3.3,
+   "text": "Mozambique"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    36.4
+   ],
+   "from_top_mm": [
+    59.6,
+    62.9
+   ],
+   "w_mm": 22.5,
+   "h_mm": 3.3,
+   "text": "Tel: 860515423"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    137.3
+   ],
+   "from_top_mm": [
+    67.0,
+    70.3
+   ],
+   "w_mm": 30.4,
+   "h_mm": 3.3,
+   "text": "YANGYANG CHEN \u00b7"
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    11.9,
+    104.9
+   ],
+   "from_top_mm": [
+    72.5,
+    72.7
+   ],
+   "w_mm": 93.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    104.9,
+    197.9
+   ],
+   "from_top_mm": [
+    72.5,
+    72.7
+   ],
+   "w_mm": 93.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    62.8
+   ],
+   "from_top_mm": [
+    74.3,
+    78.3
+   ],
+   "w_mm": 48.9,
+   "h_mm": 4.0,
+   "text": "N.\u00ba / \u7f16\u53f7: SAL-ORD-2026-00015"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    141.8
+   ],
+   "from_top_mm": [
+    74.3,
+    78.3
+   ],
+   "w_mm": 34.9,
+   "h_mm": 4.0,
+   "text": "Data / \u2f47\u671f: 2026-09-23"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    71.2
+   ],
+   "from_top_mm": [
+    78.0,
+    82.0
+   ],
+   "w_mm": 57.2,
+   "h_mm": 4.0,
+   "text": "N.\u00ba encomenda cliente / \u5ba2\u2f3e\u8ba2\u5355\u53f7: \u2014"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    107.0,
+    146.6
+   ],
+   "from_top_mm": [
+    78.0,
+    82.0
+   ],
+   "w_mm": 39.6,
+   "h_mm": 4.0,
+   "text": "Prazo de entrega / \u4ea4\u671f: \u2014"
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    11.9,
+    104.9
+   ],
+   "from_top_mm": [
+    84.2,
+    84.4
+   ],
+   "w_mm": 93.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    104.9,
+    197.9
+   ],
+   "from_top_mm": [
+    84.2,
+    84.4
+   ],
+   "w_mm": 93.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    11.9,
+    198.1
+   ],
+   "from_top_mm": [
+    86.4,
+    94.2
+   ],
+   "w_mm": 186.2,
+   "h_mm": 7.8
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    77.0
+   ],
+   "from_top_mm": [
+    88.1,
+    92.1
+   ],
+   "w_mm": 63.0,
+   "h_mm": 4.0,
+   "text": "SAL-ORD-2026-00015 \u00b7 \u8ba2\u8d2d / Encomenda"
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    11.9,
+    30.6
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 18.7,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    30.6,
+    54.8
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 24.2,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    54.8,
+    93.6
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 38.8,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    93.6,
+    126.1
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 32.4,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    126.1,
+    151.1
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 25.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    151.1,
+    160.3
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 9.2,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    160.3,
+    177.4
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 17.0,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "LTRect",
+   "x_mm": [
+    177.4,
+    198.1
+   ],
+   "from_top_mm": [
+    94.2,
+    94.4
+   ],
+   "w_mm": 20.7,
+   "h_mm": 0.2
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    32.6,
+    48.6
+   ],
+   "from_top_mm": [
+    96.1,
+    100.1
+   ],
+   "w_mm": 16.1,
+   "h_mm": 4.0,
+   "text": "SKU / \u8d27\u53f7"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    57.0,
+    119.5
+   ],
+   "from_top_mm": [
+    96.1,
+    100.1
+   ],
+   "w_mm": 62.5,
+   "h_mm": 4.0,
+   "text": "\u6761\u7801 / C\u00f3digo de barras \u63cf\u8ff0 / Descri\u00e7\u00e3o"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    179.4,
+    196.1
+   ],
+   "from_top_mm": [
+    96.1,
+    100.1
+   ],
+   "w_mm": 16.7,
+   "h_mm": 4.0,
+   "text": "Valor / \u2fa6\u989d"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    14.0,
+    24.4
+   ],
+   "from_top_mm": [
+    96.8,
+    100.1
+   ],
+   "w_mm": 10.4,
+   "h_mm": 3.3,
+   "text": "Artigo /"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    128.2,
+    145.2
+   ],
+   "from_top_mm": [
+    96.8,
+    100.1
+   ],
+   "w_mm": 17.0,
+   "h_mm": 3.3,
+   "text": "Quantidade"
+  },
+  {
+   "kind": "text",
+   "x_mm": [
+    153.1,
+    172.7
+   ],
+   "from_top_mm": [
+    96.8,
+    100.1
+   ],
+   "w_mm": 19.6,
+   "h_mm": 3.3,
+   "text": "Un. Pre\u00e7o /"
+  }
+ ]
+}

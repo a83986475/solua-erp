@@ -1,0 +1,2804 @@
+{
+  "sources": [
+    {
+      "id": "order",
+      "path": "D:/WeChat/xwechat_files/chenyangyang_7cef/msg/file/2026-09/莫桑比克窗帘下单(1)(1).xlsx",
+      "summary": "{\"kind\":\"workbook\",\"id\":\"wb/bbiphy\",\"sheets\":2,\"tables\":2}\n{\"kind\":\"sheet\",\"id\":\"ws/j0wam4\",\"name\":\"Sheet1\",\"index\":0,\"range\":\"A1:S59\",\"address\":\"A1:S59\",\"tables\":1}\n{\"kind\":\"table\",\"sheet\":\"Sheet1\",\"address\":\"A1:S59\",\"rows\":59,\"cols\":19,\"values\":[[\"兰丰纺织报价单\",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[\"客户名：莫桑比克\",null,null,\"报价时间：2026.5.8\",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[\"图片\",\"属性\",\"商品名称\",\"基础单位\",\"售价（元/条）\",\"米克重（g）\",\"6.8 件数\",\"色号\",\"件数\",\"预估装箱数\",\"压缩包体积\",\"规格\",\"颜色\",\"总条数\",\"总体积\",\"总金额\",\"货号\",\"条码\",\"唛头\"],[null,\"处理\",\"麻布窗帘\\n（麻料不遮光）\",\"条\",13,\"360-500\",50,\"紫色不要,灰色系多拿，其它混装\",null,90,0.2,\"140*260CM\",\"除红黄绿紫粉，其他颜色都可做\",4500,10,58500,\"C-MB\\nSH151015\",\"2026061151015\",null],[null,\"正货\",\"黑丝全遮光\\n（95%遮光）\",\"条\",34,\"900-1100\",10,\"混装，色卡有的颜色尽量全有\",null,70,0.2,\"140*260CM\",\"混色，定做\",700,2,23800,\"A-HS\\nSH151022\",\"2026061151022\",null],[null,\"处理\",\"科技布\\n\\n（不遮光）\",\"条\",11.6,\"380-450\",50,\"不要紫色，亮蓝色\\n灰色系多拿，其它混装\",null,110,0.2,\"140*260CM\",\"除红黄绿紫粉，其他颜色都可做\",5500,10,63800,\"C-KJ\\nSH151039\",\"2026061151039\",null],[null,\"正货\",\"单面光压花\\n（95%遮光）\",\"条\",25,580,30,\"9号（清装）\",3,80,0.2,\"140*260CM\",\"混色，定做，\\n每款花型每个颜色各一包\",2400,6,60000,\"B-DY\\nSH151046\",\"2026061151046\",null],[null,null,null,null,null,null,null,\"10号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"11号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"19号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"21号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"27号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"34号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"37号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"43号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"44号（清装）\",3,null,null,null,null,null,null,null,null,null,null],[null,\"处理\",\"绒布\\n（有绒毛）\",\"条\",20,\"560-600\",40,\"不要紫色，灰色系多拿，其它混装\",null,60,0.2,\"140*260CM\",\"除红黄绿紫粉，其他颜色都可做\",2400,8,48000,\"C-RB\\nSH151053\",\"2026061151053\",null],[null,null,\"单面绒\",\"条\",25,800,10,\"清装：每个颜色各1件\",null,80,0.2,\"140*260CM\",\"混色，定做\",800,2,20000,\"B-DR\\nSH151060\",\"2026061151060\",null],[null,\"处理\",\"涂层\\n（100%遮光）\",\"条\",19,\"720-800\",45,\"不要白色，灰色系多拿\\n其它混装\",null,80,0.2,\"140*260CM\",\"浅色\",3600,9,68400,\"C-TC\\nSH151077\",\"2026061151077\",null],[null,\"处理\",\"彩膜\\n（覆膜，100%遮光）\",\"条\",19,\"380-420\",45,\"不要紫色，灰色系多拿，其它混装\",null,100,0.2,\"140*260CM\",\"除红黄绿紫粉，其他颜色都可做\",4500,9,85500,\"C-CM\\nSH151084\",\"2026061151084\",null],[null,\"处理\",\"工程纱（竖条蕾丝）\\n（不遮光）\",\"条\",14,\"330-450\",10,\"不要紫色，混装\",null,100,0.2,\"140*260CM\",\"白色\",1000,2,14000,\"C-GS\\nSH151091\",\"2026061151091\",null],[null,\"正货\",\"双面无光烫金\\n（90%遮光）\",\"条\",25,\"560-600\",20,\"1号（清装）\",1,80,0.2,\"140*260CM\",\"（20+）混色，定做\",1600,4,40000,\"B-ST\\nSH151107\",\"2026061151107\",null],[null,null,null,null,null,null,null,\"2号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"3号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"4号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"5号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"6号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"7号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"8号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"9号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"10号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"11号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"12号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"13号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"14号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"15号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"16号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"17号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"18号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,\"正货\",\"双面无光\\n（90%遮光）\",\"条\",22,\"560-600\",30,\"1号（清装）\",2,85,0.2,\"140*260CM\",\"（20+）混色，定做\",2550,6,56100,\"B-SW\\nSH151114\",\"2026061151114\",null],[null,null,null,null,null,null,null,\"2号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"3号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"4号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"5号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"6号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"7号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"8号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"9号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"10号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"11号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"12号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"13号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"14号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"15号（清装）\",2,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"16号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"17号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,\"18号（清装）\",1,null,null,null,null,null,null,null,null,null,null],[null,\"处理\",\"新品\\n（95%遮光）\",\"条\",26,\"950-1100\",30,\"不要紫色，灰色系多拿，其它混装\",null,70,0.2,\"140*260CM\",\"混色\",2100,6,54600,\"B-XP\\nSH151121\",\"2026061151121\",null],[\"合计\",null,null,null,null,null,370,null,null,null,null,null,null,31650,74,592700,null,null,null]]}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":16510,\"colOffsetEmu\":396240,\"rowOffsetPx\":2,\"colOffsetPx\":42},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1743710,\"colOffsetEmu\":2073910,\"rowOffsetPx\":183,\"colOffsetPx\":218}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":185420,\"colOffsetEmu\":347980,\"rowOffsetPx\":19,\"colOffsetPx\":37},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1903095,\"colOffsetEmu\":1967230,\"rowOffsetPx\":200,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":16,\"col\":0,\"rowOffsetEmu\":70485,\"colOffsetEmu\":253365,\"rowOffsetPx\":7,\"colOffsetPx\":27},\"to\":{\"row\":16,\"col\":0,\"rowOffsetEmu\":1689735,\"colOffsetEmu\":2413635,\"rowOffsetPx\":177,\"colOffsetPx\":253}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":217805,\"colOffsetEmu\":9525,\"rowOffsetPx\":23,\"colOffsetPx\":1},\"to\":{\"row\":14,\"col\":1,\"rowOffsetEmu\":315595,\"colOffsetEmu\":0,\"rowOffsetPx\":33,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":20,\"col\":0,\"rowOffsetEmu\":39370,\"colOffsetEmu\":88900,\"rowOffsetPx\":4,\"colOffsetPx\":9},\"to\":{\"row\":20,\"col\":0,\"rowOffsetEmu\":1672590,\"colOffsetEmu\":2402840,\"rowOffsetPx\":176,\"colOffsetPx\":252}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":27,\"col\":0,\"rowOffsetEmu\":15875,\"colOffsetEmu\":88900,\"rowOffsetPx\":2,\"colOffsetPx\":9},\"to\":{\"row\":32,\"col\":1,\"rowOffsetEmu\":243840,\"colOffsetEmu\":0,\"rowOffsetPx\":26,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":57,\"col\":0,\"rowOffsetEmu\":26670,\"colOffsetEmu\":685800,\"rowOffsetPx\":3,\"colOffsetPx\":72},\"to\":{\"row\":57,\"col\":0,\"rowOffsetEmu\":1758315,\"colOffsetEmu\":1983740,\"rowOffsetPx\":185,\"colOffsetPx\":208}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":19,\"col\":0,\"rowOffsetEmu\":171450,\"colOffsetEmu\":26670,\"rowOffsetPx\":18,\"colOffsetPx\":3},\"to\":{\"row\":19,\"col\":0,\"rowOffsetEmu\":1285240,\"colOffsetEmu\":2590800,\"rowOffsetPx\":135,\"colOffsetPx\":272}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":13970,\"colOffsetEmu\":26670,\"rowOffsetPx\":1,\"colOffsetPx\":3},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1198245,\"colOffsetEmu\":2813685,\"rowOffsetPx\":126,\"colOffsetPx\":295}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":42,\"col\":0,\"rowOffsetEmu\":193675,\"colOffsetEmu\":9525,\"rowOffsetPx\":20,\"colOffsetPx\":1},\"to\":{\"row\":49,\"col\":1,\"rowOffsetEmu\":290830,\"colOffsetEmu\":0,\"rowOffsetPx\":31,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":18,\"col\":0,\"rowOffsetEmu\":21590,\"colOffsetEmu\":311150,\"rowOffsetPx\":2,\"colOffsetPx\":33},\"to\":{\"row\":18,\"col\":0,\"rowOffsetEmu\":1771650,\"colOffsetEmu\":2576830,\"rowOffsetPx\":186,\"colOffsetPx\":271}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image12.png\",\"anchor\":{\"from\":{\"row\":17,\"col\":19,\"rowOffsetEmu\":118745,\"colOffsetEmu\":185420,\"rowOffsetPx\":12,\"colOffsetPx\":19},\"to\":{\"row\":17,\"col\":21,\"rowOffsetEmu\":1670685,\"colOffsetEmu\":267970,\"rowOffsetPx\":175,\"colOffsetPx\":28}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image13.png\",\"anchor\":{\"from\":{\"row\":14,\"col\":18,\"rowOffsetEmu\":5080,\"colOffsetEmu\":133985,\"rowOffsetPx\":1,\"colOffsetPx\":14},\"to\":{\"row\":17,\"col\":19,\"rowOffsetEmu\":183515,\"colOffsetEmu\":0,\"rowOffsetPx\":19,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image14.jpeg\",\"anchor\":{\"from\":{\"row\":33,\"col\":19,\"rowOffsetEmu\":10160,\"colOffsetEmu\":128905,\"rowOffsetPx\":1,\"colOffsetPx\":14},\"to\":{\"row\":44,\"col\":24,\"rowOffsetEmu\":238760,\"colOffsetEmu\":72390,\"rowOffsetPx\":25,\"colOffsetPx\":8}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image15.jpeg\",\"anchor\":{\"from\":{\"row\":44,\"col\":19,\"rowOffsetEmu\":349250,\"colOffsetEmu\":106045,\"rowOffsetPx\":37,\"colOffsetPx\":11},\"to\":{\"row\":57,\"col\":24,\"rowOffsetEmu\":495300,\"colOffsetEmu\":62865,\"rowOffsetPx\":52,\"colOffsetPx\":7}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image16.jpeg\",\"anchor\":{\"from\":{\"row\":20,\"col\":19,\"rowOffsetEmu\":1795145,\"colOffsetEmu\":104140,\"rowOffsetPx\":188,\"colOffsetPx\":11},\"to\":{\"row\":32,\"col\":24,\"rowOffsetEmu\":271780,\"colOffsetEmu\":125095,\"rowOffsetPx\":29,\"colOffsetPx\":13}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image17.jpeg\",\"anchor\":{\"from\":{\"row\":6,\"col\":19,\"rowOffsetEmu\":80645,\"colOffsetEmu\":56515,\"rowOffsetPx\":8,\"colOffsetPx\":6},\"to\":{\"row\":14,\"col\":21,\"rowOffsetEmu\":76200,\"colOffsetEmu\":587375,\"rowOffsetPx\":8,\"colOffsetPx\":62}}}\n{\"kind\":\"notice\",\"message\":\"Truncated: omitted 3 lines. Increase maxChars, narrow range, or use tableMaxRows/tableMaxCols/tableMaxCellChars.\"}",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "usedAddress": "A1:S59",
+          "rowCount": 59,
+          "colCount": 19,
+          "nonEmptyRows": [
+            {
+              "row": 1,
+              "values": [
+                "兰丰纺织报价单",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 2,
+              "values": [
+                "客户名：莫桑比克",
+                null,
+                null,
+                "报价时间：2026.5.8",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 3,
+              "values": [
+                "图片",
+                "属性",
+                "商品名称",
+                "基础单位",
+                "售价（元/条）",
+                "米克重（g）",
+                "6.8 件数",
+                "色号",
+                "件数",
+                "预估装箱数",
+                "压缩包体积",
+                "规格",
+                "颜色",
+                "总条数",
+                "总体积",
+                "总金额",
+                "货号",
+                "条码",
+                "唛头"
+              ]
+            },
+            {
+              "row": 4,
+              "values": [
+                null,
+                "处理",
+                "麻布窗帘\n（麻料不遮光）",
+                "条",
+                13,
+                "360-500",
+                50,
+                "紫色不要,灰色系多拿，其它混装",
+                null,
+                90,
+                0.2,
+                "140*260CM",
+                "除红黄绿紫粉，其他颜色都可做",
+                4500,
+                10,
+                58500,
+                "C-MB\nSH151015",
+                "2026061151015",
+                null
+              ]
+            },
+            {
+              "row": 5,
+              "values": [
+                null,
+                "正货",
+                "黑丝全遮光\n（95%遮光）",
+                "条",
+                34,
+                "900-1100",
+                10,
+                "混装，色卡有的颜色尽量全有",
+                null,
+                70,
+                0.2,
+                "140*260CM",
+                "混色，定做",
+                700,
+                2,
+                23800,
+                "A-HS\nSH151022",
+                "2026061151022",
+                null
+              ]
+            },
+            {
+              "row": 6,
+              "values": [
+                null,
+                "处理",
+                "科技布\n\n（不遮光）",
+                "条",
+                11.6,
+                "380-450",
+                50,
+                "不要紫色，亮蓝色\n灰色系多拿，其它混装",
+                null,
+                110,
+                0.2,
+                "140*260CM",
+                "除红黄绿紫粉，其他颜色都可做",
+                5500,
+                10,
+                63800,
+                "C-KJ\nSH151039",
+                "2026061151039",
+                null
+              ]
+            },
+            {
+              "row": 7,
+              "values": [
+                null,
+                "正货",
+                "单面光压花\n（95%遮光）",
+                "条",
+                25,
+                580,
+                30,
+                "9号（清装）",
+                3,
+                80,
+                0.2,
+                "140*260CM",
+                "混色，定做，\n每款花型每个颜色各一包",
+                2400,
+                6,
+                60000,
+                "B-DY\nSH151046",
+                "2026061151046",
+                null
+              ]
+            },
+            {
+              "row": 8,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "10号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 9,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "11号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 10,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "19号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 11,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "21号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 12,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "27号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 13,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "34号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 14,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "37号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 15,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "43号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 16,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "44号（清装）",
+                3,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 17,
+              "values": [
+                null,
+                "处理",
+                "绒布\n（有绒毛）",
+                "条",
+                20,
+                "560-600",
+                40,
+                "不要紫色，灰色系多拿，其它混装",
+                null,
+                60,
+                0.2,
+                "140*260CM",
+                "除红黄绿紫粉，其他颜色都可做",
+                2400,
+                8,
+                48000,
+                "C-RB\nSH151053",
+                "2026061151053",
+                null
+              ]
+            },
+            {
+              "row": 18,
+              "values": [
+                null,
+                null,
+                "单面绒",
+                "条",
+                25,
+                800,
+                10,
+                "清装：每个颜色各1件",
+                null,
+                80,
+                0.2,
+                "140*260CM",
+                "混色，定做",
+                800,
+                2,
+                20000,
+                "B-DR\nSH151060",
+                "2026061151060",
+                null
+              ]
+            },
+            {
+              "row": 19,
+              "values": [
+                null,
+                "处理",
+                "涂层\n（100%遮光）",
+                "条",
+                19,
+                "720-800",
+                45,
+                "不要白色，灰色系多拿\n其它混装",
+                null,
+                80,
+                0.2,
+                "140*260CM",
+                "浅色",
+                3600,
+                9,
+                68400,
+                "C-TC\nSH151077",
+                "2026061151077",
+                null
+              ]
+            },
+            {
+              "row": 20,
+              "values": [
+                null,
+                "处理",
+                "彩膜\n（覆膜，100%遮光）",
+                "条",
+                19,
+                "380-420",
+                45,
+                "不要紫色，灰色系多拿，其它混装",
+                null,
+                100,
+                0.2,
+                "140*260CM",
+                "除红黄绿紫粉，其他颜色都可做",
+                4500,
+                9,
+                85500,
+                "C-CM\nSH151084",
+                "2026061151084",
+                null
+              ]
+            },
+            {
+              "row": 21,
+              "values": [
+                null,
+                "处理",
+                "工程纱（竖条蕾丝）\n（不遮光）",
+                "条",
+                14,
+                "330-450",
+                10,
+                "不要紫色，混装",
+                null,
+                100,
+                0.2,
+                "140*260CM",
+                "白色",
+                1000,
+                2,
+                14000,
+                "C-GS\nSH151091",
+                "2026061151091",
+                null
+              ]
+            },
+            {
+              "row": 22,
+              "values": [
+                null,
+                "正货",
+                "双面无光烫金\n（90%遮光）",
+                "条",
+                25,
+                "560-600",
+                20,
+                "1号（清装）",
+                1,
+                80,
+                0.2,
+                "140*260CM",
+                "（20+）混色，定做",
+                1600,
+                4,
+                40000,
+                "B-ST\nSH151107",
+                "2026061151107",
+                null
+              ]
+            },
+            {
+              "row": 23,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "2号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 24,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "3号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 25,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "4号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 26,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "5号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 27,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "6号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 28,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "7号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 29,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "8号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 30,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "9号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 31,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "10号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 32,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "11号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 33,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "12号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 34,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "13号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 35,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "14号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 36,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "15号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 37,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "16号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 38,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "17号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 39,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "18号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 40,
+              "values": [
+                null,
+                "正货",
+                "双面无光\n（90%遮光）",
+                "条",
+                22,
+                "560-600",
+                30,
+                "1号（清装）",
+                2,
+                85,
+                0.2,
+                "140*260CM",
+                "（20+）混色，定做",
+                2550,
+                6,
+                56100,
+                "B-SW\nSH151114",
+                "2026061151114",
+                null
+              ]
+            },
+            {
+              "row": 41,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "2号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 42,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "3号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 43,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "4号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 44,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "5号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 45,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "6号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 46,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "7号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 47,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "8号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 48,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "9号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 49,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "10号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 50,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "11号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 51,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "12号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 52,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "13号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 53,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "14号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 54,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "15号（清装）",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 55,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "16号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 56,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "17号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 57,
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "18号（清装）",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 58,
+              "values": [
+                null,
+                "处理",
+                "新品\n（95%遮光）",
+                "条",
+                26,
+                "950-1100",
+                30,
+                "不要紫色，灰色系多拿，其它混装",
+                null,
+                70,
+                0.2,
+                "140*260CM",
+                "混色",
+                2100,
+                6,
+                54600,
+                "B-XP\nSH151121",
+                "2026061151121",
+                null
+              ]
+            },
+            {
+              "row": 59,
+              "values": [
+                "合计",
+                null,
+                null,
+                null,
+                null,
+                null,
+                370,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                31650,
+                74,
+                592700,
+                null,
+                null,
+                null
+              ]
+            }
+          ],
+          "formulaCells": [
+            {
+              "row": 4,
+              "col": 14,
+              "formula": "=G4*J4",
+              "value": 4500
+            },
+            {
+              "row": 4,
+              "col": 15,
+              "formula": "=G4*K4",
+              "value": 10
+            },
+            {
+              "row": 4,
+              "col": 16,
+              "formula": "=E4*G4*J4",
+              "value": 58500
+            },
+            {
+              "row": 17,
+              "col": 14,
+              "formula": "=G17*J17",
+              "value": 2400
+            },
+            {
+              "row": 17,
+              "col": 15,
+              "formula": "=G17*K17",
+              "value": 8
+            },
+            {
+              "row": 17,
+              "col": 16,
+              "formula": "=E17*G17*J17",
+              "value": 48000
+            },
+            {
+              "row": 40,
+              "col": 14,
+              "formula": "=G40*J40",
+              "value": 2550
+            },
+            {
+              "row": 40,
+              "col": 15,
+              "formula": "=G40*K40",
+              "value": 6
+            },
+            {
+              "row": 40,
+              "col": 16,
+              "formula": "=E40*G40*J40",
+              "value": 56100
+            },
+            {
+              "row": 58,
+              "col": 14,
+              "formula": "=G58*J58",
+              "value": 2100
+            },
+            {
+              "row": 58,
+              "col": 15,
+              "formula": "=G58*K58",
+              "value": 6
+            },
+            {
+              "row": 58,
+              "col": 16,
+              "formula": "=E58*G58*J58",
+              "value": 54600
+            },
+            {
+              "row": 59,
+              "col": 7,
+              "formula": "=SUM(G4:G58)",
+              "value": 370
+            },
+            {
+              "row": 59,
+              "col": 14,
+              "formula": "=SUM(N4:N58)",
+              "value": 31650
+            },
+            {
+              "row": 59,
+              "col": 15,
+              "formula": "=SUM(O4:O58)",
+              "value": 74
+            },
+            {
+              "row": 59,
+              "col": 16,
+              "formula": "=SUM(P4:P58)",
+              "value": 592700
+            }
+          ],
+          "drawings": "{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":16510,\"colOffsetEmu\":396240,\"rowOffsetPx\":2,\"colOffsetPx\":42},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1743710,\"colOffsetEmu\":2073910,\"rowOffsetPx\":183,\"colOffsetPx\":218}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":185420,\"colOffsetEmu\":347980,\"rowOffsetPx\":19,\"colOffsetPx\":37},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1903095,\"colOffsetEmu\":1967230,\"rowOffsetPx\":200,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":16,\"col\":0,\"rowOffsetEmu\":70485,\"colOffsetEmu\":253365,\"rowOffsetPx\":7,\"colOffsetPx\":27},\"to\":{\"row\":16,\"col\":0,\"rowOffsetEmu\":1689735,\"colOffsetEmu\":2413635,\"rowOffsetPx\":177,\"colOffsetPx\":253}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":217805,\"colOffsetEmu\":9525,\"rowOffsetPx\":23,\"colOffsetPx\":1},\"to\":{\"row\":14,\"col\":1,\"rowOffsetEmu\":315595,\"colOffsetEmu\":0,\"rowOffsetPx\":33,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":20,\"col\":0,\"rowOffsetEmu\":39370,\"colOffsetEmu\":88900,\"rowOffsetPx\":4,\"colOffsetPx\":9},\"to\":{\"row\":20,\"col\":0,\"rowOffsetEmu\":1672590,\"colOffsetEmu\":2402840,\"rowOffsetPx\":176,\"colOffsetPx\":252}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":27,\"col\":0,\"rowOffsetEmu\":15875,\"colOffsetEmu\":88900,\"rowOffsetPx\":2,\"colOffsetPx\":9},\"to\":{\"row\":32,\"col\":1,\"rowOffsetEmu\":243840,\"colOffsetEmu\":0,\"rowOffsetPx\":26,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":57,\"col\":0,\"rowOffsetEmu\":26670,\"colOffsetEmu\":685800,\"rowOffsetPx\":3,\"colOffsetPx\":72},\"to\":{\"row\":57,\"col\":0,\"rowOffsetEmu\":1758315,\"colOffsetEmu\":1983740,\"rowOffsetPx\":185,\"colOffsetPx\":208}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":19,\"col\":0,\"rowOffsetEmu\":171450,\"colOffsetEmu\":26670,\"rowOffsetPx\":18,\"colOffsetPx\":3},\"to\":{\"row\":19,\"col\":0,\"rowOffsetEmu\":1285240,\"colOffsetEmu\":2590800,\"rowOffsetPx\":135,\"colOffsetPx\":272}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":13970,\"colOffsetEmu\":26670,\"rowOffsetPx\":1,\"colOffsetPx\":3},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1198245,\"colOffsetEmu\":2813685,\"rowOffsetPx\":126,\"colOffsetPx\":295}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":42,\"col\":0,\"rowOffsetEmu\":193675,\"colOffsetEmu\":9525,\"rowOffsetPx\":20,\"colOffsetPx\":1},\"to\":{\"row\":49,\"col\":1,\"rowOffsetEmu\":290830,\"colOffsetEmu\":0,\"rowOffsetPx\":31,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":18,\"col\":0,\"rowOffsetEmu\":21590,\"colOffsetEmu\":311150,\"rowOffsetPx\":2,\"colOffsetPx\":33},\"to\":{\"row\":18,\"col\":0,\"rowOffsetEmu\":1771650,\"colOffsetEmu\":2576830,\"rowOffsetPx\":186,\"colOffsetPx\":271}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image12.png\",\"anchor\":{\"from\":{\"row\":17,\"col\":19,\"rowOffsetEmu\":118745,\"colOffsetEmu\":185420,\"rowOffsetPx\":12,\"colOffsetPx\":19},\"to\":{\"row\":17,\"col\":21,\"rowOffsetEmu\":1670685,\"colOffsetEmu\":267970,\"rowOffsetPx\":175,\"colOffsetPx\":28}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image13.png\",\"anchor\":{\"from\":{\"row\":14,\"col\":18,\"rowOffsetEmu\":5080,\"colOffsetEmu\":133985,\"rowOffsetPx\":1,\"colOffsetPx\":14},\"to\":{\"row\":17,\"col\":19,\"rowOffsetEmu\":183515,\"colOffsetEmu\":0,\"rowOffsetPx\":19,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image14.jpeg\",\"anchor\":{\"from\":{\"row\":33,\"col\":19,\"rowOffsetEmu\":10160,\"colOffsetEmu\":128905,\"rowOffsetPx\":1,\"colOffsetPx\":14},\"to\":{\"row\":44,\"col\":24,\"rowOffsetEmu\":238760,\"colOffsetEmu\":72390,\"rowOffsetPx\":25,\"colOffsetPx\":8}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image15.jpeg\",\"anchor\":{\"from\":{\"row\":44,\"col\":19,\"rowOffsetEmu\":349250,\"colOffsetEmu\":106045,\"rowOffsetPx\":37,\"colOffsetPx\":11},\"to\":{\"row\":57,\"col\":24,\"rowOffsetEmu\":495300,\"colOffsetEmu\":62865,\"rowOffsetPx\":52,\"colOffsetPx\":7}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image16.jpeg\",\"anchor\":{\"from\":{\"row\":20,\"col\":19,\"rowOffsetEmu\":1795145,\"colOffsetEmu\":104140,\"rowOffsetPx\":188,\"colOffsetPx\":11},\"to\":{\"row\":32,\"col\":24,\"rowOffsetEmu\":271780,\"colOffsetEmu\":125095,\"rowOffsetPx\":29,\"colOffsetPx\":13}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image17.jpeg\",\"anchor\":{\"from\":{\"row\":6,\"col\":19,\"rowOffsetEmu\":80645,\"colOffsetEmu\":56515,\"rowOffsetPx\":8,\"colOffsetPx\":6},\"to\":{\"row\":14,\"col\":21,\"rowOffsetEmu\":76200,\"colOffsetEmu\":587375,\"rowOffsetPx\":8,\"colOffsetPx\":62}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image18.jpeg\",\"anchor\":{\"from\":{\"row\":4,\"col\":19,\"rowOffsetEmu\":104775,\"colOffsetEmu\":177165,\"rowOffsetPx\":11,\"colOffsetPx\":19},\"to\":{\"row\":5,\"col\":21,\"rowOffsetEmu\":20320,\"colOffsetEmu\":186690,\"rowOffsetPx\":2,\"colOffsetPx\":20}}}"
+        },
+        {
+          "name": "Sheet2",
+          "usedAddress": "A3:A11",
+          "rowCount": 9,
+          "colCount": 1,
+          "nonEmptyRows": [
+            {
+              "row": 1,
+              "values": [
+                "唛头"
+              ]
+            },
+            {
+              "row": 2,
+              "values": [
+                "入仓号：LC"
+              ]
+            },
+            {
+              "row": 3,
+              "values": [
+                "ITEM NO：（A-HS）SH151022"
+              ]
+            },
+            {
+              "row": 4,
+              "values": [
+                "DESC：黑丝全遮光"
+              ]
+            },
+            {
+              "row": 5,
+              "values": [
+                "COL：黑色（清装就写单色、混装就混色）"
+              ]
+            },
+            {
+              "row": 6,
+              "values": [
+                "QTY：70PCS"
+              ]
+            },
+            {
+              "row": 7,
+              "values": [
+                "CTN：10（一共几件）"
+              ]
+            },
+            {
+              "row": 8,
+              "values": [
+                "CMB：0.2"
+              ]
+            },
+            {
+              "row": 9,
+              "values": [
+                "WT："
+              ]
+            }
+          ],
+          "formulaCells": [],
+          "drawings": "{\"kind\":\"notice\",\"message\":\"No records matched the requested kinds.\"}"
+        }
+      ]
+    },
+    {
+      "id": "packing",
+      "path": "C:/Users/Yang/Desktop/Solua/LG2026.xlsx",
+      "summary": "{\"kind\":\"workbook\",\"id\":\"wb/raimgj\",\"sheets\":1,\"tables\":1}\n{\"kind\":\"sheet\",\"id\":\"ws/tkm5dv\",\"name\":\"Sheet1\",\"index\":0,\"range\":\"A1:R22\",\"address\":\"A1:R22\",\"tables\":1}\n{\"kind\":\"table\",\"sheet\":\"Sheet1\",\"address\":\"A1:R22\",\"rows\":22,\"cols\":18,\"values\":[[\"装箱单\",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[\"目的地：莫桑比克林总\",null,null,null,null,null,null,null,null,null,\"交货日期：2026/7/21\",null,null,null,null,null,null,null],[\"图片\",\"货号\",\"商品名称\",\"规格CM\",\"颜色\",\"箱数\",\"预估件数\",\"装箱数\",\"预估装箱数\",null,\"总数量（条）\",\"售价（元/条）\",\"总价（元）\",\"单箱体积\",\"总体积\",\"单箱毛重(KG)\",\"总毛重（KG）\",\"条码\"],[null,\"C-MB\\nSH151015\",\"麻布窗帘\",\"140*260CM\",\"混色\",50,\"#NAME?\",80,90,null,4000,13,52000,0.2,10,63,3150,\"2026061151015\"],[null,\"A-HS\\nSH151022\",\"黑丝全遮光\",\"140*260CM\",\"混色\",10,\"#NAME?\",40,70,null,400,34,13600,0.2,2,64,640,\"2026061151022\"],[null,\"C-KJ\\nSH151039\",\"科技布\",\"140*260CM\",\"混色\",49,\"#NAME?\",100,110,null,4900,11.6,56840,0.2,9.8,64,3136,\"2026061151039\"],[null,\"B-DY\\nSH151046\",\"单面光压花\",\"140*260CM\",\"清装\",30,\"#NAME?\",80,80,null,2400,25,60000,0.2,6,66,1980,\"2026061151046\"],[null,\"C-RB\\nSH151053\",\"绒布\",\"140*260CM\",\"混色\",40,\"#NAME?\",60,60,null,2400,20,48000,0.2,8,56,2240,\"2026061151053\"],[null,\"B-DR\\nSH151060\",\"单面绒\",\"140*260CM\",\"清装\",10,\"#NAME?\",70,80,null,700,25,17500,0.2,2,71.4,714,\"2026061151060\"],[null,\"C-TC\\nSH151077\",\"涂层\",\"140*260CM\",\"混色\",41,\"#NAME?\",70,80,null,2870,19,54530,0.2,8.2,90,3690,\"2026061151077\"],[null,\"C-CM\\nSH151084\",\"彩膜\",\"140*260CM\",\"混色\",45,\"#NAME?\",80,100,null,3600,19,68400,0.2,9,60,2700,\"2026061151084\"],[null,\"C-GS\\nSH151091\",\"工程纱（竖条蕾丝）\",\"140*260CM\",\"混色\",10,\"#NAME?\",160,100,null,1600,14,22400,0.2,2,60,600,\"2026061151091\"],[null,\"B-ST\\nSH151107\",\"双面无光烫金\",\"140*260CM\",\"清装\",20,\"#NAME?\",80,80,null,1600,25,40000,0.2,4,65,1300,\"2026061151107\"],[null,\"B-SW\\nSH151114\",\"双面无光\",\"140*260CM\",\"清装\",30,30,80,85,null,2400,22,52800,0.2,6,66,1980,\"2026061151114\"],[null,\"B-XP\\nSH151121\",\"新品\",\"140*260CM\",\"混色\",30,30,50,70,null,1500,26,39000,0.2,6,70,2100,\"2026061151121\"],[null,null,\"合计\",null,null,365,\"#NAME?\",null,\"#NAME?\",null,28370,null,525070,null,73,null,24230,null],[null,null,\"总体积\",null,null,null,\"#NAME?\",\"68m³\",null,null,null,null,null,null,null,null,null,null],[null,null,\"毛重\",24100,\"净重\",23618,\"#NAME?\",null,\"#NAME?\",null,null,null,null,null,null,null,null,null],[null,null,\"箱号\",\"DFSU7363130\",\"封号\",\"CX0967761\",\"#NAME?\",null,\"#NAME?\",null,null,null,null,null,null,null,null,null],[\"公司名称:绍兴兰谷纺织品有限公司\",null,null,null,null,null,null,null,\"#NAME?\",null,null,null,null,null,null,null,null,null],[\"地址：绍兴\",null,null,null,null,null,null,null,\"#NAME?\",null,null,null,null,null,null,null,null,null],[\"联系人：张师傅13732468925\",null,null,null,null,null,null,null,\"#NAME?\",null,null,null,null,null,null,null,null,null]]}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":16510,\"colOffsetEmu\":565150,\"rowOffsetPx\":2,\"colOffsetPx\":59},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1743710,\"colOffsetEmu\":2242820,\"rowOffsetPx\":183,\"colOffsetPx\":235}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":42545,\"colOffsetEmu\":594360,\"rowOffsetPx\":4,\"colOffsetPx\":62},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1760220,\"colOffsetEmu\":2213610,\"rowOffsetPx\":185,\"colOffsetPx\":232}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":70485,\"colOffsetEmu\":323850,\"rowOffsetPx\":7,\"colOffsetPx\":34},\"to\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":1689735,\"colOffsetEmu\":2484120,\"rowOffsetPx\":177,\"colOffsetPx\":261}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":65405,\"colOffsetEmu\":514985,\"rowOffsetPx\":7,\"colOffsetPx\":54},\"to\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":1774825,\"colOffsetEmu\":2341245,\"rowOffsetPx\":186,\"colOffsetPx\":246}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":134620,\"colOffsetEmu\":318135,\"rowOffsetPx\":14,\"colOffsetPx\":33},\"to\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":1767840,\"colOffsetEmu\":2632075,\"rowOffsetPx\":186,\"colOffsetPx\":276}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":89535,\"colOffsetEmu\":285115,\"rowOffsetPx\":9,\"colOffsetPx\":30},\"to\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":1754505,\"colOffsetEmu\":2379345,\"rowOffsetPx\":184,\"colOffsetPx\":250}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":14,\"col\":0,\"rowOffsetEmu\":26670,\"colOffsetEmu\":755015,\"rowOffsetPx\":3,\"colOffsetPx\":79},\"to\":{\"row\":14,\"col\":0,\"rowOffsetEmu\":1758315,\"colOffsetEmu\":2052955,\"rowOffsetPx\":185,\"colOffsetPx\":216}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":264795,\"colOffsetEmu\":169545,\"rowOffsetPx\":28,\"colOffsetPx\":18},\"to\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":1378585,\"colOffsetEmu\":2733675,\"rowOffsetPx\":145,\"colOffsetPx\":287}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":266065,\"colOffsetEmu\":288925,\"rowOffsetPx\":28,\"colOffsetPx\":30},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1355090,\"colOffsetEmu\":2853055,\"rowOffsetPx\":142,\"colOffsetPx\":300}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":13,\"col\":0,\"rowOffsetEmu\":41275,\"colOffsetEmu\":484505,\"rowOffsetPx\":4,\"colOffsetPx\":51},\"to\":{\"row\":13,\"col\":0,\"rowOffsetEmu\":1762760,\"colOffsetEmu\":2251710,\"rowOffsetPx\":185,\"colOffsetPx\":236}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":9,\"col\":0,\"rowOffsetEmu\":21590,\"colOffsetEmu\":271145,\"rowOffsetPx\":2,\"colOffsetPx\":28},\"to\":{\"row\":9,\"col\":0,\"rowOffsetEmu\":1771650,\"colOffsetEmu\":2536825,\"rowOffsetPx\":186,\"colOffsetPx\":266}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image12.jpeg\",\"anchor\":{\"from\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":25082,\"colOffsetEmu\":633412,\"rowOffsetPx\":3,\"colOffsetPx\":66},\"to\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":1780857,\"colOffsetEmu\":2172652,\"rowOffsetPx\":187,\"colOffsetPx\":228}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image13.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":0,\"rowOffsetEmu\":200025,\"colOffsetEmu\":1905,\"rowOffsetPx\":21,\"colOffsetPx\":0},\"to\":{\"row\":48,\"col\":1,\"rowOffsetEmu\":128270,\"colOffsetEmu\":1264285,\"rowOffsetPx\":13,\"colOffsetPx\":133}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image14.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":2,\"rowOffsetEmu\":199390,\"colOffsetEmu\":1058545,\"rowOffsetPx\":21,\"colOffsetPx\":111},\"to\":{\"row\":48,\"col\":4,\"rowOffsetEmu\":166370,\"colOffsetEmu\":408940,\"rowOffsetPx\":17,\"colOffsetPx\":43}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image15.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":5,\"rowOffsetEmu\":247650,\"colOffsetEmu\":607695,\"rowOffsetPx\":26,\"colOffsetPx\":64},\"to\":{\"row\":48,\"col\":8,\"rowOffsetEmu\":186690,\"colOffsetEmu\":1445895,\"rowOffsetPx\":20,\"colOffsetPx\":152}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image16.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":12,\"rowOffsetEmu\":224790,\"colOffsetEmu\":1247140,\"rowOffsetPx\":24,\"colOffsetPx\":131},\"to\":{\"row\":48,\"col\":15,\"rowOffsetEmu\":228600,\"colOffsetEmu\":874395,\"rowOffsetPx\":24,\"colOffsetPx\":92}}}",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "usedAddress": "A1:R22",
+          "rowCount": 22,
+          "colCount": 18,
+          "nonEmptyRows": [
+            {
+              "row": 1,
+              "values": [
+                "装箱单",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 2,
+              "values": [
+                "目的地：莫桑比克林总",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "交货日期：2026/7/21",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 3,
+              "values": [
+                "图片",
+                "货号",
+                "商品名称",
+                "规格CM",
+                "颜色",
+                "箱数",
+                "预估件数",
+                "装箱数",
+                "预估装箱数",
+                null,
+                "总数量（条）",
+                "售价（元/条）",
+                "总价（元）",
+                "单箱体积",
+                "总体积",
+                "单箱毛重(KG)",
+                "总毛重（KG）",
+                "条码"
+              ]
+            },
+            {
+              "row": 4,
+              "values": [
+                null,
+                "C-MB\nSH151015",
+                "麻布窗帘",
+                "140*260CM",
+                "混色",
+                50,
+                "#NAME?",
+                80,
+                90,
+                null,
+                4000,
+                13,
+                52000,
+                0.2,
+                10,
+                63,
+                3150,
+                "2026061151015"
+              ]
+            },
+            {
+              "row": 5,
+              "values": [
+                null,
+                "A-HS\nSH151022",
+                "黑丝全遮光",
+                "140*260CM",
+                "混色",
+                10,
+                "#NAME?",
+                40,
+                70,
+                null,
+                400,
+                34,
+                13600,
+                0.2,
+                2,
+                64,
+                640,
+                "2026061151022"
+              ]
+            },
+            {
+              "row": 6,
+              "values": [
+                null,
+                "C-KJ\nSH151039",
+                "科技布",
+                "140*260CM",
+                "混色",
+                49,
+                "#NAME?",
+                100,
+                110,
+                null,
+                4900,
+                11.6,
+                56840,
+                0.2,
+                9.8,
+                64,
+                3136,
+                "2026061151039"
+              ]
+            },
+            {
+              "row": 7,
+              "values": [
+                null,
+                "B-DY\nSH151046",
+                "单面光压花",
+                "140*260CM",
+                "清装",
+                30,
+                "#NAME?",
+                80,
+                80,
+                null,
+                2400,
+                25,
+                60000,
+                0.2,
+                6,
+                66,
+                1980,
+                "2026061151046"
+              ]
+            },
+            {
+              "row": 8,
+              "values": [
+                null,
+                "C-RB\nSH151053",
+                "绒布",
+                "140*260CM",
+                "混色",
+                40,
+                "#NAME?",
+                60,
+                60,
+                null,
+                2400,
+                20,
+                48000,
+                0.2,
+                8,
+                56,
+                2240,
+                "2026061151053"
+              ]
+            },
+            {
+              "row": 9,
+              "values": [
+                null,
+                "B-DR\nSH151060",
+                "单面绒",
+                "140*260CM",
+                "清装",
+                10,
+                "#NAME?",
+                70,
+                80,
+                null,
+                700,
+                25,
+                17500,
+                0.2,
+                2,
+                71.4,
+                714,
+                "2026061151060"
+              ]
+            },
+            {
+              "row": 10,
+              "values": [
+                null,
+                "C-TC\nSH151077",
+                "涂层",
+                "140*260CM",
+                "混色",
+                41,
+                "#NAME?",
+                70,
+                80,
+                null,
+                2870,
+                19,
+                54530,
+                0.2,
+                8.2,
+                90,
+                3690,
+                "2026061151077"
+              ]
+            },
+            {
+              "row": 11,
+              "values": [
+                null,
+                "C-CM\nSH151084",
+                "彩膜",
+                "140*260CM",
+                "混色",
+                45,
+                "#NAME?",
+                80,
+                100,
+                null,
+                3600,
+                19,
+                68400,
+                0.2,
+                9,
+                60,
+                2700,
+                "2026061151084"
+              ]
+            },
+            {
+              "row": 12,
+              "values": [
+                null,
+                "C-GS\nSH151091",
+                "工程纱（竖条蕾丝）",
+                "140*260CM",
+                "混色",
+                10,
+                "#NAME?",
+                160,
+                100,
+                null,
+                1600,
+                14,
+                22400,
+                0.2,
+                2,
+                60,
+                600,
+                "2026061151091"
+              ]
+            },
+            {
+              "row": 13,
+              "values": [
+                null,
+                "B-ST\nSH151107",
+                "双面无光烫金",
+                "140*260CM",
+                "清装",
+                20,
+                "#NAME?",
+                80,
+                80,
+                null,
+                1600,
+                25,
+                40000,
+                0.2,
+                4,
+                65,
+                1300,
+                "2026061151107"
+              ]
+            },
+            {
+              "row": 14,
+              "values": [
+                null,
+                "B-SW\nSH151114",
+                "双面无光",
+                "140*260CM",
+                "清装",
+                30,
+                30,
+                80,
+                85,
+                null,
+                2400,
+                22,
+                52800,
+                0.2,
+                6,
+                66,
+                1980,
+                "2026061151114"
+              ]
+            },
+            {
+              "row": 15,
+              "values": [
+                null,
+                "B-XP\nSH151121",
+                "新品",
+                "140*260CM",
+                "混色",
+                30,
+                30,
+                50,
+                70,
+                null,
+                1500,
+                26,
+                39000,
+                0.2,
+                6,
+                70,
+                2100,
+                "2026061151121"
+              ]
+            },
+            {
+              "row": 16,
+              "values": [
+                null,
+                null,
+                "合计",
+                null,
+                null,
+                365,
+                "#NAME?",
+                null,
+                "#NAME?",
+                null,
+                28370,
+                null,
+                525070,
+                null,
+                73,
+                null,
+                24230,
+                null
+              ]
+            },
+            {
+              "row": 17,
+              "values": [
+                null,
+                null,
+                "总体积",
+                null,
+                null,
+                null,
+                "#NAME?",
+                "68m³",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 18,
+              "values": [
+                null,
+                null,
+                "毛重",
+                24100,
+                "净重",
+                23618,
+                "#NAME?",
+                null,
+                "#NAME?",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 19,
+              "values": [
+                null,
+                null,
+                "箱号",
+                "DFSU7363130",
+                "封号",
+                "CX0967761",
+                "#NAME?",
+                null,
+                "#NAME?",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 20,
+              "values": [
+                "公司名称:绍兴兰谷纺织品有限公司",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "#NAME?",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 21,
+              "values": [
+                "地址：绍兴",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "#NAME?",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "row": 22,
+              "values": [
+                "联系人：张师傅13732468925",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "#NAME?",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            }
+          ],
+          "formulaCells": [
+            {
+              "row": 4,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G$4",
+              "value": "#NAME?"
+            },
+            {
+              "row": 4,
+              "col": 11,
+              "formula": "=H4*F4",
+              "value": 4000
+            },
+            {
+              "row": 4,
+              "col": 13,
+              "formula": "=K4*L4",
+              "value": 52000
+            },
+            {
+              "row": 4,
+              "col": 15,
+              "formula": "=N4*F4",
+              "value": 10
+            },
+            {
+              "row": 4,
+              "col": 17,
+              "formula": "=P4*F4",
+              "value": 3150
+            },
+            {
+              "row": 5,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G5",
+              "value": "#NAME?"
+            },
+            {
+              "row": 5,
+              "col": 11,
+              "formula": "=H5*F5",
+              "value": 400
+            },
+            {
+              "row": 5,
+              "col": 13,
+              "formula": "=K5*L5",
+              "value": 13600
+            },
+            {
+              "row": 5,
+              "col": 15,
+              "formula": "=N5*F5",
+              "value": 2
+            },
+            {
+              "row": 5,
+              "col": 17,
+              "formula": "=P5*F5",
+              "value": 640
+            },
+            {
+              "row": 6,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G6",
+              "value": "#NAME?"
+            },
+            {
+              "row": 6,
+              "col": 11,
+              "formula": "=H6*F6",
+              "value": 4900
+            },
+            {
+              "row": 6,
+              "col": 15,
+              "formula": "=N6*F6",
+              "value": 9.8
+            },
+            {
+              "row": 7,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G7",
+              "value": "#NAME?"
+            },
+            {
+              "row": 7,
+              "col": 11,
+              "formula": "=H7*F7",
+              "value": 2400
+            },
+            {
+              "row": 7,
+              "col": 15,
+              "formula": "=N7*F7",
+              "value": 6
+            },
+            {
+              "row": 8,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G17",
+              "value": "#NAME?"
+            },
+            {
+              "row": 8,
+              "col": 11,
+              "formula": "=H8*F8",
+              "value": 2400
+            },
+            {
+              "row": 8,
+              "col": 15,
+              "formula": "=N8*F8",
+              "value": 8
+            },
+            {
+              "row": 9,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G18",
+              "value": "#NAME?"
+            },
+            {
+              "row": 10,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G19",
+              "value": "#NAME?"
+            },
+            {
+              "row": 11,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G20",
+              "value": "#NAME?"
+            },
+            {
+              "row": 12,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G21",
+              "value": "#NAME?"
+            },
+            {
+              "row": 13,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G22",
+              "value": "#NAME?"
+            },
+            {
+              "row": 16,
+              "col": 6,
+              "formula": "=SUM(F4:F15)",
+              "value": 365
+            },
+            {
+              "row": 16,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G25",
+              "value": "#NAME?"
+            },
+            {
+              "row": 16,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J25",
+              "value": "#NAME?"
+            },
+            {
+              "row": 16,
+              "col": 11,
+              "formula": "=SUM(K4:K15)",
+              "value": 28370
+            },
+            {
+              "row": 16,
+              "col": 13,
+              "formula": "=SUM(M4:M15)",
+              "value": 525070
+            },
+            {
+              "row": 16,
+              "col": 15,
+              "formula": "=SUM(O4:O15)",
+              "value": 73
+            },
+            {
+              "row": 16,
+              "col": 17,
+              "formula": "=SUM(Q4:Q15)",
+              "value": 24230
+            },
+            {
+              "row": 17,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G26",
+              "value": "#NAME?"
+            },
+            {
+              "row": 18,
+              "col": 6,
+              "formula": "=D18*0.98",
+              "value": 23618
+            },
+            {
+              "row": 18,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G27",
+              "value": "#NAME?"
+            },
+            {
+              "row": 18,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J18",
+              "value": "#NAME?"
+            },
+            {
+              "row": 19,
+              "col": 7,
+              "formula": "=[1]Sheet1!$G28",
+              "value": "#NAME?"
+            },
+            {
+              "row": 19,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J19",
+              "value": "#NAME?"
+            },
+            {
+              "row": 20,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J20",
+              "value": "#NAME?"
+            },
+            {
+              "row": 21,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J21",
+              "value": "#NAME?"
+            },
+            {
+              "row": 22,
+              "col": 9,
+              "formula": "=[1]Sheet1!$J22",
+              "value": "#NAME?"
+            }
+          ],
+          "drawings": "{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":16510,\"colOffsetEmu\":565150,\"rowOffsetPx\":2,\"colOffsetPx\":59},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1743710,\"colOffsetEmu\":2242820,\"rowOffsetPx\":183,\"colOffsetPx\":235}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":42545,\"colOffsetEmu\":594360,\"rowOffsetPx\":4,\"colOffsetPx\":62},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1760220,\"colOffsetEmu\":2213610,\"rowOffsetPx\":185,\"colOffsetPx\":232}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":70485,\"colOffsetEmu\":323850,\"rowOffsetPx\":7,\"colOffsetPx\":34},\"to\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":1689735,\"colOffsetEmu\":2484120,\"rowOffsetPx\":177,\"colOffsetPx\":261}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":65405,\"colOffsetEmu\":514985,\"rowOffsetPx\":7,\"colOffsetPx\":54},\"to\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":1774825,\"colOffsetEmu\":2341245,\"rowOffsetPx\":186,\"colOffsetPx\":246}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":134620,\"colOffsetEmu\":318135,\"rowOffsetPx\":14,\"colOffsetPx\":33},\"to\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":1767840,\"colOffsetEmu\":2632075,\"rowOffsetPx\":186,\"colOffsetPx\":276}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":89535,\"colOffsetEmu\":285115,\"rowOffsetPx\":9,\"colOffsetPx\":30},\"to\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":1754505,\"colOffsetEmu\":2379345,\"rowOffsetPx\":184,\"colOffsetPx\":250}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":14,\"col\":0,\"rowOffsetEmu\":26670,\"colOffsetEmu\":755015,\"rowOffsetPx\":3,\"colOffsetPx\":79},\"to\":{\"row\":14,\"col\":0,\"rowOffsetEmu\":1758315,\"colOffsetEmu\":2052955,\"rowOffsetPx\":185,\"colOffsetPx\":216}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":264795,\"colOffsetEmu\":169545,\"rowOffsetPx\":28,\"colOffsetPx\":18},\"to\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":1378585,\"colOffsetEmu\":2733675,\"rowOffsetPx\":145,\"colOffsetPx\":287}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":266065,\"colOffsetEmu\":288925,\"rowOffsetPx\":28,\"colOffsetPx\":30},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1355090,\"colOffsetEmu\":2853055,\"rowOffsetPx\":142,\"colOffsetPx\":300}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":13,\"col\":0,\"rowOffsetEmu\":41275,\"colOffsetEmu\":484505,\"rowOffsetPx\":4,\"colOffsetPx\":51},\"to\":{\"row\":13,\"col\":0,\"rowOffsetEmu\":1762760,\"colOffsetEmu\":2251710,\"rowOffsetPx\":185,\"colOffsetPx\":236}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":9,\"col\":0,\"rowOffsetEmu\":21590,\"colOffsetEmu\":271145,\"rowOffsetPx\":2,\"colOffsetPx\":28},\"to\":{\"row\":9,\"col\":0,\"rowOffsetEmu\":1771650,\"colOffsetEmu\":2536825,\"rowOffsetPx\":186,\"colOffsetPx\":266}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image12.jpeg\",\"anchor\":{\"from\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":25082,\"colOffsetEmu\":633412,\"rowOffsetPx\":3,\"colOffsetPx\":66},\"to\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":1780857,\"colOffsetEmu\":2172652,\"rowOffsetPx\":187,\"colOffsetPx\":228}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image13.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":0,\"rowOffsetEmu\":200025,\"colOffsetEmu\":1905,\"rowOffsetPx\":21,\"colOffsetPx\":0},\"to\":{\"row\":48,\"col\":1,\"rowOffsetEmu\":128270,\"colOffsetEmu\":1264285,\"rowOffsetPx\":13,\"colOffsetPx\":133}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image14.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":2,\"rowOffsetEmu\":199390,\"colOffsetEmu\":1058545,\"rowOffsetPx\":21,\"colOffsetPx\":111},\"to\":{\"row\":48,\"col\":4,\"rowOffsetEmu\":166370,\"colOffsetEmu\":408940,\"rowOffsetPx\":17,\"colOffsetPx\":43}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image15.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":5,\"rowOffsetEmu\":247650,\"colOffsetEmu\":607695,\"rowOffsetPx\":26,\"colOffsetPx\":64},\"to\":{\"row\":48,\"col\":8,\"rowOffsetEmu\":186690,\"colOffsetEmu\":1445895,\"rowOffsetPx\":20,\"colOffsetPx\":152}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image16.jpeg\",\"anchor\":{\"from\":{\"row\":24,\"col\":12,\"rowOffsetEmu\":224790,\"colOffsetEmu\":1247140,\"rowOffsetPx\":24,\"colOffsetPx\":131},\"to\":{\"row\":48,\"col\":15,\"rowOffsetEmu\":228600,\"colOffsetEmu\":874395,\"rowOffsetPx\":24,\"colOffsetPx\":92}}}"
+        }
+      ]
+    },
+    {
+      "id": "quote",
+      "path": "C:/Users/Yang/Desktop/Solua/SOLUA HOME窗帘报价计算单(2).xlsx",
+      "summary": "{\"kind\":\"workbook\",\"id\":\"wb/ng0bbt\",\"sheets\":2,\"tables\":2}\n{\"kind\":\"sheet\",\"id\":\"ws/cchdr8\",\"name\":\"Sheet1\",\"index\":0,\"range\":\"A1:R13\",\"address\":\"A1:R13\",\"tables\":1}\n{\"kind\":\"table\",\"sheet\":\"Sheet1\",\"address\":\"A1:R13\",\"rows\":13,\"cols\":18,\"values\":[[\"图片\",\"属性\",\"商品名称\",\"产品定位\",\"货号\",\"售价（元/条）\",\"件数\",\"装箱数\",\"压缩包体积\",\"规格\",\"总条数\",\"条码\",\"运费/RMB\",\"成本/MT\",\"批发/MT\",\"毛利\",\"建议零售价\",\"经销商毛利空间\"],[null,\"处理\",\"麻布窗帘\\n（麻料不遮光）\",\"基本款\",\"C-MB\\nSH151015\",13,50,80,0.2,\"140*260CM\",4000,\"2026061151015\",4,192.1,260,0.261153846153846,399,0.348370927318296],[null,\"处理\",\"科技布\\n\\n（不遮光）\",\"基本款\",\"C-KJ\\nSH151039\",11.6,49,100,0.2,\"140*260CM\",4900,\"2026061151039\",3.2,167.24,260,0.356769230769231,399,0.348370927318296],[null,\"处理\",\"工程纱（竖条蕾丝）\\n（不遮光）\",\"基本款\",\"C-GS\\nSH151091\",14,10,160,0.2,\"140*260CM\",1600,\"2026061151091\",2,180.8,260,0.304615384615385,399,0.348370927318296],[null,\"处理\",\"涂层\\n（100%遮光）\",\"英雄单品1\\n功能性爆款\\n（TOP1主打）\",\"C-TC\\nSH151077\",19,41,70,0.2,\"140*260CM\",2870,\"2026061151077\",4.57142857142857,266.357142857143,360,0.260119047619047,\"550-650\",\"35%-45%\"],[null,\"处理\",\"彩膜\\n（覆膜，100%遮光）\",\"英雄单品2\\n功能性爆款\\n（TOP主打）\",\"C-CM\\nSH151084\",19,45,80,0.2,\"140*260CM\",3600,\"2026061151084\",4,259.9,360,0.278055555555556,\"550-650\",\"35%-45%\"],[null,\"处理\",\"绒布\\n（85%遮光）\",\"中端款\",\"C-RB\\nSH151053\",20,40,60,0.2,\"140*260CM\",2400,\"2026061151053\",5.33333333333333,286.266666666667,400,0.284333333333332,\"650-750\",\"38%-47%\"],[null,\"正货\",\"双面无光\\n（95%遮光）\",\"英雄单品3\\n超质感+性价比\\n爆款\\n（TOP主打）\",\"B-SW\\nSH151114\",22,30,80,0.2,\"140*260CM\",2400,\"2026061151114\",4,293.8,460,0.361304347826087,\"720-850\",\"36%-46%\"],[null,\"正货\",\"单面光压花\\n（95%遮光）\",\"面料升级款\",\"B-DY\\nSH151046\",25,30,80,0.2,\"140*260CM\",2400,\"2026061151046\",4,327.7,460,0.287608695652174,\"720-850\",\"36%-46%\"],[null,null,\"单面绒\\n（85%遮光）\",\"面料升级款\",\"B-DR\\nSH151060\",25,10,70,0.2,\"140*260CM\",700,\"2026061151060\",4.57142857142857,334.157142857143,460,0.273571428571428,\"720-850\",\"36%-46%\"],[null,\"正货\",\"双面无光烫金\\n（95%遮光）\",\"面料升级款\",\"B-ST\\nSH151107\",25,20,80,0.2,\"140*260CM\",1600,\"2026061151107\",4,327.7,460,0.287608695652174,\"720-850\",\"36%-46%\"],[null,\"处理\",\"新品\\n（95%遮光）\",\"高端款\",\"B-XP\\nSH151121\",26,30,50,0.2,\"140*260CM\",1500,\"2026061151121\",6.4,366.12,560,0.346214285714286,\"950-1180\",\"41%-53%\"],[null,\"正货\",\"黑丝全遮光\\n（95%遮光）\",\"高端款\",\"A-HS\\nSH151022\",34,10,40,0.2,\"140*260CM\",400,\"2026061151022\",8,474.6,690,0.312173913043478,\"1280-1580\",\"46%-56%\"]]}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":1,\"col\":0,\"rowOffsetEmu\":35560,\"colOffsetEmu\":458470,\"rowOffsetPx\":4,\"colOffsetPx\":48},\"to\":{\"row\":1,\"col\":0,\"rowOffsetEmu\":1762760,\"colOffsetEmu\":2136140,\"rowOffsetPx\":185,\"colOffsetPx\":224}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":42545,\"colOffsetEmu\":353060,\"rowOffsetPx\":4,\"colOffsetPx\":37},\"to\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":1760220,\"colOffsetEmu\":1972310,\"rowOffsetPx\":185,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":93980,\"colOffsetEmu\":38735,\"rowOffsetPx\":10,\"colOffsetPx\":4},\"to\":{\"row\":6,\"col\":1,\"rowOffsetEmu\":1713230,\"colOffsetEmu\":0,\"rowOffsetPx\":180,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":179070,\"colOffsetEmu\":405130,\"rowOffsetPx\":19,\"colOffsetPx\":43},\"to\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":1588770,\"colOffsetEmu\":1783080,\"rowOffsetPx\":167,\"colOffsetPx\":187}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":287020,\"colOffsetEmu\":79375,\"rowOffsetPx\":30,\"colOffsetPx\":8},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1649095,\"colOffsetEmu\":2009140,\"rowOffsetPx\":173,\"colOffsetPx\":211}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":146685,\"colOffsetEmu\":167640,\"rowOffsetPx\":15,\"colOffsetPx\":18},\"to\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":1677035,\"colOffsetEmu\":1972945,\"rowOffsetPx\":176,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":170180,\"colOffsetEmu\":551815,\"rowOffsetPx\":18,\"colOffsetPx\":58},\"to\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":1673225,\"colOffsetEmu\":1678305,\"rowOffsetPx\":176,\"colOffsetPx\":176}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":323850,\"colOffsetEmu\":240665,\"rowOffsetPx\":34,\"colOffsetPx\":25},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1162050,\"colOffsetEmu\":2169795,\"rowOffsetPx\":122,\"colOffsetPx\":228}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":2,\"col\":0,\"rowOffsetEmu\":337820,\"colOffsetEmu\":92710,\"rowOffsetPx\":35,\"colOffsetPx\":10},\"to\":{\"row\":2,\"col\":0,\"rowOffsetEmu\":1226820,\"colOffsetEmu\":2184400,\"rowOffsetPx\":129,\"colOffsetPx\":229}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":154940,\"colOffsetEmu\":443230,\"rowOffsetPx\":16,\"colOffsetPx\":47},\"to\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":1651000,\"colOffsetEmu\":1821815,\"rowOffsetPx\":173,\"colOffsetPx\":191}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":145415,\"colOffsetEmu\":266700,\"rowOffsetPx\":15,\"colOffsetPx\":28},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1597660,\"colOffsetEmu\":2142490,\"rowOffsetPx\":168,\"colOffsetPx\":225}}}\n{\"kind\":\"sheet\",\"id\":\"ws/53guoz\",\"name\":\"Sheet2\",\"index\":1,\"range\":\"A1:A11\",\"address\":\"A1:A11\",\"tables\":1}\n{\"kind\":\"table\",\"sheet\":\"Sheet2\",\"address\":\"A1:A11\",\"rows\":11,\"cols\":1,\"values\":[[null],[null],[\"唛头\"],[\"入仓号：LC\"],[\"ITEM NO：（A-HS）SH151022\"],[\"DESC：黑丝全遮光\"],[\"COL：黑色（清装就写单色、混装就混色）\"],[\"QTY：70PCS\"],[\"CTN：10（一共几件）\"],[\"CMB：0.2\"],[\"WT：\"]]}",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "usedAddress": "A1:R13",
+          "rowCount": 13,
+          "colCount": 18,
+          "nonEmptyRows": [
+            {
+              "row": 1,
+              "values": [
+                "图片",
+                "属性",
+                "商品名称",
+                "产品定位",
+                "货号",
+                "售价（元/条）",
+                "件数",
+                "装箱数",
+                "压缩包体积",
+                "规格",
+                "总条数",
+                "条码",
+                "运费/RMB",
+                "成本/MT",
+                "批发/MT",
+                "毛利",
+                "建议零售价",
+                "经销商毛利空间"
+              ]
+            },
+            {
+              "row": 2,
+              "values": [
+                null,
+                "处理",
+                "麻布窗帘\n（麻料不遮光）",
+                "基本款",
+                "C-MB\nSH151015",
+                13,
+                50,
+                80,
+                0.2,
+                "140*260CM",
+                4000,
+                "2026061151015",
+                4,
+                192.1,
+                260,
+                0.261153846153846,
+                399,
+                0.348370927318296
+              ]
+            },
+            {
+              "row": 3,
+              "values": [
+                null,
+                "处理",
+                "科技布\n\n（不遮光）",
+                "基本款",
+                "C-KJ\nSH151039",
+                11.6,
+                49,
+                100,
+                0.2,
+                "140*260CM",
+                4900,
+                "2026061151039",
+                3.2,
+                167.24,
+                260,
+                0.356769230769231,
+                399,
+                0.348370927318296
+              ]
+            },
+            {
+              "row": 4,
+              "values": [
+                null,
+                "处理",
+                "工程纱（竖条蕾丝）\n（不遮光）",
+                "基本款",
+                "C-GS\nSH151091",
+                14,
+                10,
+                160,
+                0.2,
+                "140*260CM",
+                1600,
+                "2026061151091",
+                2,
+                180.8,
+                260,
+                0.304615384615385,
+                399,
+                0.348370927318296
+              ]
+            },
+            {
+              "row": 5,
+              "values": [
+                null,
+                "处理",
+                "涂层\n（100%遮光）",
+                "英雄单品1\n功能性爆款\n（TOP1主打）",
+                "C-TC\nSH151077",
+                19,
+                41,
+                70,
+                0.2,
+                "140*260CM",
+                2870,
+                "2026061151077",
+                4.57142857142857,
+                266.357142857143,
+                360,
+                0.260119047619047,
+                "550-650",
+                "35%-45%"
+              ]
+            },
+            {
+              "row": 6,
+              "values": [
+                null,
+                "处理",
+                "彩膜\n（覆膜，100%遮光）",
+                "英雄单品2\n功能性爆款\n（TOP主打）",
+                "C-CM\nSH151084",
+                19,
+                45,
+                80,
+                0.2,
+                "140*260CM",
+                3600,
+                "2026061151084",
+                4,
+                259.9,
+                360,
+                0.278055555555556,
+                "550-650",
+                "35%-45%"
+              ]
+            },
+            {
+              "row": 7,
+              "values": [
+                null,
+                "处理",
+                "绒布\n（85%遮光）",
+                "中端款",
+                "C-RB\nSH151053",
+                20,
+                40,
+                60,
+                0.2,
+                "140*260CM",
+                2400,
+                "2026061151053",
+                5.33333333333333,
+                286.266666666667,
+                400,
+                0.284333333333332,
+                "650-750",
+                "38%-47%"
+              ]
+            },
+            {
+              "row": 8,
+              "values": [
+                null,
+                "正货",
+                "双面无光\n（95%遮光）",
+                "英雄单品3\n超质感+性价比\n爆款\n（TOP主打）",
+                "B-SW\nSH151114",
+                22,
+                30,
+                80,
+                0.2,
+                "140*260CM",
+                2400,
+                "2026061151114",
+                4,
+                293.8,
+                460,
+                0.361304347826087,
+                "720-850",
+                "36%-46%"
+              ]
+            },
+            {
+              "row": 9,
+              "values": [
+                null,
+                "正货",
+                "单面光压花\n（95%遮光）",
+                "面料升级款",
+                "B-DY\nSH151046",
+                25,
+                30,
+                80,
+                0.2,
+                "140*260CM",
+                2400,
+                "2026061151046",
+                4,
+                327.7,
+                460,
+                0.287608695652174,
+                "720-850",
+                "36%-46%"
+              ]
+            },
+            {
+              "row": 10,
+              "values": [
+                null,
+                null,
+                "单面绒\n（85%遮光）",
+                "面料升级款",
+                "B-DR\nSH151060",
+                25,
+                10,
+                70,
+                0.2,
+                "140*260CM",
+                700,
+                "2026061151060",
+                4.57142857142857,
+                334.157142857143,
+                460,
+                0.273571428571428,
+                "720-850",
+                "36%-46%"
+              ]
+            },
+            {
+              "row": 11,
+              "values": [
+                null,
+                "正货",
+                "双面无光烫金\n（95%遮光）",
+                "面料升级款",
+                "B-ST\nSH151107",
+                25,
+                20,
+                80,
+                0.2,
+                "140*260CM",
+                1600,
+                "2026061151107",
+                4,
+                327.7,
+                460,
+                0.287608695652174,
+                "720-850",
+                "36%-46%"
+              ]
+            },
+            {
+              "row": 12,
+              "values": [
+                null,
+                "处理",
+                "新品\n（95%遮光）",
+                "高端款",
+                "B-XP\nSH151121",
+                26,
+                30,
+                50,
+                0.2,
+                "140*260CM",
+                1500,
+                "2026061151121",
+                6.4,
+                366.12,
+                560,
+                0.346214285714286,
+                "950-1180",
+                "41%-53%"
+              ]
+            },
+            {
+              "row": 13,
+              "values": [
+                null,
+                "正货",
+                "黑丝全遮光\n（95%遮光）",
+                "高端款",
+                "A-HS\nSH151022",
+                34,
+                10,
+                40,
+                0.2,
+                "140*260CM",
+                400,
+                "2026061151022",
+                8,
+                474.6,
+                690,
+                0.312173913043478,
+                "1280-1580",
+                "46%-56%"
+              ]
+            }
+          ],
+          "formulaCells": [
+            {
+              "row": 2,
+              "col": 11,
+              "formula": "=G2*H2",
+              "value": 4000
+            },
+            {
+              "row": 2,
+              "col": 13,
+              "formula": "=1600*I2/H2",
+              "value": 4
+            },
+            {
+              "row": 2,
+              "col": 14,
+              "formula": "=(F2+M2)*11.3",
+              "value": 192.1
+            },
+            {
+              "row": 2,
+              "col": 16,
+              "formula": "=(O2-N2)/O2",
+              "value": 0.261153846153846
+            },
+            {
+              "row": 2,
+              "col": 18,
+              "formula": "=(Q2-O2)/Q2",
+              "value": 0.348370927318296
+            },
+            {
+              "row": 3,
+              "col": 13,
+              "formula": "=1600*I3/H3",
+              "value": 3.2
+            },
+            {
+              "row": 3,
+              "col": 14,
+              "formula": "=(F3+M3)*11.3",
+              "value": 167.24
+            },
+            {
+              "row": 3,
+              "col": 16,
+              "formula": "=(O3-N3)/O3",
+              "value": 0.356769230769231
+            },
+            {
+              "row": 3,
+              "col": 18,
+              "formula": "=(Q3-O3)/Q3",
+              "value": 0.348370927318296
+            },
+            {
+              "row": 4,
+              "col": 18,
+              "formula": "=(Q4-O4)/Q4",
+              "value": 0.348370927318296
+            }
+          ],
+          "drawings": "{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image1.jpeg\",\"anchor\":{\"from\":{\"row\":1,\"col\":0,\"rowOffsetEmu\":35560,\"colOffsetEmu\":458470,\"rowOffsetPx\":4,\"colOffsetPx\":48},\"to\":{\"row\":1,\"col\":0,\"rowOffsetEmu\":1762760,\"colOffsetEmu\":2136140,\"rowOffsetPx\":185,\"colOffsetPx\":224}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image2.jpeg\",\"anchor\":{\"from\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":42545,\"colOffsetEmu\":353060,\"rowOffsetPx\":4,\"colOffsetPx\":37},\"to\":{\"row\":12,\"col\":0,\"rowOffsetEmu\":1760220,\"colOffsetEmu\":1972310,\"rowOffsetPx\":185,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image3.png\",\"anchor\":{\"from\":{\"row\":6,\"col\":0,\"rowOffsetEmu\":93980,\"colOffsetEmu\":38735,\"rowOffsetPx\":10,\"colOffsetPx\":4},\"to\":{\"row\":6,\"col\":1,\"rowOffsetEmu\":1713230,\"colOffsetEmu\":0,\"rowOffsetPx\":180,\"colOffsetPx\":0}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image4.png\",\"anchor\":{\"from\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":179070,\"colOffsetEmu\":405130,\"rowOffsetPx\":19,\"colOffsetPx\":43},\"to\":{\"row\":8,\"col\":0,\"rowOffsetEmu\":1588770,\"colOffsetEmu\":1783080,\"rowOffsetPx\":167,\"colOffsetPx\":187}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image5.png\",\"anchor\":{\"from\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":287020,\"colOffsetEmu\":79375,\"rowOffsetPx\":30,\"colOffsetPx\":8},\"to\":{\"row\":3,\"col\":0,\"rowOffsetEmu\":1649095,\"colOffsetEmu\":2009140,\"rowOffsetPx\":173,\"colOffsetPx\":211}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image6.png\",\"anchor\":{\"from\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":146685,\"colOffsetEmu\":167640,\"rowOffsetPx\":15,\"colOffsetPx\":18},\"to\":{\"row\":10,\"col\":0,\"rowOffsetEmu\":1677035,\"colOffsetEmu\":1972945,\"rowOffsetPx\":176,\"colOffsetPx\":207}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image7.png\",\"anchor\":{\"from\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":170180,\"colOffsetEmu\":551815,\"rowOffsetPx\":18,\"colOffsetPx\":58},\"to\":{\"row\":11,\"col\":0,\"rowOffsetEmu\":1673225,\"colOffsetEmu\":1678305,\"rowOffsetPx\":176,\"colOffsetPx\":176}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image8.png\",\"anchor\":{\"from\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":323850,\"colOffsetEmu\":240665,\"rowOffsetPx\":34,\"colOffsetPx\":25},\"to\":{\"row\":5,\"col\":0,\"rowOffsetEmu\":1162050,\"colOffsetEmu\":2169795,\"rowOffsetPx\":122,\"colOffsetPx\":228}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image9.png\",\"anchor\":{\"from\":{\"row\":2,\"col\":0,\"rowOffsetEmu\":337820,\"colOffsetEmu\":92710,\"rowOffsetPx\":35,\"colOffsetPx\":10},\"to\":{\"row\":2,\"col\":0,\"rowOffsetEmu\":1226820,\"colOffsetEmu\":2184400,\"rowOffsetPx\":129,\"colOffsetPx\":229}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image10.png\",\"anchor\":{\"from\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":154940,\"colOffsetEmu\":443230,\"rowOffsetPx\":16,\"colOffsetPx\":47},\"to\":{\"row\":7,\"col\":0,\"rowOffsetEmu\":1651000,\"colOffsetEmu\":1821815,\"rowOffsetPx\":173,\"colOffsetPx\":191}}}\n{\"kind\":\"drawing\",\"sheet\":\"Sheet1\",\"drawingType\":\"image\",\"id\":\"/xl/media/image11.png\",\"anchor\":{\"from\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":145415,\"colOffsetEmu\":266700,\"rowOffsetPx\":15,\"colOffsetPx\":28},\"to\":{\"row\":4,\"col\":0,\"rowOffsetEmu\":1597660,\"colOffsetEmu\":2142490,\"rowOffsetPx\":168,\"colOffsetPx\":225}}}"
+        },
+        {
+          "name": "Sheet2",
+          "usedAddress": "A3:A11",
+          "rowCount": 9,
+          "colCount": 1,
+          "nonEmptyRows": [
+            {
+              "row": 1,
+              "values": [
+                "唛头"
+              ]
+            },
+            {
+              "row": 2,
+              "values": [
+                "入仓号：LC"
+              ]
+            },
+            {
+              "row": 3,
+              "values": [
+                "ITEM NO：（A-HS）SH151022"
+              ]
+            },
+            {
+              "row": 4,
+              "values": [
+                "DESC：黑丝全遮光"
+              ]
+            },
+            {
+              "row": 5,
+              "values": [
+                "COL：黑色（清装就写单色、混装就混色）"
+              ]
+            },
+            {
+              "row": 6,
+              "values": [
+                "QTY：70PCS"
+              ]
+            },
+            {
+              "row": 7,
+              "values": [
+                "CTN：10（一共几件）"
+              ]
+            },
+            {
+              "row": 8,
+              "values": [
+                "CMB：0.2"
+              ]
+            },
+            {
+              "row": 9,
+              "values": [
+                "WT："
+              ]
+            }
+          ],
+          "formulaCells": [],
+          "drawings": "{\"kind\":\"notice\",\"message\":\"No records matched the requested kinds.\"}"
+        }
+      ]
+    }
+  ],
+  "createdAt": "2026-09-18T20:34:43.799Z"
+}

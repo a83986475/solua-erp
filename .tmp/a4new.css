@@ -1,0 +1,25 @@
+@page{size:A4;margin:0}
+.print-format{width:210mm;min-height:297mm;margin:0 auto;padding:12mm;box-sizing:border-box;color:#25313a;font-size:9pt;line-height:1.35;overflow-wrap:anywhere}
+.print-format h1,.print-format h2,.print-format h3{line-height:1.15}
+.print-format .company-header h2{font-size:18pt;color:#99732c}
+.print-format .items{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9pt;line-height:1.35}
+.print-format .items col[data-col="name"]{width:14.658%;min-width:0}
+.print-format .items col[data-col="sku"]{width:14.658%;min-width:0}
+.print-format .items col[data-col="cor"]{width:5.924%;min-width:0}
+.print-format .items col[data-col="barcode"]{width:14.800%;min-width:0}
+.print-format .items col[data-col="description"]{width:20.295%;min-width:0}
+.print-format .items col[data-col="qty"]{width:5.988%;min-width:0}
+.print-format .items col[data-col="uom"]{width:6.765%;min-width:0}
+.print-format .items col[data-col="rate"]{width:7.893%;min-width:0}
+.print-format .items col[data-col="amount"]{width:9.020%;min-width:0}
+.print-format .items th{font-size:9pt;background:#f5f1e9}
+.print-format .items th,.print-format .items td{padding:1.5mm;border:1px solid #aeb8be;vertical-align:top;overflow-wrap:anywhere;word-break:normal}
+.print-format .items thead{display:table-header-group!important}
+.print-format .items tr{break-inside:avoid;page-break-inside:avoid}
+.print-format .items tbody td{font-size:9pt}
+.print-format .items-title{caption-side:top;background:#f5f1e9;border:1px solid #aeb8be;padding:1.5mm;text-align:left}
+.print-format .meta td{width:50%;border:1px solid #aeb8be;padding:1.5mm;vertical-align:top}
+.print-format .warning{color:#a35c00}
+.print-format .num{text-align:right;white-space:nowrap}
+.print-format .block{page-break-inside:avoid;margin-top:7px}
+.print-format .qr{height:60px;width:60px}

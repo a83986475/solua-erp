@@ -1,0 +1,128 @@
+{
+ "new_format": {
+  "custom_format": 1,
+  "type": "Jinja",
+  "standard": "No",
+  "has_sku_bug": false,
+  "at_page": true
+ },
+ "render": {
+  "no_jinja": true,
+  "no_undefined": true,
+  "default_layout": true,
+  "title": [
+   "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+  ],
+  "logo": true,
+  "sku_sample": [
+   "SKU / \u8d27\u53f7",
+   "SH151015",
+   "SH151022"
+  ]
+ },
+ "audit": {
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": true,
+   "ok": true,
+   "precision_bug": false
+  },
+  "A4-Designer-Deploy-20260927-v9-SalesOrder-Final": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "A4-Designer-Deploy-20260927-v9-SalesOrder": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": true,
+   "ok": true,
+   "precision_bug": false
+  },
+  "A4-Designer-Deploy-20260926-v8": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "A4-Designer-Deploy-20260926-v7": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "PRINT DESIGN \u9500\u552e\u8ba2\u5355": {
+   "module": "Selling",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": false,
+   "error": "the JSON object must be str, bytes or bytearray, not NoneType",
+   "precision_bug": false
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": false,
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'",
+   "precision_bug": true
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": false,
+   "error": "Error in print format on line 6: format_print_money() got an unexpected keyword argument 'precision'",
+   "precision_bug": true
+  },
+  "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09": {
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": false,
+   "error": "Error in print format on line 7: format_print_money() got an unexpected keyword argument 'precision'",
+   "precision_bug": true
+  },
+  "Sales Order DIY": {
+   "module": "Selling",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "Sales Order with Item Image": {
+   "module": "Selling",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "Sales Order Standard": {
+   "module": "Selling",
+   "disabled": 0,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  },
+  "Sales Order PD v2": {
+   "module": "Selling",
+   "disabled": 1,
+   "on_disk": false,
+   "ok": true,
+   "precision_bug": false
+  }
+ },
+ "broken_count": 4
+}

@@ -1,0 +1,348 @@
+{
+ "A4-Designer-Deploy-20260927-v9-DeliveryNote": {
+  "doc_type": "Delivery Note",
+  "disabled": 0,
+  "db": {
+   "html_len": 6833,
+   "css_len": 0,
+   "html_md5": "4d42d102b7",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": true,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "Guia de Remessa": {
+  "doc_type": "Delivery Note",
+  "disabled": 0,
+  "db": {
+   "html_len": 7488,
+   "css_len": 1457,
+   "html_md5": "c6dc3ff6f5",
+   "css_md5": "a915982329"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": {
+   "folder": "delivery_note_guia_remessa",
+   "html_md5": "c6dc3ff6f5",
+   "css_md5": "a915982329",
+   "html_len": 7488,
+   "css_len": 1457
+  },
+  "diverged": false
+ },
+ "A4-Designer-Deploy-20260927-v9-PickList": {
+  "doc_type": "Pick List",
+  "disabled": 0,
+  "db": {
+   "html_len": 6162,
+   "css_len": 0,
+   "html_md5": "ed5061d820",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": true,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "\u62e3\u8d27\u5355\uff08\u7b80\u7248\uff09": {
+  "doc_type": "Pick List",
+  "disabled": 0,
+  "db": {
+   "html_len": 2083,
+   "css_len": 731,
+   "html_md5": "f9ca235cf6",
+   "css_md5": "8ce3dbac3f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": {
+   "folder": "pick_list_simple",
+   "html_md5": "f9ca235cf6",
+   "css_md5": "8ce3dbac3f",
+   "html_len": 2083,
+   "css_len": 731
+  },
+  "diverged": false
+ },
+ "\u62e3\u8d27\u5355\uff08\u989c\u8272\u7248\uff09": {
+  "doc_type": "Pick List",
+  "disabled": 0,
+  "db": {
+   "html_len": 2219,
+   "css_len": 572,
+   "html_md5": "a2a2835788",
+   "css_md5": "4f417be179"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": {
+   "folder": "pick_list_color",
+   "html_md5": "a2a2835788",
+   "css_md5": "4f417be179",
+   "html_len": 2219,
+   "css_len": 572
+  },
+  "diverged": false
+ },
+ "\u6279\u53d1\u9500\u552e\u5355\uff08\u989c\u8272\u7248\uff09": {
+  "doc_type": "Sales Invoice",
+  "disabled": 0,
+  "db": {
+   "html_len": 4385,
+   "css_len": 0,
+   "html_md5": "832ec6ab12",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": true,
+   "brand_table": false,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "\u6279\u53d1\u9500\u552e\u5355\uff08\u989c\u8272\u7248\uff09\u65b0\u7248": {
+  "doc_type": "Sales Invoice",
+  "disabled": 0,
+  "db": {
+   "html_len": 4561,
+   "css_len": 1887,
+   "html_md5": "61e6148536",
+   "css_md5": "8b0bd0c4ba"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": {
+   "folder": "sales_invoice_wholesale_color_v2",
+   "html_md5": "61e6148536",
+   "css_md5": "8b0bd0c4ba",
+   "html_len": 4561,
+   "css_len": 1887
+  },
+  "diverged": false
+ },
+ "A4-Designer-Deploy-20260926-v7": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 3596,
+   "css_len": 0,
+   "html_md5": "b14a661931",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "A4-Designer-Deploy-20260926-v8": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 4540,
+   "css_len": 0,
+   "html_md5": "c5296446a5",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "A4-Designer-Deploy-20260927-v9-SalesOrder": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 5306,
+   "css_len": 0,
+   "html_md5": "b57a98b722",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": true,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "A4-Designer-Deploy-20260927-v9-SalesOrder-Final": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 6373,
+   "css_len": 0,
+   "html_md5": "ec0ef3be80",
+   "css_md5": "d41d8cd98f"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": true,
+   "own_page": false,
+   "h2_center": false,
+   "h2_color_gold": false,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 5516,
+   "css_len": 1841,
+   "html_md5": "fa420fcc89",
+   "css_md5": "f70e2490ba"
+  },
+  "db_flags": {
+   "company_header": true,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 4306,
+   "css_len": 1793,
+   "html_md5": "5380f66c46",
+   "css_md5": "343b482f60"
+  },
+  "db_flags": {
+   "company_header": true,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": true,
+   "h2_color_gold": true,
+   "hide_global_logo": true
+  },
+  "disk": {
+   "folder": "so_new_header",
+   "html_md5": "5380f66c46",
+   "css_md5": "2c1aa7b257",
+   "html_len": 4306,
+   "css_len": 1316
+  },
+  "diverged": true
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 5246,
+   "css_len": 2529,
+   "html_md5": "c422051980",
+   "css_md5": "0b016fbec4"
+  },
+  "db_flags": {
+   "company_header": false,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": {
+   "folder": "sales_order_wholesale_color",
+   "html_md5": "c422051980",
+   "css_md5": "0b016fbec4",
+   "html_len": 5246,
+   "css_len": 2529
+  },
+  "diverged": false
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 7687,
+   "css_len": 3211,
+   "html_md5": "c7546f8f79",
+   "css_md5": "7f5e905931"
+  },
+  "db_flags": {
+   "company_header": true,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": null
+ },
+ "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248": {
+  "doc_type": "Sales Order",
+  "disabled": 0,
+  "db": {
+   "html_len": 7687,
+   "css_len": 2967,
+   "html_md5": "c7546f8f79",
+   "css_md5": "1bb7595167"
+  },
+  "db_flags": {
+   "company_header": true,
+   "brand_table": false,
+   "own_page": true,
+   "h2_center": false,
+   "h2_color_gold": true,
+   "hide_global_logo": false
+  },
+  "disk": null
+ }
+}

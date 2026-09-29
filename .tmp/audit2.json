@@ -1,0 +1,1174 @@
+{
+ "total": 69,
+ "sample_docs": {
+  "Sales Order": "SAL-ORD-2026-00015",
+  "Sales Invoice": null,
+  "Delivery Note": "MAT-DN-2026-00006",
+  "Pick List": "STO-PICK-2026-00002"
+ },
+ "formats": [
+  {
+   "name": "Accounts Payable Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Accounts Payable Summary Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Accounts Receivable Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Accounts Receivable Summary Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Balance Sheet Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Cash Flow Statement Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "General Ledger Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "P&L Statement Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Trial Balance Standard",
+   "doc_type": null,
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "JS",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-DeliveryNote",
+   "doc_type": "Delivery Note",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 1,
+    "brand_table": 1,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Guia de Remessa / \u9001\u8d27\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 6833,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Delivery Note Standard",
+   "doc_type": "Delivery Note",
+   "module": "Stock",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 4
+   },
+   "own_css_at_page": false,
+   "own_html_len": 9925,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Delivery Note with Item Image",
+   "doc_type": "Delivery Note",
+   "module": "Stock",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 4
+   },
+   "own_css_at_page": false,
+   "own_html_len": 10051,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Guia de Remessa",
+   "doc_type": "Delivery Note",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "delivery_note_guia_remessa",
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Guia de Remessa"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:12mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 7488,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Dunning Letter",
+   "doc_type": "Dunning",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "XPOS Item Barcode Label",
+   "doc_type": "Item",
+   "module": "X POS",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "\u4ef7\u683c\u6807\u7b7e 50x30",
+   "doc_type": "Item",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": "price_label_50x30",
+   "render": "no sample doc"
+  },
+  {
+   "name": "\u4ef7\u683c\u6807\u7b7e 50x30 PD",
+   "doc_type": "Item",
+   "module": "Stock",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Cheque Printing Format",
+   "doc_type": "Journal Entry",
+   "module": null,
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Credit Note",
+   "doc_type": "Journal Entry",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Journal Auditing Voucher",
+   "doc_type": "Journal Entry",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Payment Receipt Voucher",
+   "doc_type": "Journal Entry",
+   "module": null,
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Bank and Cash Payment Voucher",
+   "doc_type": "Payment Entry",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-PickList",
+   "doc_type": "Pick List",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 1,
+    "brand_table": 1,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Lista de Separa\u00e7\u00e3o / \u62e3\u8d27\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 6162,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Pick List",
+   "doc_type": "Pick List",
+   "module": "Stock",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 88,
+    "h2_text": [
+     "Pick List<br><small>STO-PICK-2026-00002</small>\t\t\t\t"
+    ],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 4
+   },
+   "own_css_at_page": false,
+   "own_html_len": 0,
+   "html_has_company_header": false
+  },
+  {
+   "name": "\u62e3\u8d27\u5355\uff08\u7b80\u7248\uff09",
+   "doc_type": "Pick List",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "pick_list_simple",
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Pick List / \u62e3\u8d27\u5355\uff08\u7b80\u7248\uff09"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:12mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 2083,
+   "html_has_company_header": false
+  },
+  {
+   "name": "\u62e3\u8d27\u5355\uff08\u989c\u8272\u7248\uff09",
+   "doc_type": "Pick List",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "pick_list_color",
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Pick List / \u62e3\u8d27\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:12mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 2219,
+   "html_has_company_header": false
+  },
+  {
+   "name": "POS Invoice",
+   "doc_type": "POS Invoice",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "POS Invoice Standard",
+   "doc_type": "POS Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "POS Invoice with Item Image",
+   "doc_type": "POS Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Return POS Invoice",
+   "doc_type": "POS Invoice",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "XPOS Thermal Receipt",
+   "doc_type": "POS Invoice",
+   "module": "X POS",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Auditing Voucher",
+   "doc_type": "Purchase Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase eInvoice",
+   "doc_type": "Purchase Invoice",
+   "module": "Regional",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Invoice Standard",
+   "doc_type": "Purchase Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Invoice with Item Image",
+   "doc_type": "Purchase Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Drop Shipping Format",
+   "doc_type": "Purchase Order",
+   "module": null,
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Order Standard",
+   "doc_type": "Purchase Order",
+   "module": "Buying",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Order with Item Image",
+   "doc_type": "Purchase Order",
+   "module": "Buying",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "XPOS PO A4",
+   "doc_type": "Purchase Order",
+   "module": "X POS",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "XPOS PO Thermal",
+   "doc_type": "Purchase Order",
+   "module": "X POS",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Purchase Receipt Serial and Batch Bundle Print",
+   "doc_type": "Purchase Receipt",
+   "module": "Stock",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Quotation Standard",
+   "doc_type": "Quotation",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Quotation with Item Image",
+   "doc_type": "Quotation",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Request for Quotation with Item Image",
+   "doc_type": "Request for Quotation",
+   "module": "Buying",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Detailed Tax Invoice",
+   "doc_type": "Sales Invoice",
+   "module": "Regional",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Sales Auditing Voucher",
+   "doc_type": "Sales Invoice",
+   "module": "Accounts",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Sales Invoice PD Format v2",
+   "doc_type": "Sales Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Sales Invoice Return",
+   "doc_type": "Sales Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Sales Invoice Standard",
+   "doc_type": "Sales Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Sales Invoice with Item Image",
+   "doc_type": "Sales Invoice",
+   "module": "Accounts",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Simplified Tax Invoice",
+   "doc_type": "Sales Invoice",
+   "module": "Regional",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "Tax Invoice",
+   "doc_type": "Sales Invoice",
+   "module": "Regional",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "\u6279\u53d1\u9500\u552e\u5355\uff08\u989c\u8272\u7248\uff09",
+   "doc_type": "Sales Invoice",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "no sample doc"
+  },
+  {
+   "name": "\u6279\u53d1\u9500\u552e\u5355\uff08\u989c\u8272\u7248\uff09\u65b0\u7248",
+   "doc_type": "Sales Invoice",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "sales_invoice_wholesale_color_v2",
+   "render": "no sample doc"
+  },
+  {
+   "name": "A4-Designer-Deploy-20260926-v7",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 3596,
+   "html_has_company_header": false
+  },
+  {
+   "name": "A4-Designer-Deploy-20260926-v8",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 4540,
+   "html_has_company_header": false
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-SalesOrder",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 1,
+    "brand_table": 1,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 5306,
+   "html_has_company_header": false
+  },
+  {
+   "name": "A4-Designer-Deploy-20260927-v9-SalesOrder-Final",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 1,
+    "brand_table": 1,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 6373,
+   "html_has_company_header": false
+  },
+  {
+   "name": "PRINT DESIGN \u9500\u552e\u8ba2\u5355",
+   "doc_type": "Sales Order",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": false,
+   "own_html_len": 0,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Sales Order DIY",
+   "doc_type": "Sales Order",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [
+     "@page { size: 210mm 297mm; margin: 0mm; }"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 0,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Sales Order PD v2",
+   "doc_type": "Sales Order",
+   "module": "Selling",
+   "disabled": 1,
+   "custom_format": 0,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [
+     "@page { size: 210mm 297mm; margin: 0mm; }"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 0,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Sales Order Standard",
+   "doc_type": "Sales Order",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 4
+   },
+   "own_css_at_page": false,
+   "own_html_len": 9968,
+   "html_has_company_header": false
+  },
+  {
+   "name": "Sales Order with Item Image",
+   "doc_type": "Sales Order",
+   "module": "Selling",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "Yes",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 0,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 0,
+    "default_layout": 0,
+    "h2_text": [],
+    "at_page": [],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 4
+   },
+   "own_css_at_page": false,
+   "own_html_len": 10068,
+   "html_has_company_header": false
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08A4\u65b0\u7248\uff09",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 4,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:0}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 5516,
+   "html_has_company_header": true
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u516c\u53f8\u62ac\u5934-\u65b0\uff09",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "so_new_header",
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 5,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:12mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 4306,
+   "html_has_company_header": true
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": "sales_order_wholesale_color",
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 2,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:12mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 5246,
+   "html_has_company_header": false
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u65e0\u8fb9\u6846\u7248",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 4,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:8mm 5mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 7687,
+   "html_has_company_header": true
+  },
+  {
+   "name": "\u5ba2\u6237\u8ba2\u5355\u786e\u8ba4\u5355\uff08\u989c\u8272\u7248\uff09-\u7d27\u51d1\u7248",
+   "doc_type": "Sales Order",
+   "module": "Solua Wholesale",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "ok",
+   "markers": {
+    "global_logo": 1,
+    "company_logo": 0,
+    "brand_table": 0,
+    "company_header": 4,
+    "default_layout": 0,
+    "h2_text": [
+     "Confirma\u00e7\u00e3o de Encomenda / \u8ba2\u5355\u786e\u8ba4\u5355"
+    ],
+    "at_page": [
+     "@page{size:A4;margin:8mm 5mm}"
+    ],
+    "undefined": 0,
+    "jinja_left": 0,
+    "letterhead_block": 0
+   },
+   "own_css_at_page": true,
+   "own_html_len": 7687,
+   "html_has_company_header": true
+  },
+  {
+   "name": "IRS 1099 Form",
+   "doc_type": "Supplier",
+   "module": "Regional",
+   "disabled": 0,
+   "custom_format": 1,
+   "print_format_type": "Jinja",
+   "standard": "No",
+   "disk_folder": null,
+   "render": "no sample doc"
+  }
+ ],
+ "letterheads": [
+  {
+   "name": "Company Letterhead - Grey",
+   "is_default": 1,
+   "disabled": 0,
+   "source": "HTML"
+  },
+  {
+   "name": "Company Letterhead",
+   "is_default": 0,
+   "disabled": 0,
+   "source": "HTML"
+  }
+ ]
+}

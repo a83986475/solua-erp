@@ -1,0 +1,25 @@
+{
+  "status": "sample-only-batch-paused",
+  "sample_card": "C:/Users/Yang/solua-home/sites/erpnext/outputs/curtain_color_cards_20260919/sample/SH151046-Color-09-sample.png",
+  "source_image": "C:/Users/Yang/solua-home/sites/erpnext/outputs/curtain_color_cards_20260919/sample/SH151046-color-09-source.png",
+  "source_workbook": "D:/WeChat/xwechat_files/chenyangyang_7cef/msg/file/2026-09/莫桑比克色卡文档.xlsx",
+  "source_media": "/xl/media/image1.png",
+  "worksheet": "Sheet1",
+  "source_anchor": "G2:G11",
+  "product_sku": "SH151046",
+  "product_name": "单面光压花（95%遮光）",
+  "size": "140*260CM",
+  "color_number": 9,
+  "order_quantity": 3,
+  "mapping_basis": "色卡栏 image1.png 中第一块、标注 9号；与 SH151046 货号组的第一行对应。",
+  "visual_invariants": [
+    "官方 SOLUA HOME Logo",
+    "黑色质感背景",
+    "细金色圆角边框",
+    "横版 16:9",
+    "真实窗帘样本完整保留",
+    "右侧金色款号/颜色标签"
+  ],
+  "erp_upload": false,
+  "batch_generation": false
+}

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>HOME STORE, LDA</title>
+	<meta name="generator" content="frappe">
+	<link type="text/css" rel="stylesheet" href="/assets/frappe/dist/css/print.bundle.QBWQPQ6D.css">
+	
+		<style>
+		@media screen {
+	.print-format-gutter {
+		background-color: #d1d8dd;
+		padding: 30px 0px;
+	}
+	.print-format {
+		background-color: white;
+		border-radius: 8px;
+		max-width: 8.3in;
+		min-height: 11.69in;
+		padding: 0.75in;
+		margin: auto;
+		color: var(--gray-900);
+	}
+
+	.print-format.landscape {
+		max-width: 11.69in;
+		padding: 0.2in;
+	}
+
+	.page-break {
+		/* padding: 15px 0px; */
+		border-bottom: 1px dashed #888;
+	}
+
+	/* .page-break:first-child {
+		padding-top: 0px;
+	} */
+
+	.page-break:last-child {
+		border-bottom: 0px;
+	}
+
+	/* mozilla hack for images in table */
+	body:last-child .print-format td img {
+		width: 100% !important;
+	}
+
+	@media(max-width: 767px) {
+		.print-format {
+			padding: 0.2in;
+		}
+	}
+}
+
+@media print {
+	.print-format p {
+		margin-left: 1px;
+		margin-right: 1px;
+	}
+}
+
+.disabled-check {
+	color: #eee;
+}
+
+.data-field {
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+
+.data-field .value {
+	word-wrap: break-word;
+}
+
+.important .value {
+	font-size: 120%;
+	font-weight: bold;
+}
+
+.important label {
+	line-height: 1.8;
+	margin: 0px;
+}
+
+.table {
+	font-size: inherit;
+	margin: 20px 0px;
+}
+
+.checkbox-options {
+	columns: var(--checkbox-options-columns);
+}
+
+.square-image {
+	width: 100%;
+	height: 0;
+	padding: 50% 0;
+	background-size: contain;
+	/*background-size: cover;*/
+	background-repeat: no-repeat !important;
+	background-position: center center;
+	border-radius: 4px;
+}
+
+.print-item-image {
+	object-fit: contain;
+}
+
+.pdf-variables,
+.pdf-variable,
+.visible-pdf {
+	display: none !important;
+}
+
+.print-format {
+	font-size: 9pt;
+	font-family: 
+	"InterVariable", "Inter", -apple-system", "BlinkMacSystemFont",
+		"Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+		"Helvetica Neue", sans-serif;
+	;
+	-webkit-print-color-adjust:exact;
+}
+
+.page-break {
+	page-break-after: always;
+}
+
+.print-heading {
+	border-bottom: 1px solid #aaa;
+	margin-bottom: 10px;
+}
+
+.print-heading h2 {
+	margin: 0px;
+}
+.print-heading h4 {
+	margin-top: 5px;
+}
+
+table.no-border, table.no-border td {
+	border: 0px;
+}
+
+.print-format label {
+	/* wkhtmltopdf breaks label into multiple lines when it is inline-block */
+	display: block;
+	font-weight: 700;
+}
+
+.print-format img {
+	max-width: 100%;
+}
+
+.print-format table td > .primary:first-child {
+	font-weight: bold;
+}
+
+.print-format td, .print-format th {
+	vertical-align: top !important;
+	padding: 6px !important;
+}
+
+.print-format p {
+	margin: 3px 0px 3px;
+}
+
+.print-format .ql-snow p {
+	margin-top: 0px;
+}
+
+.print-format table td pre {
+	white-space: normal;
+	word-break: normal;
+}
+
+table td div {
+	
+	/* needed to avoid partial cutting of text between page break in wkhtmltopdf */
+	page-break-inside: avoid !important;
+	
+}
+
+/* hack for webkit specific browser */
+@media (-webkit-min-device-pixel-ratio:0) {
+	thead, tfoot {
+		display: table-header-group;
+	}
+}
+
+[document-status] {
+	margin-bottom: 5mm;
+}
+
+.signature-img {
+	background: #fff;
+	border-radius: 3px;
+	margin-top: 5px;
+	max-height: 150px;
+}
+
+.print-format-preview [data-fieldtype="Table"] {
+	overflow: auto;
+}
+.print-format {
+    font-size: 13px;
+    background: white;
+}
+
+.print-heading {
+    border-bottom: 1px solid #f4f5f6;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.print-heading h2 {
+    font-size: 24px;
+}
+
+.print-heading h2 div {
+    font-weight: 600;
+}
+
+.print-heading small {
+    font-size: 13px !important;
+    font-weight: normal;
+    line-height: 2.5;
+    color: #4c5a67;
+}
+
+.print-format .letter-head {
+    margin-bottom: 30px;
+}
+
+.print-format label {
+    font-weight: normal;
+    font-size: 13px;
+    color: #4C5A67;
+    margin-bottom: 0;
+}
+
+.print-format .data-field {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.print-format .value {
+    color: #192734;
+    line-height: 1.8;
+}
+
+.print-format .section-break:not(:last-child) {
+    margin-bottom: 0;
+}
+
+.print-format .row:not(.section-break) {
+    line-height: 1.6;
+    margin-top: 15px !important;
+}
+
+.print-format .important .value {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.print-format th {
+    color: #74808b;
+    font-weight: normal;
+    border-bottom-width: 1px !important;
+}
+
+.print-format .table-bordered td, .print-format .table-bordered th {
+    border: 1px solid #f4f5f6;
+}
+
+.print-format .table-bordered {
+    border: 1px solid #f4f5f6;
+}
+
+.print-format td, .print-format th {
+    padding: 10px !important;
+}
+
+.print-format .primary.compact-item {
+    font-weight: normal;
+}
+
+.print-format table td .value {
+    font-size: 12px;
+    line-height: 1.8;
+}
+.print-format table tr td.table-sr{
+	line-height: 1.8;
+	font-size: 12px;
+}
+
+
+.print-format .company-header h2{font-size:18pt;color:#99732c;text-align:center;margin:0 0 2mm}.print-format .company-header{position:relative;min-height:18mm}.print-format .items{width:100%;table-layout:fixed;border-collapse:collapse}.print-format .items th{font-size:9pt;background:#f5f1e9}.print-format .items th,.print-format .items td{padding:1.5mm;border:1px solid #aeb8be;vertical-align:top;overflow-wrap:anywhere}.print-format .items thead{display:table-header-group!important}.print-format .items tr{break-inside:avoid;page-break-inside:avoid}.print-format .items tbody td{font-size:9pt}.print-format .items-title{caption-side:top;background:#f5f1e9;border:1px solid #aeb8be;padding:1.5mm;text-align:left}.print-format .meta td{width:50%;border:1px solid #aeb8be;padding:1.5mm;vertical-align:top}.print-format .warning{color:#a35c00}.print-format .num{text-align:right;white-space:nowrap}.print-format .block{page-break-inside:avoid;margin-top:7px}.print-format .photo{max-width:45px;max-height:45px;object-fit:contain}.print-format .col-sku,.print-format .col-barcode,.print-format .col-uom,.print-format .col-qty,.print-format .col-rate,.print-format .col-amount{min-width:22mm;width:22mm}.print-format .col-description{min-width:42mm;white-space:normal;overflow-wrap:break-word}
+		</style>
+	
+</head>
+<body>
+	<div class="action-banner print-hide">
+		<a class="p-2" onclick="window.print();">
+			Print
+		</a>
+		<a class="p-2"
+			href="/api/method/frappe.utils.print_format.download_pdf?doctype=Sales Order&name=SAL-ORD-2026-00015&format=客户订单确认单（公司抬头-新）&letterhead=None&no_letterhead=0&_lang=en&key=None&pdf_generator=wkhtmltopdf">
+			Get PDF
+		</a>
+	</div>
+	<div class="print-format-gutter">
+		<div class="print-format">
+			
+<style id="solua-print-shared">
+:root { --solua-font-size: 12pt; --solua-line-height: 1.12; --solua-cell-padding: 3px 4px; --solua-block-margin: 7px; --solua-item-border: 0; }
+.print-format, .print-format * { box-sizing: border-box; }
+.print-format { font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }
+.print-format h1, .print-format h2, .print-format h3 { line-height: 1.15; }
+.print-format table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.print-format th, .print-format td { padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); overflow-wrap: normal; word-break: normal; }
+.print-format th { white-space: normal; }
+.print-format .num { text-align: right; white-space: nowrap; }
+.print-format .col-sku, .print-format .col-barcode, .print-format .col-uom,
+.print-format .col-qty, .print-format .col-rate, .print-format .col-amount,
+.print-format .col-traceability { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.print-format .col-sku { min-width: 24mm; width: 24mm; }
+.print-format .col-barcode { min-width: 30mm; width: 30mm; }
+.print-format .col-qty { min-width: 17mm; width: 17mm; }
+.print-format .col-uom { min-width: 10mm; width: 10mm; }
+.print-format .col-rate, .print-format .col-amount { min-width: 22mm; width: 22mm; }
+.print-format .col-description { min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }
+.print-format .col-traceability { min-width: 20mm; width: 20mm; }
+.print-format .photo { max-width: 45px; max-height: 45px; object-fit: contain; }
+.print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td { border: var(--solua-item-border) !important; }
+.print-format .block { page-break-inside: avoid; margin-top: var(--solua-block-margin); }
+@media print { .print-format { font-size: var(--solua-font-size); } }
+.print-format{position:relative}.solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain;}
+</style>
+<img class="solua-global-logo" src="http://erp.solua.one/private/files/SOLUA LOGO.png" alt="Company Logo">
+
+<div class="company-header"><h2>Confirmação de Encomenda / 订单确认单</h2></div>
+
+
+<table class="meta"><tr><td><b>Solua Home, Lda</b><br>NUIT: 402216468<br>AV.DO TRABALHO N281<br>
+MAPUTO<br>
+0001<br>Mozambique<br>
+<br>
+<br>Tel: 860515423</td><td><b>Cliente / 客户: HOME STORE, LDA</b><br>NUIT: 401661646<br>Loja / 门店: 2店<br>AV.JOSINA MACHEL N115<br>
+MACHAVA<br>MATOLA<br>
+0001<br>Mozambique<br>
+<br>
+<br>YANGYANG CHEN · </td></tr><tr><td>N.º / 编号: SAL-ORD-2026-00015<br>客户订单号: —</td><td>Data / 日期: 2026-09-23<br>交期: 2026-09-24</td></tr></table>
+<table class="items"><colgroup><col data-col="name" class="col-item"><col data-col="sku" class="col-sku"><col data-col="barcode" class="col-barcode"><col data-col="description" class="col-description"><col data-col="qty" class="col-qty"><col data-col="uom" class="col-uom"><col data-col="rate" class="col-rate"><col data-col="amount" class="col-amount"></colgroup><caption class="items-title">SAL-ORD-2026-00015 · Encomenda / 订购</caption><thead><tr><th class="col-item">Artigo / 商品</th><th class="col-sku">SKU / 货号</th><th class="col-barcode">EAN / 条码</th><th class="col-description">Descrição / 描述</th><th class="col-qty">Quantidade / 数量</th><th class="col-uom">Un.</th><th class="col-rate">Preço / 单价</th><th class="col-amount">Valor / 金额</th></tr></thead><tbody><tr><td class="col-item">素雅 1</td><td class="col-sku">SH151015</td><td class="col-barcode">2026061151015</td><td class="col-description">素雅 1 / 140*260</td><td class="col-qty num">50</td><td class="col-uom">条</td><td class="col-rate num">245</td><td class="col-amount num">12,250</td></tr><tr><td class="col-item">重磅旗舰款</td><td class="col-sku">SH151022</td><td class="col-barcode">2026061151022</td><td class="col-description">重磅旗舰款 / （95%遮光） / / 140*260</td><td class="col-qty num">25</td><td class="col-uom">条</td><td class="col-rate num">680</td><td class="col-amount num">17,000</td></tr><tr><td class="col-item">素雅 2</td><td class="col-sku">SH151039</td><td class="col-barcode">2026061151039</td><td class="col-description">素雅 2 / 140*260</td><td class="col-qty num">50</td><td class="col-uom">条</td><td class="col-rate num">245</td><td class="col-amount num">12,250</td></tr><tr><td class="col-item">暗影 / 09</td><td class="col-sku">SH151046-09</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 10</td><td class="col-sku">SH151046-10</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 11</td><td class="col-sku">SH151046-11</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 19</td><td class="col-sku">SH151046-19</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 21</td><td class="col-sku">SH151046-21</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 27</td><td class="col-sku">SH151046-27</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 34</td><td class="col-sku">SH151046-34</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 37</td><td class="col-sku">SH151046-37</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 43</td><td class="col-sku">SH151046-43</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">暗影 / 44</td><td class="col-sku">SH151046-44</td><td class="col-barcode">2026061151046</td><td class="col-description">暗影 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">静谧绒</td><td class="col-sku">SH151053</td><td class="col-barcode">2026061151053</td><td class="col-description">静谧绒 / （85%遮光） / / 140*260</td><td class="col-qty num">50</td><td class="col-uom">条</td><td class="col-rate num">400</td><td class="col-amount num">20,000</td></tr><tr><td class="col-item">光感绒-01</td><td class="col-sku">SH151060-01</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-02</td><td class="col-sku">SH151060-02</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-03</td><td class="col-sku">SH151060-03</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-04</td><td class="col-sku">SH151060-04</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-05</td><td class="col-sku">SH151060-05</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-06</td><td class="col-sku">SH151060-06</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-07</td><td class="col-sku">SH151060-07</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-08</td><td class="col-sku">SH151060-08</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-09</td><td class="col-sku">SH151060-09</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">光感绒-10</td><td class="col-sku">SH151060-10</td><td class="col-barcode">2026061151060</td><td class="col-description">光感绒 / （85%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">极夜 1</td><td class="col-sku">SH151077</td><td class="col-barcode">2026061151077</td><td class="col-description">极夜 1 / （100%遮光） / / 140*260</td><td class="col-qty num">50</td><td class="col-uom">条</td><td class="col-rate num">350</td><td class="col-amount num">17,500</td></tr><tr><td class="col-item">极夜 2</td><td class="col-sku">SH151084</td><td class="col-barcode">2026061151084</td><td class="col-description">极夜 2 / （100%遮光） / / 140*260</td><td class="col-qty num">40</td><td class="col-uom">条</td><td class="col-rate num">350</td><td class="col-amount num">14,000</td></tr><tr><td class="col-item">幻纱</td><td class="col-sku">SH151091</td><td class="col-barcode">2026061151091</td><td class="col-description">幻纱 / 140*260</td><td class="col-qty num">30</td><td class="col-uom">条</td><td class="col-rate num">245</td><td class="col-amount num">7,350</td></tr><tr><td class="col-item">鎏金 / 01</td><td class="col-sku">SH151107-01</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 02</td><td class="col-sku">SH151107-02</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 03</td><td class="col-sku">SH151107-03</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 04</td><td class="col-sku">SH151107-04</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 05</td><td class="col-sku">SH151107-05</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 06</td><td class="col-sku">SH151107-06</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 07</td><td class="col-sku">SH151107-07</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 08</td><td class="col-sku">SH151107-08</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 09</td><td class="col-sku">SH151107-09</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 10</td><td class="col-sku">SH151107-10</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 11</td><td class="col-sku">SH151107-11</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 12</td><td class="col-sku">SH151107-12</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 13</td><td class="col-sku">SH151107-13</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 14</td><td class="col-sku">SH151107-14</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 15</td><td class="col-sku">SH151107-15</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 16</td><td class="col-sku">SH151107-16</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 17</td><td class="col-sku">SH151107-17</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">鎏金 / 18</td><td class="col-sku">SH151107-18</td><td class="col-barcode">2026061151107</td><td class="col-description">鎏金 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 01</td><td class="col-sku">SH151114-01</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 02</td><td class="col-sku">SH151114-02</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 03</td><td class="col-sku">SH151114-03</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 04</td><td class="col-sku">SH151114-04</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 05</td><td class="col-sku">SH151114-05</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 06</td><td class="col-sku">SH151114-06</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 07</td><td class="col-sku">SH151114-07</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 08</td><td class="col-sku">SH151114-08</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 09</td><td class="col-sku">SH151114-09</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 10</td><td class="col-sku">SH151114-10</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 11</td><td class="col-sku">SH151114-11</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 12</td><td class="col-sku">SH151114-12</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 13</td><td class="col-sku">SH151114-13</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 14</td><td class="col-sku">SH151114-14</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 15</td><td class="col-sku">SH151114-15</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 16</td><td class="col-sku">SH151114-16</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 17</td><td class="col-sku">SH151114-17</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">莫兰迪 / 18</td><td class="col-sku">SH151114-18</td><td class="col-barcode">2026061151114</td><td class="col-description">莫兰迪 / （95%遮光） / / 140*260</td><td class="col-qty num">5</td><td class="col-uom">条</td><td class="col-rate num">430</td><td class="col-amount num">2,150</td></tr><tr><td class="col-item">高奢</td><td class="col-sku">SH151121</td><td class="col-barcode">2026061151121</td><td class="col-description">高奢 / （95%遮光） / / 140*260</td><td class="col-qty num">55</td><td class="col-uom">条</td><td class="col-rate num">520</td><td class="col-amount num">28,600</td></tr></tbody></table>
+<div class="qty-total">Total Qty / 总数量: 630</div>
+<div class="total">Total / 含税合计: 249,350 MZN</div>
+<div class="block">Plano de pagamento / 付款安排: 未维护 · Depósito / 定金: 0 · Vencimento do saldo / 尾款到期: —<br>Plano de faturação / 开票安排: 未维护</div>
+<div class="footer">SAL-ORD-2026-00015 · <span class="page"></span> / <span class="topage"></span></div>
+		</div>
+	</div>
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			const page_div = document.querySelector('.page-break');
+
+			if (page_div) {
+				page_div.style.display = 'flex';
+				page_div.style.flexDirection = 'column';
+			}
+
+			const footer_html = document.getElementById('footer-html');
+			if (footer_html)  {
+				footer_html.classList.add('hidden-pdf');
+				footer_html.classList.remove('visible-pdf');
+				footer_html.style.order = 1;
+				footer_html.style.marginTop = '20px';
+			}
+		});
+	</script>
+</body><!-- Administrator --></html>

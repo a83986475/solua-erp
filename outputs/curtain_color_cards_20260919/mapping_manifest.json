@@ -1,0 +1,111 @@
+{
+  "source_workbook": "D:/WeChat/xwechat_files/chenyangyang_7cef/msg/file/2026-09/莫桑比克色卡文档.xlsx",
+  "logo": "C:/Users/Yang/Desktop/SOLUA LOGO源文件.jpg",
+  "template": "Solua Home white square background, gold rounded border, official logo, one independent swatch per PNG",
+  "clear_mappings": [
+    {
+      "sku": "SH151046",
+      "colors": [
+        9,
+        10,
+        11,
+        19,
+        21,
+        27,
+        34,
+        37,
+        43,
+        44
+      ],
+      "source": "/extracted_sources/raw_xlsx_media/image1.png",
+      "anchor": "Sheet1!G2:G11",
+      "status": "clear"
+    },
+    {
+      "sku": "SH151060",
+      "colors": [
+        4,
+        6,
+        7,
+        9,
+        11,
+        13,
+        14,
+        15,
+        16,
+        20
+      ],
+      "source": "/extracted_sources/raw_xlsx_media/image3.png",
+      "anchor": "Sheet1!G12",
+      "status": "clear"
+    },
+    {
+      "sku": "SH151107",
+      "colors": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "source": [
+        "/extracted_sources/raw_xlsx_media/image7.jpeg",
+        "/extracted_sources/raw_xlsx_media/image8.jpeg",
+        "/extracted_sources/raw_xlsx_media/image9.jpeg"
+      ],
+      "anchor": "Sheet1!G15:G48 (numbered 1-18)",
+      "status": "clear"
+    },
+    {
+      "sku": "SH151114",
+      "colors": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "source": [
+        "/extracted_sources/raw_xlsx_media/image7.jpeg",
+        "/extracted_sources/raw_xlsx_media/image8.jpeg",
+        "/extracted_sources/raw_xlsx_media/image9.jpeg"
+      ],
+      "anchor": "user-confirmed same numbered 18-color swatch set as SH151107",
+      "status": "user-confirmed-same-set"
+    }
+  ],
+  "paused_mappings": [],
+  "user_selected_final_image_overrides": [
+    {
+      "sku": "SH151046-43",
+      "source": "repair_completion_20260920_v2/selected_images/SH151046-43.png",
+      "handling": "used unchanged from the image explicitly selected by the user"
+    }
+  ]
+}
