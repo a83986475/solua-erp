@@ -121,8 +121,7 @@ assert "tbody tr td{break-inside:avoid;page-break-inside:avoid}" in page
 assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
 
 hooks = (BASE / "hooks.py").read_text(encoding="utf-8")
-assert '"a4-print-designer": "public/js/a4_print_designer.js"' in hooks
-assert "a4_print_designer.js?v=" not in hooks
+assert '"a4-print-designer": "public/js/a4_print_designer_logo_scale.js"' in hooks
 
 known_legacy_html = """{{ get_solua_print_css() }}{% set p = get_wholesale_print_data(doc) %}
 <table class="items">{% if doc.get('custom_print_item_name') %}{% endif %}

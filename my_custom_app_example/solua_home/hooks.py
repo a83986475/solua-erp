@@ -228,7 +228,7 @@ app_include_js = [
 page_js = {
     "print-designer": "public/js/print_designer_zh.js",
     # page_js is read as a filesystem path; a query string makes get_js() miss the file.
-    "a4-print-designer": "public/js/a4_print_designer.js",
+    "a4-print-designer": "public/js/a4_print_designer_logo_scale.js",
 }
 
 # Custom JS for Item form: template page shows per-color and total stock.

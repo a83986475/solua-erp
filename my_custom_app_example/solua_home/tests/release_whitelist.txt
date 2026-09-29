@@ -15,6 +15,7 @@ my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.json
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.js
 my_custom_app_example/solua_home/solua_wholesale/page/solua_home/solua_home.css
 my_custom_app_example/solua_home/public/js/a4_print_designer.js
+my_custom_app_example/solua_home/public/js/a4_print_designer_logo_scale.js
 my_custom_app_example/solua_home/public/js/doctype_module_filter.js
 my_custom_app_example/solua_home/public/js/document_table_export.js
 my_custom_app_example/solua_home/public/js/item_list_metrics.js

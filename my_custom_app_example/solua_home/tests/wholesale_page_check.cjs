@@ -71,7 +71,7 @@ setImmediate(async()=>{
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));root=roots.at(-1);
  const actions=node('[data-role="actions"]').content;
- for (const label of ["销售","新建销售订单","销售订单","新建交货单","按销售订单开交货单","交货单","销售发票","POS 销售单","报价单","客户/门店","优惠/促销管理","库存","新建物料","物料列表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","采购","新建采购订单","采购订单","采购收货","收货记录","采购发票","供应商","财务","新建收款单","收付款单","打印与标签","打印设置","打印设计","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
+ for (const label of ["销售","新建销售订单","销售订单","新建交货单","按销售订单开交货单","交货单","销售发票","POS 销售单","报价单","客户/门店","优惠/促销管理","库存","新建物料","物料列表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","采购","新建采购订单","采购订单","采购收货","收货记录","采购发票","供应商","财务","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
   assert(actions.includes(label),"missing homepage action: "+label);
  // Group titles are the entrance to the module workspace, so each block is a one-click jump.
  for (const workspace of ["Selling","Stock","Buying","Invoicing"])
@@ -83,6 +83,8 @@ setImmediate(async()=>{
  assert(actions.includes('data-doctype="Stock Entry" data-name="" data-view="list"'));
  assert(actions.includes('data-new-doc="1"'));assert(actions.includes('data-purpose="Material Issue"'));
  assert(actions.includes('data-stock-entry-type="Consumption"'));assert(actions.includes('data-stock-entry-type="Wastage"'));
+	assert(actions.includes('href="/desk/a4-print-designer"'));
+	assert(actions.includes('href="/app/sales-order"'));
  const actionHandler=root.handlers.find(h=>h.selector.includes("solua-home-action")).handler;
  actionHandler.call({dataset:{doctype:"Item",newDoc:"1"}});assert.equal(frappe.route_options,null);assert.deepEqual(newDocs.pop(),["Item"]);
  for (const options of [
@@ -98,6 +100,7 @@ setImmediate(async()=>{
  }
  actionHandler.call({dataset:{utility:"print_settings"}});assert.deepEqual(routes.pop(),["Form","Print Settings"]);
  actionHandler.call({dataset:{utility:"print_designer"}});assert.deepEqual(routes.pop(),["print-designer"]);
+ actionHandler.call({dataset:{utility:"a4_print_designer"}});assert.deepEqual(routes.pop(),["a4-print-designer"]);
  actionHandler.call({dataset:{utility:"label_print"}});actionHandler.call({dataset:{utility:"promotion"}});actionHandler.call({dataset:{utility:"pos_closing"}});
  assert.deepEqual(calls,["label","promotion","pos"]);
  actionHandler.call({dataset:{utility:"xpos"}});assert.equal(opened.at(-1)[0],"/desk/x-pos?sidebar=X%20POS");

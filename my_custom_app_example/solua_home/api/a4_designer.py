@@ -236,8 +236,9 @@ def _validate_config(config):
 		frappe.throw(_("Invalid layout settings"))
 	clean_settings = {}
 	for key, low, high in (("fontSize", 7, 13), ("titleSize", 12, 26), ("headSize", 6, 14),
-	                       ("lineHeight", 1, 2), ("cellPadding", 0.5, 3), ("pageMargin", 5, 20)):
-		value = settings.get(key)
+	                       ("lineHeight", 1, 2), ("cellPadding", 0.5, 3), ("pageMargin", 5, 20),
+	                       ("logoWidth", 10, 80), ("logoHeight", 6, 50)):
+		value = settings.get(key, {"logoWidth": 32, "logoHeight": 20}.get(key))
 		if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
 			frappe.throw(_("Invalid layout setting: {0}").format(key))
 		clean_settings[key] = float(value)
@@ -320,7 +321,7 @@ def _template(config):
 	css = (f'@page{{size:A4;margin:0}} .print-format{{width:210mm;min-height:297mm;padding:{settings["pageMargin"]}mm;box-sizing:border-box;color:#25313a;font-size:{settings["fontSize"]}pt;overflow-wrap:anywhere}}'
 	       f'h1{{font-size:{settings["titleSize"]}pt;color:{settings["titleColor"]}}}.items{{width:100%;table-layout:fixed;border-collapse:collapse;font-size:{settings["fontSize"]}pt;line-height:{settings["lineHeight"]}}}'
 	       f'.items th{{font-size:{settings["headSize"]}pt;background:{settings["headBg"]}}}.items th,.items td{{padding:{settings["cellPadding"]}mm;border:{item_border};vertical-align:top;overflow-wrap:anywhere}}'
-	       '.items thead{display:table-header-group}.items tbody tr{break-inside:avoid;page-break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.brand{width:100%;border-collapse:collapse;margin-bottom:4mm}.brand td{border:0;vertical-align:middle;padding:0}.brand-logo{width:42mm}.brand-logo img{display:block;width:32mm;height:20mm;object-fit:contain;object-position:left center}.brand-title h2{margin:0;color:' + settings["titleColor"] + ';font-size:' + str(settings["titleSize"]) + 'pt;text-align:left}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm}.sign{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
+	       '.items thead{display:table-header-group}.items tbody tr{break-inside:avoid;page-break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.brand{width:100%;border-collapse:collapse;margin-bottom:4mm}.brand td{border:0;vertical-align:middle;padding:0}.brand-logo{width:' + str(settings["logoWidth"]) + 'mm}.brand-logo img{display:block;width:' + str(settings["logoWidth"]) + 'mm;height:' + str(settings["logoHeight"]) + 'mm;object-fit:contain;object-position:left center}.brand-title h2{margin:0;color:' + settings["titleColor"] + ';font-size:' + str(settings["titleSize"]) + 'pt;text-align:left}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm}.sign{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
 	# The shared print CSS already embeds the company logo inside its <style> block
 	# (get_solua_print_css writes logo_css + logo_html INSIDE <style>). Don't add a
 	# stray rule here that places it outside, which would render behind the body.
@@ -387,7 +388,8 @@ def _legacy_import_config(print_format):
 		},
 		"settings": {
 			"fontSize": 9, "titleSize": 18, "headSize": 9, "lineHeight": 1.35,
-			"cellPadding": 1.5, "pageMargin": 12, "titleColor": "#99732c", "headBg": "#f5f1e9", "itemBorders": True,
+			"cellPadding": 1.5, "pageMargin": 12, "logoWidth": 32, "logoHeight": 20,
+			"titleColor": "#99732c", "headBg": "#f5f1e9", "itemBorders": True,
 		},
 		"features": {
 			"payment_schedule": "payment_schedule" in html,

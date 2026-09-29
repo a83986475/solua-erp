@@ -34,7 +34,9 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		const stock_entry_type = options.stock_entry_type || "";
 		const new_doc = options.new_doc ? ` data-new-doc="1"` : "";
 		const view = options.view ? ` data-view="list"` : "";
-		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${stock_entry_type ? ` data-stock-entry-type="${text(stock_entry_type)}"` : ""}${new_doc}${view}>${text(label)}</button>`;
+		const href = options.href ? ` href="${text(options.href)}"` : "";
+		const tag = options.href ? "a" : "button";
+		return `<${tag} class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${stock_entry_type ? ` data-stock-entry-type="${text(stock_entry_type)}"` : ""}${new_doc}${view}${href}>${text(label)}</${tag}>`;
 	}
 
 	function new_action(label, doctype, allowed = false, options = {}) {
@@ -42,12 +44,16 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	}
 
 	function view_action(label, doctype, allowed = false) {
-		return action(label, doctype, null, allowed, { view: true });
+		const slug = frappe.router?.slug ? frappe.router.slug(doctype) : String(doctype).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+		return action(label, doctype, null, allowed, { view: true, href: `/app/${slug}` });
 	}
 
 	function utility_action(label, key, allowed = false) {
 		if (!allowed) return "";
-		return `<button class="btn btn-default btn-sm solua-home-action" data-utility="${text(key)}">${text(label)}</button>`;
+		const hrefs = { print_settings: "/app/print-settings", print_designer: "/app/print-designer", a4_print_designer: "/desk/a4-print-designer", wholesale_print_format: "/app/print-format" };
+		const href = hrefs[key] ? ` href="${text(hrefs[key])}"` : "";
+		const tag = href ? "a" : "button";
+		return `<${tag} class="btn btn-default btn-sm solua-home-action" data-utility="${text(key)}"${href}>${text(label)}</${tag}>`;
 	}
 
 	// The group header doubles as the entrance to the module workspace, so the block is
@@ -205,6 +211,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			action_group(__("打印与标签"), { doctype: "Print Format" }, [
 				utility_action(__("打印设置"), "print_settings", permissions.read_print_settings),
 				utility_action(__("打印设计"), "print_designer", permissions.read_print_format),
+				utility_action(__("A4 打印设计器"), "a4_print_designer", permissions.read_print_format),
 				utility_action(__("销售单格式"), "wholesale_print_format", permissions.read_print_format),
 				utility_action(__("标签打印"), "label_print", permissions.read_item),
 			], Boolean(permissions.read_print_settings || permissions.read_print_format || permissions.read_item)),
@@ -294,12 +301,17 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		});
 	});
 	root.find('[data-role="search"]').on("keydown", (event) => { if (event.key === "Enter") root.find('[data-action="search"]').click(); });
-	root.on("click", ".solua-home-group-title-link, .solua-home-action, .solua-home-list-row", function () {
+	root.on("click", ".solua-home-group-title-link, .solua-home-action, .solua-home-list-row", function (event) {
+		if (this.tagName === "A") {
+			if (event?.metaKey || event?.ctrlKey || event?.shiftKey || event?.button !== 0) return;
+			event.preventDefault();
+		}
 		const doctype = this.dataset.doctype;
 		const utility = this.dataset.utility;
 		if (this.dataset.workspace) return open_workspace(this.dataset.workspace, this.dataset.fallbackView || doctype || null);
 		if (utility === "print_settings") return frappe.set_route("Form", "Print Settings");
 		if (utility === "print_designer") return frappe.set_route("print-designer");
+		if (utility === "a4_print_designer") return frappe.set_route("a4-print-designer");
 		if (utility === "wholesale_print_format") return open_print_format_editor();
 		if (utility === "label_print") {
 			if (typeof window.solua_home?.label_print?.open === "function") return window.solua_home.label_print.open();
