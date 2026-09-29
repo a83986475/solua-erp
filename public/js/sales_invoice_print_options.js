@@ -6,6 +6,9 @@ const invoice_summary_link = (doctype, name) => {
 	const route = doctype.toLowerCase().replaceAll(" ", "-");
 	return `<a href="/app/${route}/${encodeURIComponent(name)}">${invoice_summary_escape(name)}</a>`;
 };
+const invoice_summary_delivery_names = (rows) => (rows || [])
+	.map((row) => typeof row === "string" ? row : row?.name || row?.parent)
+	.filter(Boolean);
 const invoice_summary_field = (fieldname, label) =>
 	`<button type="button" class="btn btn-link btn-xs p-0 solua-invoice-approval-field" data-field="${invoice_summary_escape(fieldname)}">${invoice_summary_escape(label)}</button>`;
 const invoice_max_discount = (doc) => {
@@ -27,10 +30,7 @@ function render_sales_invoice_approval_summary(frm, context = {}) {
 	const approval_bypassed = frappe.session?.user === "Administrator" || frappe.user?.has_role?.("Accounts Manager");
 	const orders = invoice_summary_unique((doc.items || []).map((row) => row.sales_order));
 	const direct_delivery_notes = invoice_summary_unique((doc.items || []).map((row) => row.delivery_note));
-	const delivery_notes = invoice_summary_unique([
-		...direct_delivery_notes,
-		...(context.delivery_notes || []).map((row) => row.parent),
-	]);
+	const delivery_notes = invoice_summary_unique([...direct_delivery_notes, ...invoice_summary_delivery_names(context.delivery_notes)]);
 	const discount = invoice_max_discount(doc);
 	const approval_settings = context.approval_settings || {};
 	const discount_needs_approval = Boolean(approval_settings.custom_enable_discount_approval)
@@ -73,7 +73,12 @@ async function refresh_sales_invoice_approval_summary(frm) {
 	render_sales_invoice_approval_summary(frm);
 	try {
 		const [delivery_notes, company] = await Promise.all([
-			order_names.length ? frappe.db.get_list("Delivery Note Item", { filters: { against_sales_order: ["in", order_names], docstatus: 1 }, fields: ["parent", "against_sales_order"], limit: 100 }) : [],
+			order_names.length ? frappe.db.get_list("Delivery Note", {
+				filters: [["Delivery Note Item", "against_sales_order", "in", order_names], ["docstatus", "=", 1]],
+				fields: ["name"],
+				distinct: true,
+				limit_page_length: 100,
+			}) : [],
 			frm.doc.company ? frappe.db.get_value("Company", frm.doc.company, ["custom_enable_discount_approval", "custom_discount_approval_threshold"]) : { message: {} },
 		]);
 		if (frm.__solua_invoice_summary_request !== request_id) return;
@@ -85,9 +90,11 @@ async function refresh_sales_invoice_approval_summary(frm) {
 
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
+		frm.set_df_property?.("custom_sales_invoice_approval_summary", "hidden", 1);
 		refresh_sales_invoice_approval_summary(frm);
 		if (frm.is_new() || frm.__solua_wholesale_print_button) return;
 		frm.__solua_wholesale_print_button = true;
+		frm.add_custom_button(__("提交检查页面"), () => frappe.set_route("sales-invoice-approval", frm.doc.name), __("查看"));
 
 		frm.add_custom_button(__("批发销售单"), () => {
 			const dialog = new frappe.ui.Dialog({

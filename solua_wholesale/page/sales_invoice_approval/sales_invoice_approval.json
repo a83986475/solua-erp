@@ -1,0 +1,9 @@
+{
+  "doctype": "Page",
+  "name": "sales-invoice-approval",
+  "page_name": "sales-invoice-approval",
+  "module": "Solua Wholesale",
+  "standard": "Yes",
+  "title": "销售发票提交检查",
+  "roles": []
+}

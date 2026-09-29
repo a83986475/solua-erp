@@ -1,0 +1,122 @@
+.solua-approval-page {
+	max-width: 1280px;
+	margin: 0 auto;
+	padding: 24px 28px 48px;
+}
+
+.solua-approval-hero,
+.solua-approval-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.solua-approval-hero {
+	margin-bottom: 24px;
+}
+
+.solua-approval-eyebrow,
+.solua-approval-label {
+	color: var(--text-muted);
+	font-size: 13px;
+}
+
+.solua-approval-hero h1 {
+	margin: 4px 0;
+	font-size: 28px;
+	font-weight: 700;
+}
+
+.solua-approval-alert {
+	border-radius: 10px;
+	margin-bottom: 24px;
+	padding: 16px 20px;
+	font-size: 15px;
+}
+
+.solua-approval-alert.is-ok {
+	background: var(--green-50);
+	color: var(--green-700);
+}
+
+.solua-approval-alert.is-warning {
+	background: var(--yellow-50);
+	color: var(--yellow-700);
+}
+
+.solua-approval-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 20px;
+}
+
+.solua-approval-card {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+	min-height: 240px;
+	padding: 22px;
+}
+
+.solua-approval-card h2 {
+	font-size: 17px;
+	margin: 0 0 20px;
+}
+
+.solua-approval-values {
+	display: grid;
+	gap: 18px;
+}
+
+.solua-approval-text {
+	font-size: 16px;
+	line-height: 1.5;
+	margin-top: 4px;
+	word-break: break-word;
+}
+
+.solua-approval-text.is-emphasis {
+	font-size: 22px;
+	font-weight: 700;
+}
+
+.solua-approval-badge {
+	background: var(--gray-100);
+	border-radius: 999px;
+	display: inline-block;
+	font-size: 14px;
+	padding: 5px 10px;
+}
+
+.solua-approval-badge.is-ok {
+	background: var(--green-50);
+	color: var(--green-700);
+}
+
+.solua-approval-badge.is-warning {
+	background: var(--yellow-50);
+	color: var(--yellow-700);
+}
+
+.solua-approval-badge.is-danger {
+	background: var(--red-50);
+	color: var(--red-700);
+}
+
+.solua-approval-footer {
+	border-top: 1px solid var(--border-color);
+	margin-top: 28px;
+	padding-top: 20px;
+}
+
+@media (max-width: 900px) {
+	.solua-approval-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.solua-approval-page {
+		padding: 18px 14px 36px;
+	}
+}

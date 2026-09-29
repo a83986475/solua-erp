@@ -962,7 +962,7 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
-        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "insert_after": "due_date"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "hidden": 1, "insert_after": "due_date"},
         {"dt": "Sales Invoice", "fieldname": "custom_approver", "label": "审批人", "fieldtype": "Link", "options": "User", "hidden": 0, "read_only": 0, "insert_after": "due_date"},
         {"dt": "Sales Invoice", "fieldname": "custom_approval_date", "label": "审批日期", "fieldtype": "Date", "hidden": 0, "read_only": 0, "insert_after": "custom_approver"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
@@ -1007,7 +1007,7 @@ def add_wholesale_fields(commit=True):
         elif field["dt"] == "Sales Order" and field["fieldname"] == "custom_print_merge_order_code":
             frappe.db.set_value("Custom Field", existing, {"hidden": 1, "read_only": 1})
         elif field["dt"] == "Sales Invoice" and field["fieldname"] == "custom_sales_invoice_approval_summary":
-            frappe.db.set_value("Custom Field", existing, {"label": field["label"], "insert_after": field["insert_after"]})
+            frappe.db.set_value("Custom Field", existing, {"label": field["label"], "hidden": 1, "insert_after": field["insert_after"]})
         elif field["dt"] == "Sales Invoice" and field["fieldname"] in {"custom_approver", "custom_approval_date"}:
             frappe.db.set_value("Custom Field", existing, {"hidden": 0, "read_only": 0})
 

@@ -129,8 +129,10 @@ async function query(d,code="A"){
   let saved_changes;submitted.set_value=async changes=>{saved_changes=changes;};submitted.is_dirty=()=>true;
   let save_mode;submitted.save=async mode=>{save_mode=mode;};
   handlers[dt].refresh(submitted);
-  assert.equal(submitted.buttons.length,1);
-  submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
+		const print_label=dt === "Sales Order" ? "客户订单确认单" : dt === "Delivery Note" ? "Guia de Remessa" : "批发销售单";
+		const print_button=submitted.buttons.find(button=>button.label === print_label);
+		assert.ok(print_button);
+		print_button.fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
  await print_dialog.action({show_item_name:0,show_sku:1,show_color_code:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_quantity:0,show_images:1,show_qr:0});
   assert.equal(save_mode,"Update");
  const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};

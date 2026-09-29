@@ -239,6 +239,67 @@ def get_sales_order_item_display(item_code):
     return get_item_sales_display(item_code)
 
 
+@frappe.whitelist()
+def get_sales_invoice_approval_data(invoice_name):
+    """Return the readable, linked data used by the standalone invoice check page."""
+    if not invoice_name:
+        frappe.throw(_("缺少销售发票编号"))
+
+    doc = frappe.get_doc("Sales Invoice", invoice_name)
+    if not frappe.has_permission(doc=doc, ptype="read"):
+        frappe.throw(_("没有读取该销售发票的权限"), frappe.PermissionError)
+
+    order_names = list(dict.fromkeys(item.get("sales_order") for item in doc.get("items", []) if item.get("sales_order")))
+    delivery_names = []
+    if order_names and frappe.has_permission("Delivery Note", ptype="read"):
+        delivery_names = [
+            row["name"]
+            for row in frappe.db.get_list(
+                "Delivery Note",
+                filters=[
+                    ["Delivery Note Item", "against_sales_order", "in", order_names],
+                    ["docstatus", "=", 1],
+                ],
+                fields=["name"],
+                distinct=True,
+                limit_page_length=100,
+            )
+        ]
+
+    discount = get_max_discount_percentage(doc)
+    discount_enabled = cint(frappe.db.get_value("Company", doc.company, "custom_enable_discount_approval") or 0)
+    discount_threshold = flt(frappe.db.get_value("Company", doc.company, "custom_discount_approval_threshold") or 0)
+    large_amount = flt(doc.grand_total) > 100000
+    approval_bypassed = frappe.session.user == "Administrator" or frappe.has_role("Accounts Manager")
+
+    return {
+        "invoice": {
+            "name": doc.name,
+            "customer": doc.customer,
+            "currency": doc.currency,
+            "grand_total": flt(doc.grand_total),
+            "due_date": doc.due_date,
+            "discount": discount,
+            "status": doc.status,
+            "can_submit": bool(frappe.has_permission(doc=doc, ptype="submit")),
+        },
+        "approval": {
+            "large_amount": large_amount,
+            "bypassed": approval_bypassed,
+            "requires_approver": large_amount and not approval_bypassed,
+            "approver": doc.get("custom_approver") or "",
+            "approval_date": doc.get("custom_approval_date") or "",
+            "discount_needs_approval": bool(discount_enabled and discount > discount_threshold),
+        },
+        "sales_orders": order_names,
+        "delivery_notes": delivery_names,
+        "items": [
+            {"item_code": item.item_code, "qty": flt(item.qty), "uom": item.uom, "amount": flt(item.amount)}
+            for item in doc.get("items", [])
+        ],
+    }
+
+
 # Sales-order-only import/selection helpers.  The resolver deliberately calls
 # ERPNext's get_item_details() so price rules, UOM conversion and item defaults
 # remain owned by ERPNext rather than being copied here.
