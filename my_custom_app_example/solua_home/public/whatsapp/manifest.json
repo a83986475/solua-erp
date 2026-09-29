@@ -1,0 +1,10 @@
+{
+  "name": "Solua WhatsApp 收件箱",
+  "short_name": "WhatsApp 收件箱",
+  "start_url": "/whatsapp",
+  "scope": "/whatsapp/",
+  "display": "standalone",
+  "background_color": "#f5faf8",
+  "theme_color": "#075e54",
+  "lang": "zh-CN"
+}

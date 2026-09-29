@@ -1,0 +1,27 @@
+{
+  "name": "WhatsApp Message",
+  "module": "WhatsApp Inbox",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "track_changes": 1,
+  "fields": [
+    {"fieldname": "conversation", "fieldtype": "Link", "label": "会话", "options": "WhatsApp Conversation", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "direction", "fieldtype": "Select", "label": "方向", "options": "客户消息\n员工消息\n内部备注", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "message_type", "fieldtype": "Select", "label": "消息类型", "options": "text\nimage\nvideo\naudio\ndocument\ninteractive\nlocation", "default": "text"},
+    {"fieldname": "body", "fieldtype": "Long Text", "label": "内容"},
+    {"fieldname": "media_url", "fieldtype": "Data", "label": "私有附件"},
+    {"fieldname": "provider_message_id", "fieldtype": "Data", "label": "供应商消息 ID", "read_only": 1},
+    {"fieldname": "client_message_id", "fieldtype": "Data", "label": "客户端请求 ID", "read_only": 1},
+    {"fieldname": "sender_user", "fieldtype": "Link", "label": "发送员工", "options": "User", "read_only": 1},
+    {"fieldname": "status", "fieldtype": "Select", "label": "状态", "options": "排队中\n已接收\n已记录\n已发送\n已送达\n已读\n失败", "in_list_view": 1},
+    {"fieldname": "provider_timestamp", "fieldtype": "Datetime", "label": "供应商时间", "read_only": 1},
+    {"fieldname": "status_at", "fieldtype": "Datetime", "label": "状态时间", "read_only": 1},
+    {"fieldname": "error_message", "fieldtype": "Small Text", "label": "错误信息", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+  ],
+  "search_fields": "conversation,provider_message_id,sender_user",
+  "sort_field": "creation",
+  "sort_order": "ASC"
+}

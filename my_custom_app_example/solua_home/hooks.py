@@ -194,6 +194,9 @@ scheduler_events = {
         "0 2 * * *": [
             "solua_home.tasks.custom_cron_task",
         ],
+        "*/5 * * * *": [
+            "solua_home.api.whatsapp.notify_due_reminders",
+        ],
     },
 }
 

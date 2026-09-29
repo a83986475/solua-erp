@@ -3,6 +3,10 @@ import json
 
 import frappe
 
+PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
+WHATSAPP_MODULE = "WhatsApp Inbox"
+WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
+
 
 def ensure_solua_stock_entry_types():
     """Reuse or create the two issue classifications used by the Solua Home page."""
@@ -53,6 +57,31 @@ def ensure_wholesale_module():
     )
     if not module or module.app_name != "solua_home":
         raise RuntimeError("Invalid Module Def Solua Wholesale")
+    return module
+
+
+def ensure_whatsapp_module():
+    """Register the app-owned WhatsApp module and support roles idempotently."""
+    if not frappe.db.exists("Module Def", WHATSAPP_MODULE):
+        frappe.get_doc({
+            "doctype": "Module Def",
+            "module_name": WHATSAPP_MODULE,
+            "app_name": "solua_home",
+            "custom": 0,
+        }).insert(ignore_permissions=True)
+    module = frappe.db.get_value(
+        "Module Def", WHATSAPP_MODULE, ["name", "app_name"], as_dict=True
+    )
+    if not module or module.app_name != "solua_home":
+        raise RuntimeError("Invalid WhatsApp Inbox Module Def")
+    for role in WHATSAPP_ROLES:
+        if not frappe.db.exists("Role", role):
+            frappe.get_doc({
+                "doctype": "Role",
+                "role_name": role,
+                "desk_access": 0,
+                "is_custom": 1,
+            }).insert(ignore_permissions=True)
     return module
 
 
@@ -131,14 +160,45 @@ def after_install():
     configure_pos_tax()
     ensure_solua_stock_entry_types()
     sync_standard_print_formats()
+    configure_pick_list_printing()
     sync_standard_pages()
     add_member_system_fields()
+    ensure_whatsapp_module()
+    sync_whatsapp_doctypes()
     frappe.db.commit()
 
 
 def after_migrate():
     """每次迁移后执行"""
     after_install()
+
+
+def configure_pick_list_printing():
+    """拣货单默认打印格式 + 单据单位下拉只列已维护换算关系的单位
+
+    2026-09-26：现场拣货用「拣货单（简版）」（SPU/SKU/数量 + 拣货人/司机双列确认）。
+    Stock Settings 的 allow_uom_with_conversion_rate_defined_in_item 打开后，
+    单据行的单位下拉只列出该货号 UOM Conversion Detail 里已维护的单位（ERPNext
+    保证每个物料至少有一行本位单位），避免选到没有换算关系的单位而被按 1:1 算错数量。
+    幂等：默认格式只在未设置时写一次，不覆盖管理员后来的选择。
+    """
+    from frappe.utils import cint
+
+    if not frappe.db.exists("Print Format", PICK_LIST_PRINT_FORMAT):
+        return
+    if not frappe.get_meta("Pick List").default_print_format:
+        frappe.make_property_setter(
+            {
+                "doctype": "Pick List",
+                "doctype_or_field": "DocType",
+                "property": "default_print_format",
+                "value": PICK_LIST_PRINT_FORMAT,
+                "property_type": "Link",
+            },
+            validate_fields_for_doctype=False,
+        )
+    if not cint(frappe.db.get_single_value("Stock Settings", "allow_uom_with_conversion_rate_defined_in_item")):
+        frappe.db.set_single_value("Stock Settings", "allow_uom_with_conversion_rate_defined_in_item", 1)
 
 
 def sync_standard_print_formats():
@@ -182,6 +242,22 @@ def sync_standard_pages():
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"页面导入失败 [{json_path}]: {e}", "solua_home.pages")
+
+
+def sync_whatsapp_doctypes():
+    """Import the app-owned inbox DocTypes without exposing them in Desk."""
+    import os
+    from frappe.modules.import_file import import_file_by_path
+
+    ensure_whatsapp_module()
+    frappe.cache().delete_value("app_modules")
+    frappe.setup_module_map(include_all_apps=True)
+    base = os.path.join(os.path.dirname(__file__), "whatsapp_inbox", "doctype")
+    for doctype_name in ("whatsapp_conversation", "whatsapp_message"):
+        json_path = os.path.join(base, doctype_name, doctype_name + ".json")
+        if not os.path.exists(json_path):
+            raise RuntimeError("Missing WhatsApp DocType: " + json_path)
+        import_file_by_path(json_path, force=True, ignore_version=True)
 
 
 def add_translations():
