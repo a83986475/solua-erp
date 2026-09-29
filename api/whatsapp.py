@@ -270,6 +270,7 @@ def verify_webhook():
     challenge = frappe.form_dict.get("hub.challenge")
     if mode == "subscribe" and token and token == _config().get("verify_token"):
         frappe.local.response["type"] = "txt"
+        frappe.local.response["doctype"] = "WhatsApp Webhook"
         frappe.local.response["result"] = challenge or ""
         return challenge or ""
     frappe.local.response["http_status_code"] = 403
@@ -278,6 +279,9 @@ def verify_webhook():
 
 @frappe.whitelist(allow_guest=True)
 def webhook():
+    request = getattr(frappe.local, "request", None)
+    if request and request.method == "GET":
+        return verify_webhook()
     raw = _raw_request()
     if not _valid_signature(raw):
         frappe.local.response["http_status_code"] = 401

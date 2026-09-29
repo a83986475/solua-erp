@@ -456,7 +456,7 @@ def get_dashboard_data(company=None, warehouse=None):
 
 
 def _search_fields():
-    return [field for field in ["name", "item_code", "custom_order_code", "custom_spu_code", "custom_label_barcode"] if _has_field("Item", field)]
+    return [field for field in ["name", "item_code", "item_name", "custom_order_code", "custom_spu_code", "custom_label_barcode"] if _has_field("Item", field)]
 
 
 @frappe.whitelist()
@@ -497,11 +497,11 @@ def search_items(query=None):
 @frappe.whitelist()
 @frappe.read_only()
 def get_color_variants(barcode=None, template=None, barcode_only=False):
-    """Resolve a shared style barcode to permitted concrete color variants.
+    """Resolve a style barcode, SKU, or item name to concrete color variants.
 
     The barcode identifies the style only; the employee must choose the fixed
-    color explicitly. When barcode_only is true, only barcode fields are
-    considered, so an Item Code or SPU cannot accidentally open the picker.
+    color explicitly. When barcode_only is true, only Item Barcode rows are
+    considered, so an Item Code or item name cannot open the picker.
     This endpoint never changes inventory or documents.
     """
     if not _can_read("Item"):

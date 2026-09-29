@@ -7,7 +7,7 @@
 	const sales_order_paste_api = "solua_home.api.sales.preview_sales_order_paste";
 	const sales_order_rows_api = "solua_home.api.sales.preview_sales_order_rows";
 	const sales_order_search_api = "solua_home.api.sales.search_sales_order_items";
-	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa" };
+	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa", "Pick List": "拣货单（简版）" };
 
 	const is_positive_integer = (value) => {
 		if (value == null || String(value).trim() === "") return false;
@@ -55,9 +55,12 @@
 				uom: source.uom,
 				stock_uom: source.stock_uom,
 				conversion_factor: source.conversion_factor || 1,
+				stock_qty: source.stock_qty,
 				rate: source.rate,
 				price_list_rate: source.price_list_rate,
 				warehouse: source.warehouse,
+				actual_qty: source.actual_qty || 0,
+				projected_qty: source.projected_qty || 0,
 				qty: next_qty,
 				custom_item_barcode: source.custom_item_barcode || source.barcode || "",
 			});
@@ -65,6 +68,40 @@
 		frm.dirty();
 		frm.refresh_field("items");
 		frm.trigger?.("calculate_taxes_and_totals");
+	}
+
+	async function refresh_sales_order_stock(frm) {
+		if (frm.__solua_stock_refreshing) return;
+		const items = (frm.doc.items || []).filter((row) => row.item_code && row.warehouse);
+		if (!items.length) return frappe.msgprint(__("订单中没有可刷新的库存行"));
+		frm.__solua_stock_refreshing = true;
+		try {
+			const response = await frappe.call({
+				method: sales_order_rows_api,
+				args: {
+					rows: JSON.stringify(items.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse }))),
+					context: JSON.stringify(sales_order_context(frm)),
+				},
+			});
+			const result = response.message || {};
+			const resolved = new Map((result.rows || []).map((row) => [`${row.item_code}\u0000${row.warehouse}`, row]));
+			let updated = 0;
+			for (const row of items) {
+				const source = resolved.get(`${row.item_code}\u0000${row.warehouse}`);
+				if (!source) continue;
+				row.actual_qty = Number(source.actual_qty || 0);
+				row.projected_qty = Number(source.projected_qty || 0);
+				if (source.stock_qty != null) row.stock_qty = Number(source.stock_qty);
+				updated += 1;
+			}
+			frm.dirty();
+			frm.refresh_field("items");
+			frm.trigger?.("calculate_taxes_and_totals");
+			frappe.show_alert({ message: __("已刷新 {0} 行库存，请保存订单", [updated]), indicator: "green" });
+			if (result.errors?.length) frappe.msgprint({ title: __("部分物料未刷新"), message: error_summary(result.errors), indicator: "orange" });
+		} finally {
+			frm.__solua_stock_refreshing = false;
+		}
 	}
 
 	function open_sales_order_preview(frm, result, title) {
@@ -142,11 +179,12 @@
 			size: "extra-large",
 			fields: [
 				{ fieldname: "warehouse", label: __("明确订单仓库/范围"), fieldtype: "Link", options: "Warehouse", default: frm.doc.set_warehouse || "", reqd: 1 },
+				{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, reqd: 1, description: __("搜索结果加入销售订单时的初始数量，可在结果表中逐行调整") },
 				{ fieldtype: "Column Break" },
 				{ fieldname: "item_group", label: __("商品组"), fieldtype: "Link", options: "Item Group" },
-				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item" },
+				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item", get_query: () => ({ filters: { disabled: 0, has_variants: 1 } }) },
 				{ fieldname: "color", label: __("颜色/固定色号"), fieldtype: "Data" },
-				{ fieldname: "search", label: __("搜索货号"), fieldtype: "Data" },
+				{ fieldname: "search", label: __("搜索货号/SKU/物料名称"), fieldtype: "Data", description: __("支持部分货号、SKU 或物料名称") },
 				{ fieldname: "in_stock", label: __("只看有库存"), fieldtype: "Check" },
 				{ fieldtype: "Button", fieldname: "search_items", label: __("搜索") },
 				{ fieldtype: "Button", fieldname: "select_all", label: __("当前筛选结果全选") },
@@ -170,7 +208,9 @@
 			primary_action_label: __("加入销售订单"),
 			primary_action: async () => {
 				if (busy) return;
+				const default_qty = Number(dialog.get_value("default_qty"));
 				const rows = dialog.fields_dict.results.grid.get_selected_children();
+				if (!is_positive_integer(default_qty)) return frappe.msgprint(__("默认数量必须为正整数"));
 				const invalid = rows.filter((row) => !is_positive_integer(row.qty));
 				if (!rows.length) return frappe.msgprint(__("请先勾选物料"));
 				if (invalid.length) return frappe.msgprint(__("数量必须为正整数"));
@@ -179,9 +219,16 @@
 					const response = await frappe.call({ method: sales_order_rows_api, args: { rows: JSON.stringify(rows.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse }))), context: JSON.stringify(sales_order_context(frm, dialog.get_value("warehouse"))) } });
 					const result = response.message || {};
 					append_sales_order_rows(frm, result.rows || []);
-					if (result.errors?.length) frappe.msgprint({ title: __("部分行未加入"), message: error_summary(result.errors), indicator: "orange" });
-					else frappe.show_alert({ message: __("已加入当前销售订单草稿，请保存"), indicator: "green" });
-					dialog.hide();
+					if (result.errors?.length) {
+						frappe.msgprint({ title: __("部分行未加入"), message: error_summary(result.errors), indicator: "orange" });
+					} else {
+						frappe.show_alert({ message: __("已加入当前销售订单草稿，可继续添加"), indicator: "green" });
+						set_selection(false);
+						dialog.fields_dict.results.df.data = [];
+						dialog.fields_dict.results.grid.refresh();
+						for (const field of ["template", "color", "search"]) await dialog.set_value(field, "");
+						dialog.fields_dict.hint.$wrapper.html(`<div class="text-muted small">${__("已加入，可继续选择下一个款式；仓库和默认数量已保留")}</div>`);
+					}
 				} finally { busy = false; }
 			},
 		});
@@ -195,12 +242,14 @@
 		};
 		const search = async () => {
 			const warehouse = dialog.get_value("warehouse");
-			if (!warehouse) return frappe.msgprint(__("请选择明确订单仓库或仓库范围"));
+			if (!warehouse) return;
 			const response = await frappe.call({ method: sales_order_search_api, args: {
 				context: JSON.stringify(sales_order_context(frm, warehouse)),
 				filters: JSON.stringify({ warehouse, item_group: dialog.get_value("item_group"), template: dialog.get_value("template"), color: dialog.get_value("color"), search: dialog.get_value("search"), in_stock: dialog.get_value("in_stock") ? 1 : 0 }),
 			} });
-			const rows = (response.message?.items || []).map((row) => ({ ...row, __checked: 0, qty: 1 }));
+			const default_qty = Number(dialog.get_value("default_qty"));
+			if (!is_positive_integer(default_qty)) return frappe.msgprint(__("默认数量必须为正整数"));
+			const rows = (response.message?.items || []).map((row) => ({ ...row, __checked: 0, qty: default_qty }));
 			dialog.fields_dict.results.df.data = rows;
 			dialog.fields_dict.results.grid.refresh();
 			dialog.fields_dict.hint.$wrapper.html(`<div class="text-muted small">${__("找到 {0} 条，库存口径：actual_qty - reserved_qty", [rows.length])}</div>`);
@@ -219,7 +268,7 @@
 		const dialog = new frappe.ui.Dialog({
 			title: is_receipt ? __("按色扫码收货") : is_sales_order ? __("销售开单选颜色") : __("按色扫码盘点"),
 			fields: [
-				{ fieldname: "barcode", label: __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
+				{ fieldname: "barcode", label: is_sales_order ? __("条码 / SKU / 物料名称") : __("厂家外包装条码"), fieldtype: "Data", reqd: 1, description: is_sales_order ? __("支持部分条码、SKU/货号或物料名称；找到款式后选择具体颜色") : __("只有厂家外包装条码用于弹出颜色选项；共用条码只识别款式，颜色必须人工选择") },
 				...(is_sales_order ? [{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: 1, hidden: 1, description: __("加入所选颜色时的初始数量，可在表格中逐行调整") }] : []),
 				{ fieldname: "variant", label: __("固定色号/颜色"), fieldtype: "Select", options: "", hidden: 1 },
 				{ fieldname: "variant_preview", fieldtype: "HTML", hidden: 1 },
@@ -432,17 +481,21 @@
 
 	function print_wholesale(frm) {
 		const format = print_formats[frm.doctype];
-		const has_column_switches = ["Sales Order", "Delivery Note"].includes(frm.doctype);
-		const has_customer_merge_switch = frm.doctype === "Sales Order";
+		const has_column_switches = ["Sales Order", "Sales Invoice", "Delivery Note"].includes(frm.doctype);
+		const has_customer_merge_switch = ["Sales Order", "Sales Invoice"].includes(frm.doctype);
+		const has_additional_notes_switch = ["Sales Order", "Delivery Note", "Pick List"].includes(frm.doctype);
+		const has_image_switches = ["Sales Order", "Sales Invoice", "Delivery Note"].includes(frm.doctype);
 		const dialog = new frappe.ui.Dialog({
 			title: __("打印选项"),
 			fields: [
 				...(has_column_switches ? [
 					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name },
-					{ fieldname: "show_spu", label: __("显示 SPU"), fieldtype: "Check", default: frm.doc.custom_print_spu == null ? 0 : frm.doc.custom_print_spu },
 					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
-					{ fieldname: "show_color_code", label: __("显示色号"), fieldtype: "Check", default: frm.doc.custom_print_color_code == null ? 1 : frm.doc.custom_print_color_code },
+					{ fieldname: "show_color", label: __("显示颜色"), fieldtype: "Check", default: (frm.doc.custom_print_color_code || frm.doc.custom_print_cor) ? 1 : 0 },
 					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
+				] : []),
+				...(has_additional_notes_switch ? [
+					{ fieldname: "show_additional_notes", label: __("显示补充说明"), fieldtype: "Check", default: frm.doc.custom_print_additional_notes == null ? 1 : frm.doc.custom_print_additional_notes },
 				] : []),
 				...(has_customer_merge_switch ? [
 					{ fieldname: "merge_order_code", label: __("合并同款对外货号"), fieldtype: "Check", default: frm.doc.custom_print_merge_order_code ? 1 : 0 },
@@ -453,8 +506,10 @@
 					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity },
 					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability },
 				] : []),
-				{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
-				{ fieldname: "show_qr", label: __("显示色卡二维码"), fieldtype: "Check", default: frm.doc.custom_print_color_qr ? 1 : 0 },
+				...(has_image_switches ? [
+					{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
+					{ fieldname: "show_qr", label: __("显示色卡二维码"), fieldtype: "Check", default: frm.doc.custom_print_color_qr ? 1 : 0 },
+				] : []),
 			],
 			primary_action_label: __("保存并打开预览"),
 			async primary_action(values) {
@@ -464,13 +519,16 @@
 				const changes = {};
 				if (has_column_switches) {
 					if (frm.fields_dict.custom_print_item_name) changes.custom_print_item_name = values.show_item_name ? 1 : 0;
-					if (frm.fields_dict.custom_print_spu) changes.custom_print_spu = values.show_spu ? 1 : 0;
 					if (frm.fields_dict.custom_print_sku) changes.custom_print_sku = values.show_sku ? 1 : 0;
-					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color_code ? 1 : 0;
+					if (frm.fields_dict.custom_print_color_code) changes.custom_print_color_code = values.show_color ? 1 : 0;
+					if (frm.fields_dict.custom_print_cor) changes.custom_print_cor = values.show_color ? 1 : 0;
 					if (frm.fields_dict.custom_print_description) changes.custom_print_description = values.show_description ? 1 : 0;
 				}
 				if (has_customer_merge_switch && frm.fields_dict.custom_print_merge_order_code) {
 					changes.custom_print_merge_order_code = values.merge_order_code ? 1 : 0;
+				}
+				if (has_additional_notes_switch && frm.fields_dict.custom_print_additional_notes) {
+					changes.custom_print_additional_notes = values.show_additional_notes ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_ordered_before) {
 					changes.custom_print_ordered_before = values.show_ordered_before ? 1 : 0;
@@ -479,13 +537,13 @@
 					changes.custom_print_current_remaining = values.show_current_remaining ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_quantity) {
-				    changes.custom_print_quantity = values.show_quantity ? 1 : 0;
+					changes.custom_print_quantity = values.show_quantity ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_traceability) {
 					changes.custom_print_traceability = values.show_traceability ? 1 : 0;
 				}
-				if (frm.fields_dict.custom_print_color_images) changes.custom_print_color_images = values.show_images ? 1 : 0;
-				if (frm.fields_dict.custom_print_color_qr) changes.custom_print_color_qr = values.show_qr ? 1 : 0;
+				if (has_image_switches && frm.fields_dict.custom_print_color_images) changes.custom_print_color_images = values.show_images ? 1 : 0;
+				if (has_image_switches && frm.fields_dict.custom_print_color_qr) changes.custom_print_color_qr = values.show_qr ? 1 : 0;
 				if (Object.keys(changes).length) await frm.set_value(changes);
 				if (frm.is_dirty()) await frm.save(frm.doc.docstatus === 1 ? "Update" : undefined);
 				const params = new URLSearchParams({ doctype: frm.doctype, name: frm.doc.name, format, no_letterhead: "0", trigger_print: "1" });
@@ -572,12 +630,10 @@
 		},
 	});
 
-	["Sales Order", "Delivery Note"].forEach((doctype) => frappe.ui.form.on(doctype, {
+	["Sales Order", "Delivery Note", "Pick List"].forEach((doctype) => frappe.ui.form.on(doctype, {
 		setup(frm) {
 			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
-			if (doctype === "Delivery Note") {
-				frm.set_query("driver", () => ({ filters: { status: "Active", ...(frm.doc.transporter ? { transporter: frm.doc.transporter } : {}) } }));
-			}
+			if (doctype === "Delivery Note") frm.set_query("driver", () => ({ filters: { status: "Active", ...(frm.doc.transporter ? { transporter: frm.doc.transporter } : {}) } }));
 		},
 		refresh(frm) {
 			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
@@ -587,8 +643,9 @@
 				frm.add_custom_button(__("上传订单表格"), () => open_sales_order_upload(frm), __("工具"));
 				frm.add_custom_button(__("批量添加物料"), () => open_sales_order_bulk_picker(frm), __("工具"));
 				frm.add_custom_button(__("粘贴货号 + 数量"), () => open_sales_order_paste(frm), __("工具"));
+				frm.add_custom_button(__("刷新库存"), () => refresh_sales_order_stock(frm), __("工具"));
 			}
-			const label = __(doctype === "Sales Order" ? "客户订单确认单" : "Guia de Remessa");
+			const label = __(doctype === "Sales Order" ? "客户订单确认单" : (doctype === "Delivery Note" ? "Guia de Remessa" : "拣货单（简版）"));
 			if (!frm.is_new()) frm.add_custom_button(label, () => print_wholesale(frm), __("打印"));
 		},
 	}));
