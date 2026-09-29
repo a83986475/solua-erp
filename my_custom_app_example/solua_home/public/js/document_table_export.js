@@ -13,6 +13,32 @@
 	const DOCTYPES = ["Sales Order", "Sales Invoice", "Delivery Note", "Pick List"];
 	const OPTIONS_API = "solua_home.api.export.get_export_options";
 	const EXPORT_API = "solua_home.api.export.export_document_table";
+	const preference_key = (doctype) =>
+		`solua_home:document_table_export:v1:${encodeURIComponent((frappe.session && frappe.session.user) || "")}:${encodeURIComponent(doctype)}`;
+
+	function read_preferences(doctype, columns) {
+		try {
+			const saved = JSON.parse(window.localStorage.getItem(preference_key(doctype)) || "null");
+			if (!saved || !Array.isArray(saved.columns) || typeof saved.include_header !== "boolean" || typeof saved.include_total !== "boolean") return null;
+			const available = new Set(columns.map((column) => column.key));
+			const selected = saved.columns.filter((key) => typeof key === "string" && available.has(key));
+			return selected.length ? { columns: selected, include_header: saved.include_header, include_total: saved.include_total } : null;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	function save_preferences(frm, values, columns) {
+		try {
+			window.localStorage.setItem(preference_key(frm.doctype), JSON.stringify({
+				columns: columns.filter((column) => values[`col_${column.key}`]).map((column) => column.key),
+				include_header: Boolean(values.include_header),
+				include_total: Boolean(values.include_total),
+			}));
+		} catch (error) {
+			// 隐私模式或存储被禁用：本次导出仍正常进行。
+		}
+	}
 
 	// 拣货单的明细行在 locations 子表（Pick List Item）里，其余三张都是 items
 	const item_field = (frm) => (frm && frm.doctype === "Pick List" ? "locations" : "items");
@@ -77,6 +103,7 @@
 			frappe.msgprint(__("请至少勾选一列"));
 			return;
 		}
+		save_preferences(frm, values, columns || []);
 		const params = new URLSearchParams({
 			doctype: frm.doctype,
 			name: frm.doc.name,
@@ -96,7 +123,8 @@
 				frappe.msgprint(__("该单据类型暂不支持导出"));
 				return;
 			}
-			const defaults = options.defaults || columns.map((column) => column.key);
+			const saved = read_preferences(frm.doctype, columns);
+			const defaults = saved ? saved.columns : (options.defaults || columns.map((column) => column.key));
 			const dialog = new frappe.ui.Dialog({
 				title: __("导出表格 · {0}", [frm.doc.name]),
 				fields: [
@@ -111,8 +139,8 @@
 						default: defaults.includes(column.key) ? 1 : 0,
 					})),
 					{ fieldtype: "Section Break", label: __("表格选项") },
-					{ fieldname: "include_header", label: __("包含单据抬头（单号 / 日期 / 客户）"), fieldtype: "Check", default: 1 },
-					{ fieldname: "include_total", label: __("包含底部合计行"), fieldtype: "Check", default: 1 },
+					{ fieldname: "include_header", label: __("包含单据抬头（单号 / 日期 / 客户）"), fieldtype: "Check", default: saved ? Number(saved.include_header) : 1 },
+					{ fieldname: "include_total", label: __("包含底部合计行"), fieldtype: "Check", default: saved ? Number(saved.include_total) : 1 },
 				],
 				primary_action_label: __("导出 Excel"),
 				primary_action(values) {
