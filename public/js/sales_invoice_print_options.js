@@ -20,6 +20,25 @@ const invoice_max_discount = (doc) => {
 	}
 	return Number.isFinite(pct) ? pct : 0;
 };
+const invoice_summary_style = `
+.solua-invoice-check { max-width: 1180px; padding: 22px 4px 32px; }
+.solua-invoice-check__heading { align-items: center; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.solua-invoice-check__eyebrow { color: var(--text-muted); font-size: 13px; }
+.solua-invoice-check__heading h3 { font-size: 24px; margin: 4px 0 0; }
+.solua-invoice-check__alert { border-radius: 10px; font-size: 15px; margin-bottom: 20px; padding: 14px 18px; }
+.solua-invoice-check__alert.is-ok { background: var(--green-50); color: var(--green-700); }
+.solua-invoice-check__alert.is-warning { background: var(--yellow-50); color: var(--yellow-700); }
+.solua-invoice-check__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.solua-invoice-check__card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; min-height: 190px; padding: 20px; }
+.solua-invoice-check__card h4 { font-size: 17px; margin: 0 0 18px; }
+.solua-invoice-check__item { margin-bottom: 16px; }
+.solua-invoice-check__label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+.solua-invoice-check__value { font-size: 16px; line-height: 1.5; word-break: break-word; }
+.solua-invoice-check__value.is-emphasis { font-size: 21px; font-weight: 700; }
+@media (max-width: 900px) { .solua-invoice-check__grid { grid-template-columns: 1fr; } }
+`;
+const invoice_summary_item = (label, value, class_name = "") =>
+	`<div class="solua-invoice-check__item"><div class="solua-invoice-check__label">${invoice_summary_escape(label)}</div><div class="solua-invoice-check__value ${class_name}">${value || "—"}</div></div>`;
 
 function render_sales_invoice_approval_summary(frm, context = {}) {
 	const wrapper = frm.fields_dict?.custom_sales_invoice_approval_summary?.$wrapper;
@@ -46,7 +65,7 @@ function render_sales_invoice_approval_summary(frm, context = {}) {
 	if (discount_needs_approval && !doc.custom_discount_approved) {
 		issues.push(`${invoice_summary_field("custom_approval_password", "输入审批密码")}：折扣 ${discount.toFixed(2)}% 超过阈值`);
 	}
-	const issue_text = issues.length ? `<ul class="mb-0">${issues.map((item) => `<li>${item}</li>`).join("")}</ul>` : `<span class="text-success">${__("当前检查项已满足")}</span>`;
+	const issue_text = issues.length ? `<ul class="mb-0">${issues.map((item) => `<li>${item}</li>`).join("")}</ul>` : __("当前检查项已满足");
 	const order_text = orders.length ? orders.map((name) => invoice_summary_link("Sales Order", name)).join("、") : `<span class="text-muted">${__("未关联")}</span>`;
 	const delivery_text = delivery_notes.length ? delivery_notes.map((name) => invoice_summary_link("Delivery Note", name)).join("、") : `<span class="text-muted">${__("未找到已提交交货单")}</span>`;
 	const approval_text = !large_amount
@@ -57,7 +76,7 @@ function render_sales_invoice_approval_summary(frm, context = {}) {
 				? invoice_summary_escape(doc.custom_approver)
 				: `<span class="text-danger">${__("未指定审批人")}</span>`;
 	const title = doc.docstatus === 1 ? __("提交前检查") : __("销售发票提交前检查");
-	wrapper.html(`<div class="alert ${issues.length ? "alert-warning" : "alert-success"} mb-3"><div><b>${title}</b> · ${invoice_summary_escape(doc.name || "")}</div><div class="mb-2"><b>${__("提交权限")}</b>：${permission_text}</div>${issue_text}<table class="table table-bordered table-sm mt-2 mb-0"><tbody><tr><th>${__("客户")}</th><td>${doc.customer ? invoice_summary_link("Customer", doc.customer) : `<span class="text-danger">${__("未填写")}</span>`}</td><th>${__("总计")}</th><td>${invoice_summary_escape(format_currency(total, doc.currency || ""))}</td></tr><tr><th>${__("销售订单")}</th><td>${order_text}</td><th>${__("交货单")}</th><td>${delivery_text}</td></tr><tr><th>${__("审批人")}</th><td>${approval_text}</td><th>${__("付款到期日")}</th><td>${invoice_summary_escape(doc.due_date || "—")}</td></tr><tr><th>${__("折扣")}</th><td>${invoice_summary_escape(`${discount.toFixed(2)}%`)}</td><th></th><td></td></tr></tbody></table></div>`);
+	wrapper.html(`<style>${invoice_summary_style}</style><div class="solua-invoice-check"><div class="solua-invoice-check__heading"><div><div class="solua-invoice-check__eyebrow">${title}</div><h3>${invoice_summary_escape(doc.name || "")}</h3></div><div>${permission_text}</div></div><div class="solua-invoice-check__alert ${issues.length ? "is-warning" : "is-ok"}">${issue_text}</div><div class="solua-invoice-check__grid"><section class="solua-invoice-check__card"><h4>${__("基本信息")}</h4>${invoice_summary_item(__("客户"), doc.customer ? invoice_summary_link("Customer", doc.customer) : `<span class="text-danger">${__("未填写")}</span>`)}${invoice_summary_item(__("总计"), invoice_summary_escape(format_currency(total, doc.currency || "")), "is-emphasis")}${invoice_summary_item(__("付款到期日"), invoice_summary_escape(doc.due_date || "—"))}${invoice_summary_item(__("折扣"), invoice_summary_escape(`${discount.toFixed(2)}%`))}</section><section class="solua-invoice-check__card"><h4>${__("关联单据")}</h4>${invoice_summary_item(__("销售订单"), order_text)}${invoice_summary_item(__("已提交交货单"), delivery_text)}</section><section class="solua-invoice-check__card"><h4>${__("提交与审批")}</h4>${invoice_summary_item(__("大额审批"), approval_text)}${invoice_summary_item(__("审批人"), doc.custom_approver ? invoice_summary_escape(doc.custom_approver) : __("未指定"))}</section></div></div>`);
 	wrapper.off("click", ".solua-invoice-approval-field").on("click", ".solua-invoice-approval-field", (event) => {
 		const field = event.currentTarget.dataset.field;
 		frm.scroll_to_field?.(field);
@@ -90,7 +109,7 @@ async function refresh_sales_invoice_approval_summary(frm) {
 
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
-		frm.set_df_property?.("custom_sales_invoice_approval_summary", "hidden", 1);
+		frm.set_df_property?.("custom_sales_invoice_approval_summary", "hidden", 0);
 		refresh_sales_invoice_approval_summary(frm);
 		if (frm.is_new() || frm.__solua_wholesale_print_button) return;
 		frm.__solua_wholesale_print_button = true;
