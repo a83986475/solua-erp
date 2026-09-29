@@ -61,7 +61,9 @@ function render_sales_invoice_selector(page) {
 
 	let control;
 	const load_selected_invoice = () => {
-		const invoice_name = control && control.get_value();
+		const invoice_name =
+			(control && control.get_input_value && control.get_input_value()) ||
+			page.main.find(".solua-approval-invoice-selector input").val();
 		if (invoice_name) load_sales_invoice_approval(page, invoice_name);
 	};
 	const df = {
