@@ -300,8 +300,20 @@ def _merge_customer_print_items(items):
     """Merge customer-facing rows while keeping the transaction rows untouched."""
     merged = []
     positions = {}
+    template_order_codes = {}
     for source in items or []:
-        order_code = str(source.get("order_code") or source.get("item_code") or "").strip()
+        item_code = str(source.get("item_code") or "").strip()
+        template_code = str(source.get("template_code") or "").strip()
+        if not template_code and item_code:
+            template_code = str(frappe.db.get_value("Item", item_code, "variant_of") or "").strip()
+        if template_code:
+            if template_code not in template_order_codes:
+                template_order_codes[template_code] = str(
+                    frappe.db.get_value("Item", template_code, "custom_order_code") or template_code
+                ).strip()
+            order_code = template_order_codes[template_code]
+        else:
+            order_code = str(source.get("order_code") or item_code).strip()
         if not order_code:
             merged.append(dict(source))
             continue
