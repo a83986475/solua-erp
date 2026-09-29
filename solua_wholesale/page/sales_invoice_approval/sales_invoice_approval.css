@@ -28,6 +28,25 @@
 	font-weight: 700;
 }
 
+.solua-approval-selector {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+	margin: 48px auto;
+	max-width: 680px;
+	padding: 28px;
+}
+
+.solua-approval-selector h1 {
+	font-size: 24px;
+	margin: 6px 0 8px;
+}
+
+.solua-approval-selector p {
+	margin-bottom: 24px;
+}
+
 .solua-approval-alert {
 	border-radius: 10px;
 	margin-bottom: 24px;
