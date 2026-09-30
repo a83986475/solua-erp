@@ -5,11 +5,15 @@
 	const script = document.createElement("script");
 	script.dataset.soluaWholesaleForms = "1";
 	script.src = src;
-	script.onload = () => {
+	const refresh_current = () => {
 		const current = window.cur_frm;
 		if (current && ["Sales Order", "Delivery Note", "Pick List"].includes(current.doctype) && typeof current.trigger === "function") {
 			current.trigger("refresh");
 		}
+	};
+	script.onload = () => {
+		refresh_current();
+		setTimeout(refresh_current, 1000);
 	};
 	document.head.appendChild(script);
 })();
