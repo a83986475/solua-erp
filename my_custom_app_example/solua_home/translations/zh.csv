@@ -185,6 +185,9 @@ custom_renewal_date,续约日期
 custom_risk_level,风险级别
 {0} is not a template item,{0} 不是模板物料
 Please specify a template item,请指定模板物料
+Transaction Reference,交易参考信息
+Payment Reference No,付款参考号
+Payment Reference Date,付款参考日期
 
 Action,操作
 Are you sure you want to delete the page?,确定要删除这个页面吗？

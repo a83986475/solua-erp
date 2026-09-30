@@ -238,6 +238,7 @@ page_js = {
 # Custom JS for Item form: template page shows per-color and total stock.
 doctype_js = {
     "Item": "public/js/item_color_stock.js",
+    "Payment Entry": "public/js/payment_entry_labels.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
     "Sales Invoice": ["public/js/sales_invoice_print_options_v20260930b.js", "public/js/document_table_export_v20260930c.js"],
     "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v3.js", "public/js/document_table_export_v20260930c.js"],
