@@ -90,6 +90,8 @@ frappe.ui.form.on("Sales Invoice", {
 		frm.__solua_wholesale_print_button = true;
 
 		frm.add_custom_button(__("批发销售单"), () => {
+			const saved_options = window.solua_home_print_preferences?.read(frm.doctype) || {};
+			const print_default = (fieldname, fallback) => Object.prototype.hasOwnProperty.call(saved_options, fieldname) ? saved_options[fieldname] : fallback;
 			const dialog = new frappe.ui.Dialog({
 				title: __("批发销售单打印选项"),
 			fields: [
@@ -97,43 +99,43 @@ frappe.ui.form.on("Sales Invoice", {
 					fieldname: "show_item_name",
 					label: __("显示商品名称"),
 					fieldtype: "Check",
-					default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name,
+					default: print_default("show_item_name", frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name),
 				},
 				{
 					fieldname: "show_sku",
 					label: __("显示 SKU/货号"),
 					fieldtype: "Check",
-					default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku,
+					default: print_default("show_sku", frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku),
 				},
 				{
 					fieldname: "show_color",
 					label: __("显示颜色"),
 					fieldtype: "Check",
-					default: (frm.doc.custom_print_color_code || frm.doc.custom_print_cor) ? 1 : 0,
+					default: print_default("show_color", (frm.doc.custom_print_color_code || frm.doc.custom_print_cor) ? 1 : 0),
 				},
 				{
 					fieldname: "merge_order_code",
 					label: __("合并同款对外货号"),
 					fieldtype: "Check",
-					default: frm.doc.custom_print_merge_order_code ? 1 : 0,
+					default: print_default("merge_order_code", frm.doc.custom_print_merge_order_code ? 1 : 0),
 				},
 				{
 					fieldname: "show_description",
 					label: __("显示商品描述"),
 					fieldtype: "Check",
-					default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description,
+					default: print_default("show_description", frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description),
 				},
 				{
 						fieldname: "show_images",
 						label: __("显示颜色图片"),
 						fieldtype: "Check",
-						default: frm.doc.custom_print_color_images ? 1 : 0,
+						default: print_default("show_images", frm.doc.custom_print_color_images ? 1 : 0),
 					},
 					{
 						fieldname: "show_qr",
 						label: __("显示色卡二维码"),
 						fieldtype: "Check",
-						default: frm.doc.custom_print_color_qr ? 1 : 0,
+						default: print_default("show_qr", frm.doc.custom_print_color_qr ? 1 : 0),
 					},
 				],
 				primary_action_label: __("保存并打开预览"),
@@ -157,6 +159,7 @@ frappe.ui.form.on("Sales Invoice", {
 							trigger_print: "1",
 						});
 						window.open(`/printview?${params.toString()}`, "_blank");
+						window.solua_home_print_preferences?.save(frm.doctype, values);
 						dialog.hide();
 					});
 				},

@@ -4,6 +4,8 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
 const handlers = {}, requests = [], dialogs = [];
+const storage = new Map();
+const localStorage = {getItem(key){return storage.has(key) ? storage.get(key) : null;},setItem(key,value){storage.set(key,String(value));}};
 const input = () => ({events:{}, on(event, fn){this.events[event]=fn;return this;}, off(event){delete this.events[event];return this;}, focus(){}});
 class Dialog {
   constructor(options) {
@@ -33,6 +35,7 @@ class Dialog {
 }
 const rows = new Map();
 const frappe = {
+  session:{user:"tester@example.com"},
   ui:{Dialog, form:{on(dt, value){handlers[dt]={...(handlers[dt] || {}),...value};}}},
   utils:{escape_html:String},
   call(){return new Promise((resolve,reject)=>requests.push({resolve,reject}));},
@@ -43,8 +46,9 @@ const frappe = {
   }},
   show_alert(){},msgprint(){},
 };
-const browser = {open(){}};
+const browser = {open(){},localStorage};
 const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/document_table_export.js"),"utf8"), script_scope);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms.js"),"utf8"), script_scope);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options.js"),"utf8"), script_scope);
 const salesTools = browser.solua_home_sales_order_tools;
@@ -162,20 +166,30 @@ async function query(d,code="A"){
  c.values.qty="0";await c.action();assert.equal(count.doc.items.length,1);assert.equal(count.doc.items[0].qty,0);
  async function assert_print_switches(dt) {
   const submitted=form(dt,1);submitted.is_new=()=>false;
- submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_quantity:{}} : {})};
+ submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_current_remaining:{},custom_print_quantity:{},custom_print_traceability:{}} : {}),...(dt !== "Sales Invoice" ? {custom_print_additional_notes:{}} : {})};
   let saved_changes;submitted.set_value=async changes=>{saved_changes=changes;};submitted.is_dirty=()=>true;
   let save_mode;submitted.save=async mode=>{save_mode=mode;};
   handlers[dt].refresh(submitted);
   assert.equal(submitted.buttons.length,1);
   submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
- await print_dialog.action({show_item_name:0,show_sku:1,show_color:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_quantity:0,show_images:1,show_qr:0});
+ const selected={show_item_name:0,show_sku:1,show_color:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_current_remaining:0,show_quantity:0,show_traceability:0,show_images:1,show_qr:0,show_additional_notes:0};
+ const values=Object.fromEntries(Object.keys(print_dialog.values).map(key=>[key,selected[key]]));
+ const print_action=print_dialog.action(values);
+ if(dt !== "Sales Invoice") { await flush(); requests.at(-1).resolve({message:"TEST FORMAT"}); }
+ await print_action;await flush();
   assert.equal(save_mode,"Update");
  const expected={custom_print_item_name:0,custom_print_sku:1,custom_print_color_code:0,custom_print_cor:0,custom_print_description:0,custom_print_color_images:1,custom_print_color_qr:0};
- if(dt !== "Delivery Note") expected.custom_print_merge_order_code=1;
-  if(dt === "Delivery Note") { expected.custom_print_ordered_before=0; expected.custom_print_quantity=0; }
+ if(dt === "Pick List") Object.keys(expected).forEach(key=>{if(key !== "custom_print_additional_notes") delete expected[key];});
+ if(dt === "Sales Order" || dt === "Sales Invoice") expected.custom_print_merge_order_code=1;
+ if(dt !== "Sales Invoice") expected.custom_print_additional_notes=0;
+  if(dt === "Delivery Note") { expected.custom_print_ordered_before=0; expected.custom_print_current_remaining=0; expected.custom_print_quantity=0; expected.custom_print_traceability=0; }
   const stable=value=>JSON.stringify(Object.fromEntries(Object.entries(value).sort()));
   assert.equal(stable(saved_changes),stable(expected));
+  const reopened=form(dt,1);reopened.is_new=()=>false;reopened.fields_dict=submitted.fields_dict;
+  handlers[dt].refresh(reopened);reopened.buttons[0].fn();const remembered=dialogs.at(-1);
+  assert.deepEqual(Object.fromEntries(Object.keys(values).map(key=>[key,remembered.values[key]])),values);
  }
- for (const dt of ["Sales Order","Sales Invoice","Delivery Note"]) await assert_print_switches(dt);
+ for (const dt of ["Sales Order","Sales Invoice","Delivery Note","Pick List"]) await assert_print_switches(dt);
+ assert.equal(storage.size,4);
  await flush();console.log("PASS: retry, stale responses, explicit selection, reset, item+warehouse, append/replace, integer/zero/blank, double click, submitted guards");
 })().catch(e=>{console.error(e);process.exitCode=1;});

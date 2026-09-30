@@ -15,6 +15,30 @@
 	const EXPORT_API = "solua_home.api.export.export_document_table";
 	const preference_key = (doctype) =>
 		`solua_home:document_table_export:v1:${encodeURIComponent((frappe.session && frappe.session.user) || "")}:${encodeURIComponent(doctype)}`;
+	const print_preference_key = (doctype) =>
+		`solua_home:wholesale_print_options:v1:${encodeURIComponent((frappe.session && frappe.session.user) || "")}:${encodeURIComponent(doctype)}`;
+	const print_preferences = {
+		read(doctype) {
+			try {
+				const saved = JSON.parse(window.localStorage.getItem(print_preference_key(doctype)) || "null");
+				return saved && typeof saved === "object" ? Object.fromEntries(
+					Object.entries(saved).filter(([, value]) => value === 0 || value === 1 || typeof value === "boolean")
+				) : {};
+			} catch (error) {
+				return {};
+			}
+		},
+		save(doctype, values) {
+			try {
+				window.localStorage.setItem(print_preference_key(doctype), JSON.stringify(
+					Object.fromEntries(Object.entries(values || {}).map(([key, value]) => [key, value ? 1 : 0]))
+				));
+			} catch (error) {
+				// 隐私模式或存储被禁用：本次打印仍正常进行。
+			}
+		},
+	};
+	if (typeof window !== "undefined") window.solua_home_print_preferences = print_preferences;
 
 	function read_preferences(doctype, columns) {
 		try {
