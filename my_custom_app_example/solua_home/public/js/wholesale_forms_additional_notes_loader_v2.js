@@ -6,7 +6,7 @@
 	script.dataset.soluaWholesaleForms = "1";
 	script.src = src;
 	const refresh_current = () => {
-		const current = window.cur_frm;
+		const current = typeof cur_frm !== "undefined" ? cur_frm : window.cur_frm;
 		if (current && ["Sales Order", "Delivery Note", "Pick List"].includes(current.doctype) && typeof current.trigger === "function") {
 			current.trigger("refresh");
 		}
