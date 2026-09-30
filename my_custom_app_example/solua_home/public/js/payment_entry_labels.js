@@ -13,7 +13,6 @@ function apply_payment_entry_labels(frm) {
 		const textNode = [...(node?.childNodes || [])].find((child) => child.nodeType === Node.TEXT_NODE);
 		if (textNode) textNode.nodeValue = translated;
 	}
-	}
 }
 
 frappe.ui.form.on("Payment Entry", {
