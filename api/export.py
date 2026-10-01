@@ -18,6 +18,14 @@ from frappe.utils import cint, flt, nowdate
 
 EXPORT_DOCTYPES = ("Sales Order", "Sales Invoice", "Delivery Note", "Pick List")
 
+SOLUA_BULK_PDF_DOCTYPES = frozenset(EXPORT_DOCTYPES)
+SOLUA_PDF_MARGINS = {
+    "margin-top": "12mm",
+    "margin-bottom": "12mm",
+    "margin-left": "12mm",
+    "margin-right": "12mm",
+}
+
 # 列顺序 = 导出/勾选面板的显示顺序
 COLUMN_LABELS = (
     ("idx", "序号"),
@@ -245,6 +253,59 @@ def _safe_sales_order_filename(value):
     return value[:100] or "未命名"
 
 
+def _with_solua_bulk_pdf_margins(doctype, print_format, options):
+    """补齐原生批量 PDF 未传递的 A4 四边距，保持标准格式原样。"""
+    doctypes = set(doctype) if isinstance(doctype, dict) else {doctype}
+    if not doctypes & SOLUA_BULK_PDF_DOCTYPES:
+        return options
+
+    if not print_format and len(doctypes) == 1:
+        print_format = frappe.get_meta(next(iter(doctypes))).default_print_format
+    if not print_format or frappe.db.get_value("Print Format", print_format, "module") != "Solua Wholesale":
+        return options
+
+    parsed = frappe.parse_json(options) if options else {}
+    if not isinstance(parsed, dict) or parsed.get("page-size") not in (None, "A4"):
+        return options
+    for key, value in SOLUA_PDF_MARGINS.items():
+        parsed.setdefault(key, value)
+    return frappe.as_json(parsed)
+
+
+@frappe.whitelist()
+def download_multi_pdf(
+    doctype, name, format=None, no_letterhead=False, letterhead=None, options=None
+):
+    """调用 Frappe 原生批量 PDF，并为 Solua A4 格式补齐边距。"""
+    from frappe.utils.print_format import download_multi_pdf as core_download_multi_pdf
+
+    return core_download_multi_pdf(
+        doctype,
+        name,
+        format,
+        no_letterhead,
+        letterhead,
+        _with_solua_bulk_pdf_margins(doctype, format, options),
+    )
+
+
+@frappe.whitelist()
+def download_multi_pdf_async(
+    doctype, name, format=None, no_letterhead=False, letterhead=None, options=None
+):
+    """调用 Frappe 原生异步批量 PDF，并为 Solua A4 格式补齐边距。"""
+    from frappe.utils.print_format import download_multi_pdf_async as core_download_multi_pdf_async
+
+    return core_download_multi_pdf_async(
+        doctype,
+        name,
+        format,
+        no_letterhead,
+        letterhead,
+        _with_solua_bulk_pdf_margins(doctype, format, options),
+    )
+
+
 @frappe.whitelist()
 def download_sales_order_pdfs(names):
     """分别生成销售订单 PDF，并以 ZIP 作为本地批量下载容器。"""
@@ -265,7 +326,10 @@ def download_sales_order_pdfs(names):
         for name in names:
             doc = get_export_document("Sales Order", name)
             html = frappe.get_print("Sales Order", doc.name, print_format=print_format, as_pdf=False)
-            pdf = get_pdf(html, {"margin-top": "12mm"})
+            pdf = get_pdf(html, {
+                "page-size": "A4",
+                **SOLUA_PDF_MARGINS,
+            })
             date = str(doc.get("transaction_date") or nowdate()).replace("-", "")[:8]
             customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
             filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_客户确认单.pdf"

@@ -149,6 +149,8 @@ override_whitelisted_methods = {
     "frappe.desk.desktop.get_workspaces": "solua_home.api.workspace.get_workspaces",
     # 强制 Page 文档不缓存进 localStorage（否则 pos_custom.js 等 page_js 更新不生效）
     "frappe.desk.desk_page.getpage": "solua_home.override.desk_page.getpage",
+    "frappe.utils.print_format.download_multi_pdf": "solua_home.api.export.download_multi_pdf",
+    "frappe.utils.print_format.download_multi_pdf_async": "solua_home.api.export.download_multi_pdf_async",
 }
 
 # ------------------- Jinja 打印 helper（价格标签等） -------------------
