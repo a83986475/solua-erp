@@ -8,6 +8,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		amount: "Valor / 金额", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
 	};
 	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", footer: "页脚页码" };
+	const titleFeatureLabels = { additional_notes: "补充说明" };
 	const base = ["image", "name", "spu", "sku", "color_code", "barcode", "description"];
 	const columns = {
 		"Sales Order": ["qty", "uom", "rate", "amount"],
@@ -21,8 +22,8 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		"Delivery Note": { image: 6, name: 10, spu: 8, sku: 10, color_code: 6, barcode: 8, description: 11, ordered: 9, remaining: 9, qty: 8, uom: 5, rate: 5, amount: 6, trace: 5 },
 		"Pick List": { image: 8, name: 14, spu: 8, sku: 12, color_code: 7, barcode: 11, description: 16, qty: 7, picked: 7, uom: 5, warehouse: 8, order: 5 },
 	};
-	const defaultFeatures = { payment_schedule: false, color_qr: false, footer: true, legacy_warning: false, legacy_controls: false };
-	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true };
+	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, footer: true, legacy_warning: false, legacy_controls: false };
+	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true, custom_print_additional_notes: true };
 	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: true };
 	const config = {
 		doctype: types[0],
@@ -63,7 +64,9 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	};
 	function renderControls() {
 		const keys = allowed();
-		root.find('[data-role="checks"]').html(keys.map(key => `<label><input type="checkbox" data-column="${key}" ${config.visible[config.doctype][key] ? "checked" : ""}> ${labels[key]}</label>`).join(""));
+		const titleChecks = keys.map(key => `<label><input type="checkbox" data-column="${key}" ${config.visible[config.doctype][key] ? "checked" : ""}> ${labels[key]}</label>`);
+		Object.keys(titleFeatureLabels).forEach(key => titleChecks.push(`<label><input type="checkbox" data-title-feature="${key}" ${config.features[key] ? "checked" : ""}> ${titleFeatureLabels[key]}</label>`));
+		root.find('[data-role="checks"]').html(titleChecks.join(""));
 		root.find('[data-role="features"]').html(Object.keys(featureLabels).map(key => `<label><input type="checkbox" data-feature="${key}" ${config.features[key] ? "checked" : ""}> ${featureLabels[key]}</label>`).join(""));
 		const cols = visibleCols(), values = config.widths[config.doctype], sum = cols.reduce((n, key) => n + (values[key] || 1), 0) || 1;
 		cols.forEach(key => values[key] = (values[key] || 1) * 100 / sum);
@@ -91,7 +94,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		const currency = preview.currency ? ` ${esc(preview.currency)}` : "";
 		const warning = preview.docstatus === 0 ? '<div style="color:#a35c00;margin:3mm 0">RASCUNHO / 草稿 — Documento não oficial / 非正式凭证</div>' : (preview.docstatus === 2 ? '<div style="color:#a35c00;margin:3mm 0">CANCELADO / 已取消 — Documento não oficial / 非正式凭证</div>' : "");
 		const payment = `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">Plano de pagamento / 付款安排: ${esc(preview.payment_method || "未维护")} · Depósito / 定金: ${esc(preview.deposit || 0)} · Vencimento do saldo / 尾款到期: ${esc(preview.balance_due_date || "—")}<br>Plano de faturação / 开票安排: ${esc(preview.invoice_plan || "未维护")}</div>`;
-		const schedule = config.features.payment_schedule && (preview.payment_schedule || []).length ? `<table><thead><tr><th>付款条件</th><th>到期日</th><th>金额</th></tr></thead><tbody>${preview.payment_schedule.map(row => `<tr><td>${esc(row.payment_term)}</td><td>${esc(row.due_date)}</td><td>${esc(row.payment_amount)}</td></tr>`).join("")}</tbody></table>` : "";
+		const schedule = config.features.payment_schedule && (preview.payment_schedule || []).length ? `<table><thead><tr><th>Condições de pagamento / 付款条件</th><th>Data de vencimento / 到期日</th><th>Valor / 金额</th></tr></thead><tbody>${preview.payment_schedule.map(row => `<tr><td>${esc(row.payment_term)}</td><td>${esc(row.due_date)}</td><td>${esc(row.payment_amount)}</td></tr>`).join("")}</tbody></table>` : "";
 		const qr = config.features.color_qr ? (preview.qr_items || []).map(row => `<div style="display:inline-block;margin-right:6mm"><img class="a4d-photo" src="${esc(row.image)}" alt="QR"><br>${esc(row.template_code)}</div>`).join("") : "";
 		const footer = config.features.footer ? `<div style="text-align:center;margin-top:8mm;color:#52606a">${esc(preview.name)} · Página 1 / 1</div>` : "";
 		const title = { "Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Venda / 销售单", "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单" }[config.doctype];
@@ -101,8 +104,9 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		const meta = config.doctype === "Delivery Note" ? deliveryMeta : (config.doctype === "Pick List" ? pickMeta : orderMeta);
 		const tableTitle = config.doctype === "Delivery Note" ? "本次送货 / Entrega" : (config.doctype === "Pick List" ? "拣货 / Separação" : "订购 / Encomenda");
 		const closing = config.doctype === "Delivery Note" ? `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">Transporte / 运输: ${esc((preview.transport || {}).driver_name || "—")} · ${esc((preview.transport || {}).driver_phone || "—")}<br>Plano de faturação / 开票安排: ${esc(preview.invoice_plan || "未维护")}</div><div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm">Diferenças / 退货备注: ______________________________________<br>Cliente recebeu / 客户签收: ____________________<br>Motorista / 司机签字: ____________________</div>` : (config.doctype === "Pick List" ? `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">Armazém / 仓库: ${esc(preview.source || "—")}<br>已拣数量 / Total separado: ${esc(preview.total_picked || 0)}</div>` : `${payment}${schedule}`);
+		const notes = config.features.additional_notes && Number(preview.show_additional_notes ?? 1) !== 0 && preview.additional_notes ? `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">补充说明 / Observações: ${esc(preview.additional_notes)}</div>` : "";
 		const logo = (preview.sender || {}).logo ? `<img class="a4d-brand-logo" src="${esc(preview.sender.logo)}" alt="Company Logo">` : "";
-		paper.html(`<table class="a4d-brand"><tr><td class="a4d-brand-logo-cell">${logo}</td><td><h2 style="font-size:${s.titleSize}pt;color:${s.titleColor};text-align:left;margin:0">${esc(title)}</h2></td></tr></table>${warning}<table class="a4d-meta"><tr><td><b>${esc((preview.sender || {}).name || "")}</b><br>${partyText(preview.sender || {})}</td><td><b>Cliente / 客户: ${esc((preview.receiver || {}).name || "")}</b><br>${partyText(preview.receiver || {})}</td></tr>${meta}</table><table class="a4d-items" style="line-height:${s.lineHeight}"><colgroup>${colgroup}</colgroup><thead><tr><th colspan="${cols.length}">${esc(preview.name)} · ${tableTitle}</th></tr><tr>${head}</tr></thead><tbody>${body}</tbody></table><div style="width:100%;text-align:right;font-weight:700;margin:3mm 0">Total Qty / 总数量: ${esc(preview.total_qty || 0)}</div>${["Sales Order", "Sales Invoice"].includes(config.doctype) ? `<div class="a4d-total">Total / 含税合计: ${esc(preview.total)}${currency}</div>` : ""}${closing}${qr}${footer}`);
+		paper.html(`<table class="a4d-brand"><tr><td class="a4d-brand-logo-cell">${logo}</td><td><h2 style="font-size:${s.titleSize}pt;color:${s.titleColor};text-align:left;margin:0">${esc(title)}</h2></td></tr></table>${warning}<table class="a4d-meta"><tr><td><b>${esc((preview.sender || {}).name || "")}</b><br>${partyText(preview.sender || {})}</td><td><b>Cliente / 客户: ${esc((preview.receiver || {}).name || "")}</b><br>${partyText(preview.receiver || {})}</td></tr>${meta}</table><table class="a4d-items" style="line-height:${s.lineHeight}"><colgroup>${colgroup}</colgroup><thead><tr><th colspan="${cols.length}">${esc(preview.name)} · ${tableTitle}</th></tr><tr>${head}</tr></thead><tbody>${body}</tbody></table><div style="width:100%;text-align:right;font-weight:700;margin:3mm 0">Total Qty / 总数量: ${esc(preview.total_qty || 0)}</div>${["Sales Order", "Sales Invoice"].includes(config.doctype) ? `<div class="a4d-total">Total / 含税合计: ${esc(preview.total)}${currency}</div>` : ""}${closing}${notes}${qr}${footer}`);
 		paper.find("th,td").css("padding", `${s.cellPadding}mm`);
 		paper.find("th").css("background", s.headBg);
 		paper.find("th,td").css("border", s.itemBorders ? "1px solid #aeb8be" : "0");
@@ -144,6 +148,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	root.on("change", "[data-role=doctype]", function () { config.doctype = this.value; currentSettings(); preview = null; legacyHtml = ""; editingMode = "designer"; render(); loadDocuments(); loadFormats(); });
 	root.on("change", "[data-role=format]", function () { const meta = selectedFormat(); if (meta) status(meta.mode === "legacy_importable" ? "这是已识别的 Solua Wholesale 旧格式，可原格式预览或导入。" : meta.mode === "legacy_preview" ? "这是旧版 Jinja 格式，可以预览，但尚未转换为可视化格式。" : "这是 A4 可视化格式。"); });
 	root.on("change", "[data-column]", function () { config.visible[config.doctype][this.dataset.column] = this.checked; render(); });
+	root.on("change", "[data-title-feature]", function () { config.features[this.dataset.titleFeature] = this.checked; render(); });
 	root.on("change", "[data-feature]", function () { config.features[this.dataset.feature] = this.checked; render(); });
 	root.on("change", "[data-width]", function () { const key = this.dataset.width, value = Number(this.value), cols = visibleCols(), rest = cols.filter(x => x !== key), room = 100 - Math.max(2, Math.min(90, value)), other = rest.reduce((n, x) => n + config.widths[config.doctype][x], 0) || rest.length; config.widths[config.doctype][key] = 100 - room; rest.forEach(x => config.widths[config.doctype][x] = (config.widths[config.doctype][x] || 1) * room / other); render(); });
 	root.on("change", "[data-setting]", function () { const key = this.dataset.setting; if (key === "itemBorders") { config.settings.itemBordersByDoctype[config.doctype] = this.checked; config.settings.itemBorders = this.checked; } else config.settings[key] = key.endsWith("Color") || key === "headBg" ? this.value : Number(this.value); render(); });

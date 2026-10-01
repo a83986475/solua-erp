@@ -1,6 +1,6 @@
 """销售订单 / 销售单 / 交货单 / 拣货单：把单据明细导出成表格（Excel / CSV）。
 
-导出列与打印表格保持一致（货号、色号、条码、描述、数量、单价、金额、仓库），
+导出列与打印表格保持一致（货号、SPU、色号、条码、描述、补充说明、数量、单价、金额、仓库），
 并在底部给出数量合计，方便仓管、客户与财务直接拿去用表格处理；图片列不导出。
 
 入口（均为 GET 可调用，浏览器打开链接即下载）：
@@ -21,11 +21,13 @@ COLUMN_LABELS = (
     ("idx", "序号"),
     ("item_code", "货号"),
     ("item_name", "商品名称"),
+    ("spu", "SPU"),
     ("order_code", "订货货号"),
     ("color_code", "色号"),
     ("color", "颜色"),
     ("barcode", "条码"),
     ("description", "描述"),
+    ("additional_notes", "补充说明"),
     ("qty", "数量"),
     ("picked_qty", "已拣数量"),
     ("uom", "单位"),
@@ -41,8 +43,8 @@ LABELS = dict(COLUMN_LABELS)
 NUMERIC_COLUMNS = ("idx", "qty", "picked_qty", "rate", "amount", "ordered_qty", "delivered_before_qty", "remaining_qty")
 
 _WHOLESALE_COLUMNS = (
-    "idx", "item_code", "item_name", "order_code", "color_code", "color", "barcode", "description",
-    "qty", "uom", "rate", "amount", "warehouse",
+    "idx", "item_code", "item_name", "spu", "order_code", "color_code", "color", "barcode", "description",
+    "additional_notes", "qty", "uom", "rate", "amount", "warehouse",
 )
 DOCTYPE_COLUMNS = {
     "Sales Order": _WHOLESALE_COLUMNS,
@@ -50,7 +52,7 @@ DOCTYPE_COLUMNS = {
     "Delivery Note": _WHOLESALE_COLUMNS + ("ordered_qty", "delivered_before_qty", "remaining_qty"),
     # 拣货单没有价格与订单关联，只导出拣货数量、仓库与商品信息
     "Pick List": (
-        "idx", "item_code", "item_name", "color_code", "color", "barcode", "description",
+        "idx", "item_code", "item_name", "spu", "color_code", "color", "barcode", "description", "additional_notes",
         "qty", "picked_qty", "uom", "warehouse",
     ),
 }
@@ -70,12 +72,11 @@ def get_export_document(doctype, name):
     return doc
 
 
-def _wholesale_rows(doc, merge_order_code=0):
+def _wholesale_rows(doc):
     """Reuse the print data so the export matches the printed table exactly."""
     from solua_home.printing.wholesale import get_wholesale_print_data
 
-    merge_customer_rows = bool(cint(merge_order_code)) if doc.doctype in ("Sales Order", "Sales Invoice") else None
-    data = get_wholesale_print_data(doc, merge_customer_rows=merge_customer_rows)
+    data = get_wholesale_print_data(doc)
     rows = []
     for position, item in enumerate(data.get("items") or [], start=1):
         row = {"idx": position}
@@ -89,7 +90,7 @@ def _wholesale_rows(doc, merge_order_code=0):
 def _pick_list_rows(doc):
     """拣货单的行在 locations 子表（Pick List Item）里，不是 items。"""
     from solua_home.printing.color_card import get_item_color_info
-    from solua_home.printing.wholesale import get_item_sales_display
+    from solua_home.printing.wholesale import get_item_sales_display, get_item_spu
 
     rows = []
     entries = doc.get("locations") or doc.get("items") or []
@@ -100,10 +101,12 @@ def _pick_list_rows(doc):
             "idx": position,
             "item_code": item.item_code,
             "item_name": item.get("item_name") or item.item_code,
+            "spu": get_item_spu(item.item_code),
             "color_code": color.get("color_code") or "",
             "color": color.get("color_name") or "",
             "barcode": display.get("barcode") or "",
             "description": display.get("description") or "",
+            "additional_notes": item.get("additional_notes") or item.get("pos_additional_notes") or item.get("custom_additional_notes") or "",
             "qty": flt(item.get("qty")),
             "picked_qty": flt(item.get("picked_qty")),
             "uom": item.get("uom") or "",
@@ -112,8 +115,8 @@ def _pick_list_rows(doc):
     return rows
 
 
-def get_item_rows(doc, merge_order_code=0):
-    return _pick_list_rows(doc) if doc.doctype == "Pick List" else _wholesale_rows(doc, merge_order_code)
+def get_item_rows(doc):
+    return _pick_list_rows(doc) if doc.doctype == "Pick List" else _wholesale_rows(doc)
 
 
 def _selected_columns(doctype, columns):
@@ -165,10 +168,10 @@ def _total_row(rows, columns):
     return total
 
 
-def build_table(doc, columns=None, include_header=1, include_total=1, merge_order_code=0):
+def build_table(doc, columns=None, include_header=1, include_total=1):
     """Rows ready for xlsx/csv: [[...], ...] with a header block and a totals row."""
     selected = _selected_columns(doc.doctype, columns)
-    rows = get_item_rows(doc, merge_order_code)
+    rows = get_item_rows(doc)
     table = []
     if cint(include_header):
         table.extend(_header_rows(doc))
@@ -209,21 +212,20 @@ def get_export_options(doctype):
         ],
         "defaults": [
             key for key in DOCTYPE_COLUMNS[doctype]
-            if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty")
+            if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty", "additional_notes", "spu")
         ],
         "formats": [
             {"value": "xlsx", "label": _("Excel (.xlsx)")},
             {"value": "csv", "label": _("CSV (.csv)")},
         ],
-        "allow_merge_order_code": doctype in ("Sales Order", "Sales Invoice"),
     }
 
 
 @frappe.whitelist()
-def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1, merge_order_code=0):
+def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1):
     """下载单据明细表格：fmt=xlsx（默认）或 csv。"""
     doc = get_export_document(doctype, name)
-    table = build_table(doc, columns, include_header, include_total, merge_order_code)
+    table = build_table(doc, columns, include_header, include_total)
     filename = "-".join([frappe.scrub(doctype).replace("_", "-"), doc.name, nowdate()])
     if str(fmt or "").lower() == "csv":
         _send_csv(table, filename)

@@ -7,6 +7,7 @@
 	const sales_order_paste_api = "solua_home.api.sales.preview_sales_order_paste";
 	const sales_order_rows_api = "solua_home.api.sales.preview_sales_order_rows";
 	const sales_order_search_api = "solua_home.api.sales.search_sales_order_items";
+	const active_print_format_api = "solua_home.api.a4_designer.get_active_format";
 	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa", "Pick List": "拣货单（简版）" };
 
 	const is_positive_integer = (value) => {
@@ -479,36 +480,46 @@
 		dialog.fields_dict.barcode.$input.focus();
 	}
 
+	async function get_active_print_format(doctype) {
+		try {
+			const response = await frappe.call({ method: active_print_format_api, args: { doctype } });
+			return (response && response.message) || print_formats[doctype];
+		} catch (error) {
+			return print_formats[doctype];
+		}
+	}
+
 	function print_wholesale(frm) {
-		const format = print_formats[frm.doctype];
 		const has_column_switches = ["Sales Order", "Sales Invoice", "Delivery Note"].includes(frm.doctype);
-		const has_customer_merge_switch = ["Sales Order", "Sales Invoice"].includes(frm.doctype);
+		const has_customer_merge_switch = ["Sales Order", "Sales Invoice", "Delivery Note"].includes(frm.doctype);
 		const has_additional_notes_switch = ["Sales Order", "Delivery Note", "Pick List"].includes(frm.doctype);
 		const has_image_switches = ["Sales Order", "Sales Invoice", "Delivery Note"].includes(frm.doctype);
+		const saved_options = window.solua_home_print_preferences?.read(frm.doctype) || {};
+		const print_default = (fieldname, fallback) => Object.prototype.hasOwnProperty.call(saved_options, fieldname) ? saved_options[fieldname] : fallback;
 		const dialog = new frappe.ui.Dialog({
 			title: __("打印选项"),
 			fields: [
 				...(has_column_switches ? [
-					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name },
-					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku },
-					{ fieldname: "show_color", label: __("显示颜色"), fieldtype: "Check", default: (frm.doc.custom_print_color_code || frm.doc.custom_print_cor) ? 1 : 0 },
-					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description },
+					{ fieldname: "show_item_name", label: __("显示商品名称"), fieldtype: "Check", default: print_default("show_item_name", frm.doc.custom_print_item_name == null ? 1 : frm.doc.custom_print_item_name) },
+					{ fieldname: "show_sku", label: __("显示 SKU/货号"), fieldtype: "Check", default: print_default("show_sku", frm.doc.custom_print_sku == null ? 1 : frm.doc.custom_print_sku) },
+					{ fieldname: "show_color", label: __("显示颜色"), fieldtype: "Check", default: print_default("show_color", (frm.doc.custom_print_color_code || frm.doc.custom_print_cor) ? 1 : 0) },
+					{ fieldname: "show_description", label: __("显示商品描述"), fieldtype: "Check", default: print_default("show_description", frm.doc.custom_print_description == null ? 1 : frm.doc.custom_print_description) },
 				] : []),
 				...(has_additional_notes_switch ? [
-					{ fieldname: "show_additional_notes", label: __("显示补充说明"), fieldtype: "Check", default: frm.doc.custom_print_additional_notes == null ? 1 : frm.doc.custom_print_additional_notes },
+					{ fieldname: "show_additional_notes", label: __("显示补充说明"), fieldtype: "Check", default: print_default("show_additional_notes", frm.doc.custom_print_additional_notes == null ? 1 : frm.doc.custom_print_additional_notes) },
 				] : []),
 				...(has_customer_merge_switch ? [
-					{ fieldname: "merge_order_code", label: __("合并同款对外货号"), fieldtype: "Check", default: frm.doc.custom_print_merge_order_code ? 1 : 0 },
+					{ fieldname: "merge_order_code", label: __("合并同款对外货号"), fieldtype: "Check", default: print_default("merge_order_code", frm.doc.custom_print_merge_order_code ? 1 : 0) },
 				] : []),
 				...(frm.doctype === "Delivery Note" ? [
-					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before },
-					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining },
-					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity },
-					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability },
+					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: print_default("show_ordered_before", frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before) },
+					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: print_default("show_current_remaining", frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining) },
+					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: print_default("show_quantity", frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity) },
+					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: print_default("show_traceability", frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability) },
 				] : []),
 				...(has_image_switches ? [
-					{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: frm.doc.custom_print_color_images ? 1 : 0 },
-					{ fieldname: "show_qr", label: __("显示色卡二维码"), fieldtype: "Check", default: frm.doc.custom_print_color_qr ? 1 : 0 },
+					{ fieldname: "show_images", label: __("显示颜色图片"), fieldtype: "Check", default: print_default("show_images", frm.doc.custom_print_color_images ? 1 : 0) },
+					{ fieldname: "show_qr", label: __("显示色卡二维码"), fieldtype: "Check", default: print_default("show_qr", frm.doc.custom_print_color_qr ? 1 : 0) },
 				] : []),
 			],
 			primary_action_label: __("保存并打开预览"),
@@ -546,8 +557,10 @@
 				if (has_image_switches && frm.fields_dict.custom_print_color_qr) changes.custom_print_color_qr = values.show_qr ? 1 : 0;
 				if (Object.keys(changes).length) await frm.set_value(changes);
 				if (frm.is_dirty()) await frm.save(frm.doc.docstatus === 1 ? "Update" : undefined);
+				const format = await get_active_print_format(frm.doctype);
 				const params = new URLSearchParams({ doctype: frm.doctype, name: frm.doc.name, format, no_letterhead: "0", trigger_print: "1" });
 				window.open(`/printview?${params.toString()}`, "_blank");
+				window.solua_home_print_preferences?.save(frm.doctype, values);
 				dialog.hide();
 				} finally {
 					dialog.__printing = false;
@@ -562,8 +575,16 @@
 		frm.fields_dict?.items?.grid?.update_docfield_property("delivery_date", "reqd", 0);
 	}
 
+	function fill_store_name_from_address(frm) {
+		const doc = frm.doc;
+		if (doc.docstatus !== 0 || doc.custom_store_name) return;
+		const address_name = doc.shipping_address_name || doc.customer_address;
+		if (address_name) frm.set_value?.("custom_store_name", address_name);
+	}
+
 	function refresh_delivery_summary(frm) {
 		const doc = frm.doc;
+		fill_store_name_from_address(frm);
 		if (doc.company && frm.__delivery_company_lookup !== doc.company) {
 			frm.__delivery_company_lookup = doc.company;
 			frappe.db.get_value("Company", doc.company, "tax_id").then((result) => {
@@ -668,6 +689,7 @@
 		vehicle_no: refresh_delivery_summary,
 		driver_name: refresh_delivery_summary,
 		custom_driver_phone: refresh_delivery_summary,
+		customer_address: refresh_delivery_summary,
 		items_add: refresh_delivery_summary,
 	});
 

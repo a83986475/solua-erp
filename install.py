@@ -221,9 +221,44 @@ def sync_standard_print_formats():
             continue
         try:
             import_file_by_path(json_path, force=True, ignore_version=True)
+            _sync_additional_notes_print_format(folder)
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
+
+
+def _sync_additional_notes_print_format(folder):
+    """保持三种批发单据的补充说明开关和输出幂等。"""
+    specs = {
+        "sales_order_wholesale_color": (
+            "客户订单确认单（颜色版）",
+            "{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else 1 %}",
+            "{% if doc.get('custom_print_color_qr') %}",
+        ),
+        "delivery_note_guia_remessa": (
+            "Guia de Remessa",
+            "{% set show_traceability = 1 if traceability_setting and p.get('has_traceability') else 0 %}",
+            "{% if doc.get('custom_print_color_qr') %}",
+        ),
+        "pick_list_simple": (
+            "拣货单（简版）",
+            "{% set p = get_pick_list_print_data(doc) %}",
+            '<div id="footer-html"',
+        ),
+    }
+    spec = specs.get(folder)
+    if not spec:
+        return
+    name, set_marker, output_marker = spec
+    doc = frappe.get_doc("Print Format", name) if frappe.db.exists("Print Format", name) else None
+    if not doc or "custom_print_additional_notes" in doc.html:
+        return
+    show_set = "{% set show_additional_notes = doc.get('custom_print_additional_notes') if doc.get('custom_print_additional_notes') is not none else 1 %}"
+    note = "{% if show_additional_notes and doc.get('custom_additional_notes') %}<div class=\"block\">补充说明 / Observações: {{ doc.get('custom_additional_notes') | e }}</div>{% endif %}"
+    html = doc.html.replace(set_marker, set_marker + show_set, 1)
+    html = html.replace(output_marker, note + output_marker, 1)
+    doc.html = html
+    doc.save(ignore_permissions=True)
 
 
 def sync_standard_pages():
@@ -893,9 +928,9 @@ def add_sales_color_print_fields():
         {
             "dt": "Sales Invoice",
             "fieldname": "custom_print_color_code",
-            "label": "销售单显示固定色号",
+            "label": "销售单显示颜色",
             "fieldtype": "Check",
-            "insert_after": "custom_print_sku",
+            "insert_after": "custom_print_merge_order_code",
             "default": "1",
             "allow_on_submit": 1,
         },
@@ -907,6 +942,8 @@ def add_sales_color_print_fields():
             "insert_after": "custom_print_color_code",
             "default": "0",
             "allow_on_submit": 1,
+            "hidden": 1,
+            "read_only": 1,
         },
         {
             "dt": "Sales Invoice",
@@ -928,8 +965,10 @@ def add_sales_color_print_fields():
                     **field,
                     "owner": "Administrator",
                 }).insert(ignore_permissions=True)
-            elif field["fieldname"] == "custom_print_merge_order_code":
-                frappe.db.set_value("Custom Field", existing, {"hidden": 1, "read_only": 1})
+            elif field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:
+                updates = {key: field[key] for key in ("label", "hidden", "read_only") if key in field}
+                if updates:
+                    frappe.db.set_value("Custom Field", existing, updates)
         except Exception as e:
             frappe.log_error(
                 f"销售单打印开关创建失败 [{field.get('fieldname')}]: {e}",
@@ -953,17 +992,19 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_deposit_amount", "label": "定金金额", "fieldtype": "Currency", "insert_after": "custom_payment_method", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
         {"dt": "Sales Order", "fieldname": "custom_balance_due_date", "label": "尾款到期日", "fieldtype": "Date", "insert_after": "custom_deposit_amount", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
         {"dt": "Sales Order", "fieldname": "custom_invoice_plan", "label": "开票安排", "fieldtype": "Small Text", "insert_after": "terms"},
+        {"dt": "Sales Order", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_invoice_plan"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_images", "label": "订单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
         {"dt": "Sales Order", "fieldname": "custom_print_sku", "label": "订单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
         {"dt": "Sales Order", "fieldname": "custom_print_merge_order_code", "label": "客户打印合并同款货号", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_sku", "description": "只影响客户打印；销售订单内部仍保留每个颜色变体的独立行"},
-        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_merge_order_code"},
-        {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示颜色", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_merge_order_code"},
+        {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
+        {"dt": "Sales Order", "fieldname": "custom_print_additional_notes", "label": "订单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
-        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_tab", "label": "提交检查", "fieldtype": "Tab Break", "insert_after": "more_info_tab"},
-        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "hidden": 0, "insert_after": "custom_sales_invoice_approval_tab"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_custom_tab", "label": "提交前检查", "fieldtype": "Tab Break", "insert_after": "connections_tab"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "insert_after": "custom_sales_invoice_custom_tab"},
         {"dt": "Sales Invoice", "fieldname": "custom_approver", "label": "审批人", "fieldtype": "Link", "options": "User", "hidden": 0, "read_only": 0, "insert_after": "custom_sales_invoice_approval_summary"},
         {"dt": "Sales Invoice", "fieldname": "custom_approval_date", "label": "审批日期", "fieldtype": "Date", "hidden": 0, "read_only": 0, "insert_after": "custom_approver"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
@@ -976,6 +1017,7 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_section", "label": "开票资料", "fieldtype": "Section Break", "insert_after": "custom_source_warehouse_address"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_info", "label": "关联销售订单与开票状态", "fieldtype": "HTML", "insert_after": "custom_delivery_billing_section"},
         {"dt": "Delivery Note", "fieldname": "custom_invoice_plan", "label": "开票安排（可选）", "fieldtype": "Small Text", "insert_after": "per_billed"},
+        {"dt": "Delivery Note", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_invoice_plan"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_signoff_section", "label": "签收资料", "fieldtype": "Section Break", "insert_after": "custom_invoice_plan"},
         {"dt": "Delivery Note", "fieldname": "custom_box_count", "label": "箱数", "fieldtype": "Int", "insert_after": "custom_delivery_signoff_section", "description": "适用时填写；不适用留空"},
         {"dt": "Delivery Note", "fieldname": "custom_pallet_count", "label": "托盘数", "fieldtype": "Int", "insert_after": "custom_box_count", "description": "适用时填写；不适用留空"},
@@ -986,33 +1028,44 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_print_color_qr", "label": "送货单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Delivery Note", "fieldname": "custom_print_item_name", "label": "送货单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
         {"dt": "Delivery Note", "fieldname": "custom_print_sku", "label": "送货单显示 SKU/货号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_item_name"},
-        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示固定色号", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
-        {"dt": "Delivery Note", "fieldname": "custom_print_cor", "label": "送货单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_code"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_merge_order_code", "label": "客户打印合并同款货号", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_sku", "description": "只影响当前交货单打印和导出；交货单内部仍保留每个颜色变体的独立行"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_color_code", "label": "送货单显示颜色", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_sku"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_cor", "label": "送货单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Delivery Note", "fieldname": "custom_print_description", "label": "送货单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Delivery Note", "fieldname": "custom_print_ordered_before", "label": "送货单显示订购/此前已交付", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
         {"dt": "Delivery Note", "fieldname": "custom_print_current_remaining", "label": "送货单显示本次/剩余", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_ordered_before"},
         {"dt": "Delivery Note", "fieldname": "custom_print_quantity", "label": "送货单显示数量列", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "独立控制 Guia de Remessa 商品明细中的数量列；不依赖本次/剩余开关"},
         {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_quantity", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_additional_notes", "label": "送货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_traceability"},
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
+        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "purpose"},
+        {"dt": "Pick List", "fieldname": "custom_print_additional_notes", "label": "拣货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_additional_notes"},
     ]
     for field in fields:
         existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
         if not existing:
             frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(ignore_permissions=True)
         elif field["dt"] == "Delivery Note":
-            updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only") if key in field}
+            updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only", "hidden") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
-        elif field["dt"] == "Sales Order" and field["fieldname"] == "custom_print_merge_order_code":
-            frappe.db.set_value("Custom Field", existing, {"hidden": 1, "read_only": 1})
-        elif field["dt"] == "Sales Invoice" and field["fieldname"] == "custom_sales_invoice_approval_tab":
-            frappe.db.set_value("Custom Field", existing, {"label": field["label"], "insert_after": field["insert_after"]})
-        elif field["dt"] == "Sales Invoice" and field["fieldname"] == "custom_sales_invoice_approval_summary":
-            frappe.db.set_value("Custom Field", existing, {"label": field["label"], "hidden": 0, "insert_after": field["insert_after"]})
-        elif field["dt"] == "Sales Invoice" and field["fieldname"] in {"custom_approver", "custom_approval_date"}:
-            frappe.db.set_value("Custom Field", existing, {"hidden": 0, "read_only": 0, "insert_after": field["insert_after"]})
+        elif field["dt"] == "Sales Order" and field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:
+            updates = {key: field[key] for key in ("label", "hidden", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+        elif field["dt"] == "Sales Invoice" and field["fieldname"] in {
+            "custom_sales_invoice_custom_tab", "custom_sales_invoice_approval_summary",
+            "custom_approver", "custom_approval_date",
+        }:
+            updates = {key: field[key] for key in ("label", "insert_after", "hidden", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+
+    duplicate_notes = frappe.db.exists("Custom Field", {"dt": "Sales Order Item", "fieldname": "custom_additional_notes"})
+    if duplicate_notes:
+        frappe.delete_doc("Custom Field", duplicate_notes, force=True)
 
     for field_name, prop, value, prop_type in (
         ("address_and_contact_tab", "label", "送货与开票", "Data"),

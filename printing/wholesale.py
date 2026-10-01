@@ -129,6 +129,16 @@ def _item_master(item_code):
     return data if hasattr(data, "get") else {}
 
 
+def get_item_spu(item_code):
+    if not item_code:
+        return ""
+    item = frappe.db.get_value("Item", item_code, ["custom_spu_code", "variant_of"], as_dict=True) or {}
+    spu = item.get("custom_spu_code") if hasattr(item, "get") else ""
+    if not spu and hasattr(item, "get") and item.get("variant_of"):
+        spu = frappe.db.get_value("Item", item.get("variant_of"), "custom_spu_code")
+    return spu or ""
+
+
 def _item_barcodes(item_code):
     rows = frappe.get_all(
         "Item Barcode",
@@ -333,6 +343,11 @@ def _merge_customer_print_items(items):
             if value is None:
                 continue
             target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
+        for fieldname in ("batch_no", "serial_no", "serial_and_batch_bundle"):
+            value = str(source.get(fieldname) or "").strip()
+            current = str(target.get(fieldname) or "").strip()
+            if value and value not in current:
+                target[fieldname] = ", ".join(filter(None, (current, value)))
     return merged
 
 
@@ -413,6 +428,7 @@ def get_pick_list_rows(doc):
         rows.append({
             "item_code": item_code,
             "item_name": row.get("item_name") or item_code,
+            "spu": get_item_spu(item_code),
             "order_code": color.get("order_code") or item_code,
             "color_code": color.get("color_code") or "",
             "color": color.get("color_name") or "",
@@ -461,9 +477,11 @@ def _collect(doc):
         sales_display = get_item_sales_display(row.item_code, row.get("description"))
         items.append({
             "item_code": row.item_code, "item_name": row.get("item_name") or row.item_code,
+            "spu": get_item_spu(row.item_code),
             "order_code": color.get("order_code") or row.item_code,
             "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
             "barcode": sales_display["barcode"], "description": sales_display["description"],
+            "additional_notes": row.get("additional_notes") or row.get("pos_additional_notes") or row.get("custom_additional_notes") or "",
             "image": color.get("image") or "", "template_code": color.get("template_code") or "",
             "template_name": color.get("template_name") or "",
             "uom": row.get("uom") or row.get("stock_uom") or "",
@@ -504,6 +522,18 @@ def _recover_sales_order_item_display(doc, data):
             item["barcode"] = display["barcode"]
         if not item.get("description"):
             item["description"] = display["description"]
+
+
+def _recover_item_spu_display(doc, data):
+    """Fill SPU for old snapshots without changing the stored snapshot."""
+    live_rows = doc.get("items") or doc.get("locations") or []
+    for index, item in enumerate(data.get("items") or []):
+        if item.get("spu"):
+            continue
+        item_code = item.get("item_code")
+        if not item_code and index < len(live_rows):
+            item_code = live_rows[index].get("item_code")
+        item["spu"] = get_item_spu(item_code)
 
 
 def prepare_print_snapshot(doc, method=None):
@@ -608,7 +638,7 @@ def _recover_delivery_quantities(doc, data):
     )
 
 
-def get_wholesale_print_data(doc, merge_customer_rows=None):
+def get_wholesale_print_data(doc):
     frozen = _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc)
@@ -624,14 +654,16 @@ def get_wholesale_print_data(doc, merge_customer_rows=None):
             for live, saved in zip(live_rows, snapshot_rows):
                 for key in ("uom", "qty", "rate", "amount", "warehouse"):
                     saved[key] = live.get(key)
+                saved["additional_notes"] = (
+                    live.get("additional_notes") or live.get("pos_additional_notes")
+                    or live.get("custom_additional_notes") or saved.get("additional_notes") or ""
+                )
             data["total_qty"] = _sum_qty(snapshot_rows, "qty")
         elif live_rows:
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
-    should_merge = doc.get("custom_print_merge_order_code") if merge_customer_rows is None else merge_customer_rows
-    if doc.doctype in ("Sales Order", "Sales Invoice") and should_merge:
-        data["items"] = _merge_customer_print_items(data.get("items"))
-        data["customer_merged"] = True
+    _recover_item_spu_display(doc, data)
+    should_merge = bool(doc.get("custom_print_merge_order_code"))
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(
@@ -639,6 +671,9 @@ def get_wholesale_print_data(doc, merge_customer_rows=None):
             for item in data.get("items", [])
             for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
         )
+    if doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note") and should_merge:
+        data["items"] = _merge_customer_print_items(data.get("items"))
+        data["customer_merged"] = True
     data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0

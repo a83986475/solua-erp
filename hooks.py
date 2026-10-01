@@ -57,6 +57,11 @@ doc_events = {
         "after_insert": "solua_home.api.stock.auto_create_item_price",
         "on_update": "solua_home.item_metrics.on_item_change",
     },
+    "Item Price": {
+        "after_insert": "solua_home.item_metrics.on_item_price_change",
+        "on_update": "solua_home.item_metrics.on_item_price_change",
+        "on_trash": "solua_home.item_metrics.on_item_price_change",
+    },
     "Stock Entry": {
         "validate": "solua_home.api.stock.validate_transaction_quantities",
         "on_submit": [
@@ -216,6 +221,8 @@ web_include_css = "/assets/solua_home/css/login.css?v=login-logo-3"
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
     "/assets/solua_home/js/solua_home_global.js?v=sales-order-date-20260917",
+    "/assets/solua_home/js/item_quick_entry.js?v=item-price-sync-20260929-v6",
+    "/assets/solua_home/js/payment_entry_labels.js?v=payment-entry-labels-20260930a",
     "/assets/solua_home/js/quantity_validation.js",
     "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
@@ -231,20 +238,20 @@ app_include_js = [
 page_js = {
     "print-designer": "public/js/print_designer_zh.js",
     # page_js is read as a filesystem path; a query string makes get_js() miss the file.
-    "a4-print-designer": "public/js/a4_print_designer_logo_scale.js",
+    "a4-print-designer": "public/js/a4_print_designer_title_notes_v4.js",
 }
 
 # Custom JS for Item form: template page shows per-color and total stock.
 doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
-    "Sales Invoice": ["public/js/sales_invoice_print_options.js", "public/js/document_table_export.js"],
-    "Sales Order": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
-    "Delivery Note": ["public/js/wholesale_forms.js", "public/js/document_table_export.js"],
-    "Pick List": "public/js/document_table_export.js",
+    "Sales Invoice": ["public/js/sales_invoice_print_options_v20260930b.js", "public/js/document_table_export_v20260930c.js"],
+    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
+    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
+    "Pick List": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
 
-    "Purchase Receipt": "public/js/wholesale_forms.js",
-    "Stock Reconciliation": "public/js/wholesale_forms.js",
+    "Purchase Receipt": "public/js/wholesale_forms_additional_notes_loader_v2.js",
+    "Stock Reconciliation": "public/js/wholesale_forms_additional_notes_loader_v2.js",
     # 打印格式的「单据类型」下拉只列本项目会用到的单据类型（与 DocType 列表同一份白名单）
     "Print Format": "public/js/doctype_module_filter.js",
 }
