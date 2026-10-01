@@ -306,38 +306,55 @@ def download_multi_pdf_async(
     )
 
 
+PDF_EXPORT_CONFIG = {
+    "Sales Order": ("transaction_date", "客户确认单"),
+    "Delivery Note": ("posting_date", "交货单"),
+    "Pick List": ("creation", "拣货单"),
+}
+
+
 @frappe.whitelist()
-def download_sales_order_pdfs(names):
-    """分别生成销售订单 PDF，并以 ZIP 作为本地批量下载容器。"""
+def download_document_pdfs(doctype, names):
+    """分别生成销售订单、交货单或拣货单 PDF，并以 ZIP 作为本地批量下载容器。"""
     from frappe.utils.pdf import get_pdf
     from solua_home.api.a4_designer import _active_print_format
 
+    _require_doctype(doctype)
+    if doctype not in PDF_EXPORT_CONFIG:
+        frappe.throw(_("该单据类型暂不支持分别导出 PDF"))
     names = frappe.parse_json(names) if isinstance(names, str) else names
     if not isinstance(names, (list, tuple)) or not names:
-        frappe.throw(_("请至少选择一个销售订单"))
+        frappe.throw(_("请至少选择一个单据"))
 
-    print_format = _active_print_format("Sales Order")
+    print_format = _active_print_format(doctype)
     if not print_format:
-        frappe.throw(_("销售订单没有可用的打印格式"))
+        frappe.throw(_("{0}没有可用的打印格式").format(doctype))
 
+    date_field, document_label = PDF_EXPORT_CONFIG[doctype]
     archive = io.BytesIO()
     used_names = set()
     with ZipFile(archive, "w", ZIP_DEFLATED) as output:
         for name in names:
-            doc = get_export_document("Sales Order", name)
-            html = frappe.get_print("Sales Order", doc.name, print_format=print_format, as_pdf=False)
+            doc = get_export_document(doctype, name)
+            html = frappe.get_print(doctype, doc.name, print_format=print_format, as_pdf=False)
             pdf = get_pdf(html, {
                 "page-size": "A4",
                 **SOLUA_PDF_MARGINS,
             })
-            date = str(doc.get("transaction_date") or nowdate()).replace("-", "")[:8]
+            date = str(doc.get(date_field) or doc.get("posting_date") or doc.get("transaction_date") or doc.get("creation") or nowdate())[:10].replace("-", "")
             customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
-            filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_客户确认单.pdf"
+            filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_{document_label}.pdf"
             if filename in used_names:
                 filename = filename.replace(".pdf", f"_{len(used_names) + 1}.pdf")
             used_names.add(filename)
             output.writestr(filename, pdf)
 
-    frappe.local.response.filename = f"销售订单客户确认单_{nowdate().replace('-', '')}.zip"
+    frappe.local.response.filename = f"{document_label}_{nowdate().replace('-', '')}.zip"
     frappe.local.response.filecontent = archive.getvalue()
     frappe.local.response.type = "download"
+
+
+@frappe.whitelist()
+def download_sales_order_pdfs(names):
+    """保留旧入口，兼容已有销售订单菜单和书签。"""
+    return download_document_pdfs("Sales Order", names)

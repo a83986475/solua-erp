@@ -263,6 +263,8 @@ doctype_js = {
 # 注：不能用 page_js（只对 Page 文档生效），Item 是 DocType，必须用 doctype_list_js
 doctype_list_js = {
     "Sales Order": "public/js/sales_order_list_tools.js",
+    "Delivery Note": "public/js/sales_order_list_tools.js",
+    "Pick List": "public/js/sales_order_list_tools.js",
     "Item": [
         "public/js/item_variant_wizard.js",
         "public/js/item_data_wizard.js",
