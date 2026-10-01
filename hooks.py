@@ -100,6 +100,7 @@ doc_events = {
         "validate": "solua_home.api.stock.validate_transaction_quantities",
     },
     "Pick List": {
+        "before_insert": "solua_home.api.stock.copy_sales_order_pick_notes",
         "validate": "solua_home.api.stock.validate_transaction_quantities",
     },
     "Packing Slip": {
@@ -259,6 +260,7 @@ doctype_js = {
 # Custom JS for doctype list views（Item 列表页的向导按钮）
 # 注：不能用 page_js（只对 Page 文档生效），Item 是 DocType，必须用 doctype_list_js
 doctype_list_js = {
+    "Sales Order": "public/js/sales_order_list_tools.js",
     "Item": [
         "public/js/item_variant_wizard.js",
         "public/js/item_data_wizard.js",

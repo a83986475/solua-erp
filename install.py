@@ -1042,6 +1042,7 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
         {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "purpose"},
         {"dt": "Pick List", "fieldname": "custom_print_additional_notes", "label": "拣货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_additional_notes"},
+        {"dt": "Pick List Item", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "read_only": 1, "in_list_view": 1, "insert_after": "description"},
     ]
     for field in fields:
         existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
@@ -1060,6 +1061,10 @@ def add_wholesale_fields(commit=True):
             "custom_approver", "custom_approval_date",
         }:
             updates = {key: field[key] for key in ("label", "insert_after", "hidden", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+        elif field["dt"] in {"Pick List", "Pick List Item"}:
+            updates = {key: field[key] for key in ("insert_after", "label", "read_only", "in_list_view") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
 

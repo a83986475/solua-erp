@@ -9,6 +9,8 @@
 
 import csv
 import io
+import re
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import frappe
 from frappe import _
@@ -90,7 +92,7 @@ def _wholesale_rows(doc):
 def _pick_list_rows(doc):
     """拣货单的行在 locations 子表（Pick List Item）里，不是 items。"""
     from solua_home.printing.color_card import get_item_color_info
-    from solua_home.printing.wholesale import get_item_sales_display, get_item_spu
+    from solua_home.printing.wholesale import get_item_sales_display, get_item_spu, _get_pick_list_additional_notes
 
     rows = []
     entries = doc.get("locations") or doc.get("items") or []
@@ -106,7 +108,7 @@ def _pick_list_rows(doc):
             "color": color.get("color_name") or "",
             "barcode": display.get("barcode") or "",
             "description": display.get("description") or "",
-            "additional_notes": item.get("additional_notes") or item.get("pos_additional_notes") or item.get("custom_additional_notes") or "",
+            "additional_notes": _get_pick_list_additional_notes(item),
             "qty": flt(item.get("qty")),
             "picked_qty": flt(item.get("picked_qty")),
             "uom": item.get("uom") or "",
@@ -210,10 +212,14 @@ def get_export_options(doctype):
             {"key": key, "label": _(LABELS[key]), "numeric": key in NUMERIC_COLUMNS}
             for key in DOCTYPE_COLUMNS[doctype]
         ],
-        "defaults": [
-            key for key in DOCTYPE_COLUMNS[doctype]
-            if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty", "additional_notes", "spu")
-        ],
+        "defaults": (
+            ["idx", "item_code", "item_name", "qty", "uom", "additional_notes"]
+            if doctype == "Pick List"
+            else [
+                key for key in DOCTYPE_COLUMNS[doctype]
+                if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty", "additional_notes", "spu")
+            ]
+        ),
         "formats": [
             {"value": "xlsx", "label": _("Excel (.xlsx)")},
             {"value": "csv", "label": _("CSV (.csv)")},
@@ -232,3 +238,42 @@ def export_document_table(doctype, name, columns=None, fmt="xlsx", include_heade
     else:
         _send_xlsx(table, filename)
     return filename
+
+
+def _safe_sales_order_filename(value):
+    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", str(value or "")).strip(" .")
+    return value[:100] or "未命名"
+
+
+@frappe.whitelist()
+def download_sales_order_pdfs(names):
+    """分别生成销售订单 PDF，并以 ZIP 作为本地批量下载容器。"""
+    from frappe.utils.pdf import get_pdf
+    from solua_home.api.a4_designer import _active_print_format
+
+    names = frappe.parse_json(names) if isinstance(names, str) else names
+    if not isinstance(names, (list, tuple)) or not names:
+        frappe.throw(_("请至少选择一个销售订单"))
+
+    print_format = _active_print_format("Sales Order")
+    if not print_format:
+        frappe.throw(_("销售订单没有可用的打印格式"))
+
+    archive = io.BytesIO()
+    used_names = set()
+    with ZipFile(archive, "w", ZIP_DEFLATED) as output:
+        for name in names:
+            doc = get_export_document("Sales Order", name)
+            html = frappe.get_print("Sales Order", doc.name, print_format=print_format, as_pdf=False)
+            pdf = get_pdf(html, {"margin-top": "12mm"})
+            date = str(doc.get("transaction_date") or nowdate()).replace("-", "")[:8]
+            customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
+            filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_客户确认单.pdf"
+            if filename in used_names:
+                filename = filename.replace(".pdf", f"_{len(used_names) + 1}.pdf")
+            used_names.add(filename)
+            output.writestr(filename, pdf)
+
+    frappe.local.response.filename = f"销售订单客户确认单_{nowdate().replace('-', '')}.zip"
+    frappe.local.response.filecontent = archive.getvalue()
+    frappe.local.response.type = "download"

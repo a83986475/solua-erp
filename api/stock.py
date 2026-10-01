@@ -40,6 +40,43 @@ def validate_transaction_quantities(doc, method=None):
             validate_positive_integer_qty(value, "数量", item.item_code)
 
 
+def copy_sales_order_pick_notes(doc, method=None):
+    """从销售订单复制拣货备注到拣货单，保留用户手工填写的值。"""
+    locations = doc.get("locations") or []
+    has_line_notes = frappe.get_meta("Pick List Item").has_field("custom_additional_notes")
+    has_header_notes = frappe.get_meta("Pick List").has_field("custom_additional_notes")
+    order_names = []
+    order_item_cache = {}
+
+    for row in locations:
+        order_item = row.get("sales_order_item")
+        source = order_item_cache.get(order_item) if order_item else None
+        if order_item and source is None:
+            source = frappe.db.get_value(
+                "Sales Order Item", order_item, ["parent", "additional_notes"], as_dict=True
+            ) or {}
+            order_item_cache[order_item] = source
+
+        sales_order = row.get("sales_order") or (source.get("parent") if source else "")
+        if sales_order and sales_order not in order_names:
+            order_names.append(sales_order)
+        if has_line_notes and not row.get("custom_additional_notes"):
+            note = source.get("additional_notes") if source else ""
+            if note:
+                row.custom_additional_notes = note
+
+    if has_header_notes and not doc.get("custom_additional_notes") and order_names:
+        notes = []
+        for sales_order in order_names:
+            note = frappe.db.get_value("Sales Order", sales_order, "custom_additional_notes")
+            if note and note not in [value for _, value in notes]:
+                notes.append((sales_order, note))
+        if len(notes) == 1:
+            doc.custom_additional_notes = notes[0][1]
+        elif notes:
+            doc.custom_additional_notes = "\n".join(f"{sales_order}: {note}" for sales_order, note in notes)
+
+
 def validate_product_bundle_definition(doc, method=None):
     """校验打包定义的包含数量。"""
     validate_positive_integer_qty(doc.get("quantity"), "打包包含数量", doc.get("parent_item"))

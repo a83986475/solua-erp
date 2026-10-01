@@ -434,6 +434,7 @@ def get_pick_list_rows(doc):
             "color": color.get("color_name") or "",
             "barcode": display.get("barcode") or "",
             "description": display.get("description") or "",
+            "additional_notes": _get_pick_list_additional_notes(row),
             "image": color.get("image") or "",
             "template_code": color.get("template_code") or "",
             "template_name": color.get("template_name") or "",
@@ -446,6 +447,17 @@ def get_pick_list_rows(doc):
             "sales_order": row.get("sales_order") or "",
         })
     return rows
+
+
+def _get_pick_list_additional_notes(row):
+    """优先读拣货单字段；旧拣货单回退到来源销售订单明细。"""
+    note = row.get("custom_additional_notes") or row.get("additional_notes") or row.get("pos_additional_notes")
+    if note:
+        return note
+    sales_order_item = row.get("sales_order_item")
+    if sales_order_item:
+        return frappe.db.get_value("Sales Order Item", sales_order_item, "additional_notes") or ""
+    return ""
 
 
 def get_pick_list_print_data(doc):
