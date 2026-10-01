@@ -129,6 +129,16 @@ def _item_master(item_code):
     return data if hasattr(data, "get") else {}
 
 
+def get_item_spu(item_code):
+    if not item_code:
+        return ""
+    item = frappe.db.get_value("Item", item_code, ["custom_spu_code", "variant_of"], as_dict=True) or {}
+    spu = item.get("custom_spu_code") if hasattr(item, "get") else ""
+    if not spu and hasattr(item, "get") and item.get("variant_of"):
+        spu = frappe.db.get_value("Item", item.get("variant_of"), "custom_spu_code")
+    return spu or ""
+
+
 def _item_barcodes(item_code):
     rows = frappe.get_all(
         "Item Barcode",
@@ -332,6 +342,29 @@ def format_print_qty(value):
     return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
 
 
+PRINT_UOM_LABELS = {
+    "条": "条/pc",
+    "根": "根/pc",
+    "卷": "卷/Rolo",
+    "箱": "箱/CTN",
+    "箱/Caixa": "箱/CTN",
+}
+
+
+def format_print_uom(value):
+    """Translate only the unit shown in print/export output; source data stays unchanged."""
+    text = str(value or "").strip()
+    return PRINT_UOM_LABELS.get(text, text)
+
+
+def _format_print_uoms(data):
+    for item in data.get("items") or []:
+        item["uom"] = format_print_uom(item.get("uom"))
+    if data.get("total_uom"):
+        data["total_uom"] = format_print_uom(data["total_uom"])
+    return data
+
+
 def format_print_money(value, currency=None, precision=0):
     """Render document money with zero decimals while retaining ERP currency formatting.
 
@@ -385,7 +418,7 @@ def get_pick_list_row_pack(uom, qty, conversion_factor, stock_qty, item_code):
         return ""
     boxes = base_qty / factor
     boxes = int(boxes) if float(boxes).is_integer() else round(boxes, 2)
-    return f"{boxes:g} {PACK_UOM}"
+    return f"{boxes:g} {format_print_uom(PACK_UOM)}"
 
 
 def get_pick_list_rows(doc):
@@ -400,11 +433,13 @@ def get_pick_list_rows(doc):
         rows.append({
             "item_code": item_code,
             "item_name": row.get("item_name") or item_code,
+            "spu": get_item_spu(item_code),
             "order_code": color.get("order_code") or item_code,
             "color_code": color.get("color_code") or "",
             "color": color.get("color_name") or "",
             "barcode": display.get("barcode") or "",
             "description": display.get("description") or "",
+            "additional_notes": _get_pick_list_additional_notes(row),
             "image": color.get("image") or "",
             "template_code": color.get("template_code") or "",
             "template_name": color.get("template_name") or "",
@@ -419,6 +454,17 @@ def get_pick_list_rows(doc):
     return rows
 
 
+def _get_pick_list_additional_notes(row):
+    """优先读拣货单字段；旧拣货单回退到来源销售订单明细。"""
+    note = row.get("custom_additional_notes") or row.get("additional_notes") or row.get("pos_additional_notes")
+    if note:
+        return note
+    sales_order_item = row.get("sales_order_item")
+    if sales_order_item:
+        return frappe.db.get_value("Sales Order Item", sales_order_item, "additional_notes") or ""
+    return ""
+
+
 def get_pick_list_print_data(doc):
     """拣货单打印数据：行 + 需求数量/已拣数量合计。
 
@@ -427,7 +473,7 @@ def get_pick_list_print_data(doc):
     """
     rows = get_pick_list_rows(doc)
     uoms = {row.get("uom") for row in rows if row.get("uom")}
-    return {
+    return _format_print_uoms({
         "items": rows,
         "total_qty": _sum_qty(rows, "qty"),
         "total_picked": _sum_qty(rows, "picked_qty"),
@@ -436,7 +482,7 @@ def get_pick_list_print_data(doc):
         "purpose": doc.get("purpose") or "",
         "customer": doc.get("customer_name") or doc.get("customer") or "",
         "source": doc.get("work_order") or doc.get("material_request") or "",
-    }
+    })
 
 
 def _collect(doc):
@@ -448,9 +494,11 @@ def _collect(doc):
         sales_display = get_item_sales_display(row.item_code, row.get("description"))
         items.append({
             "item_code": row.item_code, "item_name": row.get("item_name") or row.item_code,
+            "spu": get_item_spu(row.item_code),
             "order_code": color.get("order_code") or row.item_code,
             "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
             "barcode": sales_display["barcode"], "description": sales_display["description"],
+            "additional_notes": row.get("additional_notes") or row.get("pos_additional_notes") or row.get("custom_additional_notes") or "",
             "image": color.get("image") or "", "template_code": color.get("template_code") or "",
             "template_name": color.get("template_name") or "",
             "uom": row.get("uom") or row.get("stock_uom") or "",
@@ -491,6 +539,18 @@ def _recover_sales_order_item_display(doc, data):
             item["barcode"] = display["barcode"]
         if not item.get("description"):
             item["description"] = display["description"]
+
+
+def _recover_item_spu_display(doc, data):
+    """Fill SPU for old snapshots without changing the stored snapshot."""
+    live_rows = doc.get("items") or doc.get("locations") or []
+    for index, item in enumerate(data.get("items") or []):
+        if item.get("spu"):
+            continue
+        item_code = item.get("item_code")
+        if not item_code and index < len(live_rows):
+            item_code = live_rows[index].get("item_code")
+        item["spu"] = get_item_spu(item_code)
 
 
 def prepare_print_snapshot(doc, method=None):
@@ -611,11 +671,16 @@ def get_wholesale_print_data(doc):
             for live, saved in zip(live_rows, snapshot_rows):
                 for key in ("uom", "qty", "rate", "amount", "warehouse"):
                     saved[key] = live.get(key)
+                saved["additional_notes"] = (
+                    live.get("additional_notes") or live.get("pos_additional_notes")
+                    or live.get("custom_additional_notes") or saved.get("additional_notes") or ""
+                )
             data["total_qty"] = _sum_qty(snapshot_rows, "qty")
         elif live_rows:
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
-    if doc.doctype in ("Sales Order", "Sales Invoice") and doc.get("custom_print_merge_order_code"):
+    _recover_item_spu_display(doc, data)
+    if doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note") and doc.get("custom_print_merge_order_code"):
         data["items"] = _merge_customer_print_items(data.get("items"))
         data["customer_merged"] = True
     if doc.doctype == "Delivery Note":
@@ -628,4 +693,4 @@ def get_wholesale_print_data(doc):
     data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0
-    return data
+    return _format_print_uoms(data)
