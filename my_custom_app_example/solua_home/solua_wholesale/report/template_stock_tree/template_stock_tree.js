@@ -1,4 +1,5 @@
 frappe.query_reports["Template Stock Tree"] = {
+ onload: (report) => report.page.set_title(__("库存树报表")),
  tree: true,
  name_field: "node_id",
  parent_field: "parent_id",

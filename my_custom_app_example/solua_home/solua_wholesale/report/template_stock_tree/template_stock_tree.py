@@ -80,4 +80,4 @@ def execute(filters=None):
     columns.extend({"fieldname": field, "label": _(label), "fieldtype": "Float", "width": 130}
                    for field, label in [("actual_qty", "实际数量"), ("reserved_qty", "销售预留数量"), ("available_qty", "可用数量")])
     warehouse_label = filters.warehouse or _("全部有权限仓库")
-    return columns, group_rows(items, bins, warehouse_label) if warehouses else [], _("普通物料一行，模板展开查看变体。未选择仓库时汇总全部有权限仓库；不同库存单位分别列示。可用数量 = 实际数量 − 销售预留数量。")
+    return columns, group_rows(items, bins, warehouse_label) if warehouses else []
