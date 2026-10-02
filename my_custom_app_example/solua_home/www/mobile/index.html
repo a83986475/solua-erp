@@ -108,7 +108,7 @@
     };
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
     const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    const money = (value) => value === null || value === undefined || value === "" ? "—" : `${num(value)} ${esc(state.currency)}`;
+    const money = (value) => value === null || value === undefined || value === "" || Number(value) <= 0 ? "—" : `${num(value)} ${esc(state.currency)}`;
     const setStatus = (value) => { $("mobile-status").textContent = value; };
 
     async function call(method, args = {}) {
