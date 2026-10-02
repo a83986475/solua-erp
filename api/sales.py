@@ -210,6 +210,22 @@ def validate_sales_order(doc, method=None):
     """销售订单保存时验证"""
     validate_transaction_quantities(doc)
 
+    # 原生客户事件会带出唯一默认收货地址；API/其他入口没有前端事件时，
+    # 这里补同一规则。已有门店名称始终保留，多个门店且未选地址时不猜选。
+    if doc.get("docstatus") == 0 and not doc.get("custom_store_name") and doc.get("customer"):
+        address_name = doc.get("shipping_address_name") or doc.get("customer_address")
+        if not address_name:
+            from erpnext.accounts.party import get_party_shipping_address
+
+            address_name = get_party_shipping_address("Customer", doc.customer)
+            if address_name and not doc.get("shipping_address_name"):
+                doc.shipping_address_name = address_name
+        if address_name and frappe.db.exists("Dynamic Link", {
+            "parenttype": "Address", "parent": address_name,
+            "link_doctype": "Customer", "link_name": doc.get("customer"),
+        }):
+            doc.custom_store_name = address_name
+
     # Keep the row field readable in the form while the print snapshot uses
     # the same live resolver. Never copy item_code into the barcode field.
     from solua_home.printing.wholesale import get_item_sales_display

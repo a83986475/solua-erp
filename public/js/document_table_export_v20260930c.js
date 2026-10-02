@@ -135,6 +135,7 @@
 			columns: selected.join(","),
 			include_header: values.include_header ? 1 : 0,
 			include_total: values.include_total ? 1 : 0,
+            merge_order_code: values.merge_order_code ? 1 : 0,
 		});
 		window.open(`/api/method/${EXPORT_API}?${params.toString()}`, "_blank");
 	}
@@ -164,6 +165,12 @@
 					})),
 					{ fieldtype: "Section Break", label: __("表格选项") },
 					{ fieldname: "include_header", label: __("包含单据抬头（单号 / 日期 / 客户）"), fieldtype: "Check", default: saved ? Number(saved.include_header) : 1 },
+                ...(options.allow_merge_order_code ? [{
+                    fieldname: "merge_order_code",
+                    label: __("合并同款对外货号"),
+                    fieldtype: "Check",
+                    default: frm.doc.custom_print_merge_order_code ? 1 : 0,
+                }] : []),
 					{ fieldname: "include_total", label: __("包含底部合计行"), fieldtype: "Check", default: saved ? Number(saved.include_total) : 1 },
 				],
 				primary_action_label: __("导出 Excel"),

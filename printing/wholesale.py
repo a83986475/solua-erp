@@ -310,20 +310,8 @@ def _merge_customer_print_items(items):
     """Merge customer-facing rows while keeping the transaction rows untouched."""
     merged = []
     positions = {}
-    template_order_codes = {}
     for source in items or []:
-        item_code = str(source.get("item_code") or "").strip()
-        template_code = str(source.get("template_code") or "").strip()
-        if not template_code and item_code:
-            template_code = str(frappe.db.get_value("Item", item_code, "variant_of") or "").strip()
-        if template_code:
-            if template_code not in template_order_codes:
-                template_order_codes[template_code] = str(
-                    frappe.db.get_value("Item", template_code, "custom_order_code") or template_code
-                ).strip()
-            order_code = template_order_codes[template_code]
-        else:
-            order_code = str(source.get("order_code") or item_code).strip()
+        order_code = str(source.get("order_code") or source.get("item_code") or "").strip()
         if not order_code:
             merged.append(dict(source))
             continue
@@ -331,8 +319,8 @@ def _merge_customer_print_items(items):
         position = positions.get(key)
         if position is None:
             row = dict(source)
-            row["order_code"] = order_code
             row["item_code"] = order_code
+            row["order_code"] = order_code
             row["item_name"] = source.get("template_name") or source.get("item_name")
             merged.append(row)
             positions[key] = len(merged) - 1
@@ -343,11 +331,6 @@ def _merge_customer_print_items(items):
             if value is None:
                 continue
             target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
-        for fieldname in ("batch_no", "serial_no", "serial_and_batch_bundle"):
-            value = str(source.get(fieldname) or "").strip()
-            current = str(target.get(fieldname) or "").strip()
-            if value and value not in current:
-                target[fieldname] = ", ".join(filter(None, (current, value)))
     return merged
 
 
@@ -358,6 +341,31 @@ def format_print_qty(value):
     except (InvalidOperation, TypeError, ValueError):
         return "0"
     return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
+
+
+PRINT_UOM_LABELS = {
+    "条": "条/pc",
+    "根": "根/pc",
+    "卷": "卷/Rolo",
+    "箱": "箱/CTN",
+    "箱/Caixa": "箱/CTN",
+}
+
+
+def format_print_uom(value, item_code=None):
+    """Translate only the unit shown in print/export output; source data stays unchanged."""
+    text = str(value or "").strip()
+    if text == "Nos" and str(item_code or "").strip().startswith("SH-PVC1.0"):
+        return "卷/Rolo"
+    return PRINT_UOM_LABELS.get(text, text)
+
+
+def _format_print_uoms(data):
+    for item in data.get("items") or []:
+        item["uom"] = format_print_uom(item.get("uom"), item.get("item_code"))
+    if data.get("total_uom"):
+        data["total_uom"] = format_print_uom(data["total_uom"])
+    return data
 
 
 def format_print_money(value, currency=None, precision=0):
@@ -413,7 +421,7 @@ def get_pick_list_row_pack(uom, qty, conversion_factor, stock_qty, item_code):
         return ""
     boxes = base_qty / factor
     boxes = int(boxes) if float(boxes).is_integer() else round(boxes, 2)
-    return f"{boxes:g} {PACK_UOM}"
+    return f"{boxes:g} {format_print_uom(PACK_UOM)}"
 
 
 def get_pick_list_rows(doc):
@@ -468,7 +476,7 @@ def get_pick_list_print_data(doc):
     """
     rows = get_pick_list_rows(doc)
     uoms = {row.get("uom") for row in rows if row.get("uom")}
-    return {
+    return _format_print_uoms({
         "items": rows,
         "total_qty": _sum_qty(rows, "qty"),
         "total_picked": _sum_qty(rows, "picked_qty"),
@@ -477,7 +485,7 @@ def get_pick_list_print_data(doc):
         "purpose": doc.get("purpose") or "",
         "customer": doc.get("customer_name") or doc.get("customer") or "",
         "source": doc.get("work_order") or doc.get("material_request") or "",
-    }
+    })
 
 
 def _collect(doc):
@@ -650,7 +658,7 @@ def _recover_delivery_quantities(doc, data):
     )
 
 
-def get_wholesale_print_data(doc):
+def get_wholesale_print_data(doc, merge_customer_rows=None):
     frozen = _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc)
@@ -675,7 +683,15 @@ def get_wholesale_print_data(doc):
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
     _recover_item_spu_display(doc, data)
-    should_merge = bool(doc.get("custom_print_merge_order_code"))
+    supports_customer_merge = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
+    should_merge = bool(doc.get("custom_print_merge_order_code")) if merge_customer_rows is None else bool(merge_customer_rows)
+    if supports_customer_merge and should_merge:
+        data["items"] = _merge_customer_print_items(data.get("items"))
+        data["customer_merged"] = True
+    elif supports_customer_merge:
+        for item in data.get("items") or []:
+            item["order_code"] = item.get("item_code") or ""
+        data["customer_merged"] = False
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(
@@ -683,10 +699,7 @@ def get_wholesale_print_data(doc):
             for item in data.get("items", [])
             for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
         )
-    if doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note") and should_merge:
-        data["items"] = _merge_customer_print_items(data.get("items"))
-        data["customer_merged"] = True
     data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0
-    return data
+    return _format_print_uoms(data)

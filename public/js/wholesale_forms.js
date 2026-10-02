@@ -658,6 +658,7 @@
 		},
 		refresh(frm) {
 			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
+			if (doctype === "Sales Order") fill_store_name_from_address(frm);
 			if (doctype === "Delivery Note") refresh_delivery_summary(frm);
 			if (doctype === "Sales Order" && frm.doc.docstatus === 0) {
 				frm.add_custom_button(__("按款式条码选颜色"), () => open_color_picker(frm, "sales_order"), __("工具"));
@@ -670,6 +671,11 @@
 			if (!frm.is_new()) frm.add_custom_button(label, () => print_wholesale(frm), __("打印"));
 		},
 	}));
+	frappe.ui.form.on("Sales Order", {
+		customer: fill_store_name_from_address,
+		customer_address: fill_store_name_from_address,
+		shipping_address_name: fill_store_name_from_address,
+	});
 	frappe.ui.form.on("Delivery Note", {
 		driver(frm) {
 			const driver = frm.doc.driver;

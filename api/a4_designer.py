@@ -375,7 +375,7 @@ def _template(config):
 	cells = "".join(conditional(key, cell_map[key]) for key in keys)
 	provider = "get_a4_print_data(doc)"
 	items = 'p["items"]'
-	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Venda / 销售单",
+	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Factura / 销售单",
 	         "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单"}[doctype]
 	settings = config["settings"]
 	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", True)) else "0"

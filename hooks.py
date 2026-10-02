@@ -151,6 +151,7 @@ override_whitelisted_methods = {
     "frappe.desk.desk_page.getpage": "solua_home.override.desk_page.getpage",
     "frappe.utils.print_format.download_multi_pdf": "solua_home.api.export.download_multi_pdf",
     "frappe.utils.print_format.download_multi_pdf_async": "solua_home.api.export.download_multi_pdf_async",
+    "frappe.utils.print_format.download_pdf": "solua_home.api.export.download_pdf",
 }
 
 # ------------------- Jinja 打印 helper（价格标签等） -------------------
@@ -249,9 +250,9 @@ doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
     "Sales Invoice": ["public/js/sales_invoice_print_options_v20260930b.js", "public/js/document_table_export_v20260930c.js"],
-    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
-    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
-    "Pick List": ["public/js/wholesale_forms_additional_notes_loader_v4.js", "public/js/document_table_export_v20260930c.js"],
+    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v5.js", "public/js/document_table_export_v20260930c.js"],
+    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v5.js", "public/js/document_table_export_v20260930c.js"],
+    "Pick List": ["public/js/wholesale_forms_additional_notes_loader_v5.js", "public/js/document_table_export_v20260930c.js"],
 
     "Purchase Receipt": "public/js/wholesale_forms_additional_notes_loader_v2.js",
     "Stock Reconciliation": "public/js/wholesale_forms_additional_notes_loader_v2.js",
