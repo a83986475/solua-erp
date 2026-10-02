@@ -10,5 +10,6 @@ assert "System Manager" in api and "get_sales_order_color_variants" in api
 assert "search_sales_order_items" in api and "Wholesale Selling 3" in api
 assert "solua_home.api.mobile.lookup" in page
 assert "批发价 1 级" in page and "批发价 3 级" in page
+assert "new URLSearchParams" in page and 'method: "POST"' not in page
 assert "BarcodeDetector" in page and '"start_url": "/mobile"' in manifest
 print("mobile admin checks passed")

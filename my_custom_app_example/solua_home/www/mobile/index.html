@@ -112,11 +112,10 @@
     const setStatus = (value) => { $("mobile-status").textContent = value; };
 
     async function call(method, args = {}) {
-        const response = await fetch(`/api/method/${method}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+        const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
+        const response = await fetch(`/api/method/${method}${query.toString() ? `?${query}` : ""}`, {
             credentials: "same-origin",
-            body: JSON.stringify(args),
+            headers: { Accept: "application/json" },
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || payload.exc) throw new Error(payload.message || t.error);
