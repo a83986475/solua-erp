@@ -1,0 +1,10 @@
+{
+  "name": "Solua 管理员移动台",
+  "short_name": "管理员移动台",
+  "start_url": "/mobile",
+  "scope": "/mobile/",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#163a5f",
+  "lang": "zh-CN"
+}

@@ -1,0 +1,235 @@
+{% extends "templates/web.html" %}
+
+{% block head_include %}
+<link rel="manifest" href="/assets/solua_home/mobile/manifest.json">
+<meta name="theme-color" content="#163a5f">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{% endblock %}
+
+{% block page_content %}
+<style>
+    :root { --mobile-blue: #163a5f; --mobile-soft: #eef4f8; --mobile-border: #d7e0e8; --mobile-muted: #66717c; }
+    .mobile-app { max-width: 760px; margin: 0 auto; padding: 14px 12px 42px; }
+    .mobile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .mobile-head h1 { margin: 0; color: var(--mobile-blue); font-size: 23px; }
+    .mobile-muted { color: var(--mobile-muted); font-size: 13px; }
+    .mobile-panel { background: #fff; border: 1px solid var(--mobile-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .mobile-context { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mobile-context label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
+    .mobile-context input, .mobile-search input { min-height: 46px; font-size: 16px; }
+    .mobile-search { display: flex; gap: 8px; }
+    .mobile-search button, .mobile-camera-actions button { min-height: 46px; white-space: nowrap; }
+    .mobile-camera { display: none; margin-top: 10px; }
+    .mobile-camera video { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 10px; background: #111; }
+    .mobile-camera-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .mobile-result-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .mobile-result-head h2 { margin: 0; font-size: 19px; color: var(--mobile-blue); }
+    .mobile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+    .mobile-card { border: 1px solid var(--mobile-border); border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; }
+    .mobile-card.selected { outline: 3px solid #5d9bd3; }
+    .mobile-card img { display: block; width: 100%; height: 150px; object-fit: cover; background: #f2f4f6; }
+    .mobile-card-body { padding: 11px; }
+    .mobile-card-title { font-weight: 700; word-break: break-word; }
+    .mobile-card-line { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; font-size: 14px; }
+    .mobile-card-label { color: var(--mobile-muted); }
+    .mobile-empty { padding: 20px 4px; color: var(--mobile-muted); text-align: center; }
+    .mobile-login { text-align: center; padding: 42px 12px; }
+    @media (max-width: 540px) {
+        .mobile-app { padding: 10px 8px 30px; }
+        .mobile-context { grid-template-columns: 1fr; }
+        .mobile-search { display: grid; grid-template-columns: 1fr auto; }
+        .mobile-grid { grid-template-columns: 1fr 1fr; }
+        .mobile-card img { height: 130px; }
+    }
+</style>
+
+<div class="mobile-app">
+{% if not mobile_admin %}
+    <div class="mobile-panel mobile-login">
+        <h1>{{ _("管理员移动台") }}</h1>
+        {% if frappe.session.user == "Guest" %}
+        <p class="mobile-muted">{{ _("请先登录管理员账号。") }}</p>
+        <a class="btn btn-primary" href="/login?redirect-to=/mobile">{{ _("登录") }}</a>
+        {% else %}
+        <p class="mobile-muted">{{ _("此页面仅限 Administrator 或 System Manager 使用。") }}</p>
+        {% endif %}
+    </div>
+{% else %}
+    <div class="mobile-head">
+        <h1>{{ _("管理员移动台") }}</h1>
+        <span class="mobile-muted" id="mobile-status">{{ _("加载中…") }}</span>
+    </div>
+
+    <div class="mobile-panel">
+        <div class="mobile-context">
+            <label>{{ _("公司") }}<input id="mobile-company" class="form-control" readonly></label>
+            <label>{{ _("仓库") }}<input id="mobile-warehouse" class="form-control" placeholder="{{ _('可留空使用默认仓库') }}"></label>
+        </div>
+    </div>
+
+    <div class="mobile-panel">
+        <form class="mobile-search" id="mobile-search">
+            <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
+                   placeholder="{{ _('扫描条码、模糊搜索货号或输入名称') }}">
+            <button class="btn btn-primary" type="submit">{{ _("查询") }}</button>
+        </form>
+        <div class="mobile-camera" id="mobile-camera">
+            <video id="mobile-video" playsinline muted></video>
+            <div class="mobile-camera-actions">
+                <button class="btn btn-default" type="button" id="mobile-stop-camera">{{ _("关闭摄像头") }}</button>
+                <span class="mobile-muted" id="mobile-camera-status"></span>
+            </div>
+        </div>
+        <button class="btn btn-default" type="button" id="mobile-open-camera" style="margin-top:8px">{{ _("打开摄像头扫码") }}</button>
+    </div>
+
+    <div class="mobile-panel" id="mobile-results" hidden>
+        <div class="mobile-result-head">
+            <h2 id="mobile-result-title"></h2>
+            <span class="mobile-muted" id="mobile-result-meta"></span>
+        </div>
+        <div class="mobile-grid" id="mobile-grid"></div>
+    </div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+{% if mobile_admin %}
+<script>
+(() => {
+    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "" };
+    const $ = (id) => document.getElementById(id);
+    const t = {
+        loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
+        noData: "{{ _('没有找到可用的颜色变体') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请手动输入条码') }}",
+        cameraFailed: "{{ _('摄像头无法打开，请检查浏览器权限') }}", selected: "{{ _('已选择') }}",
+        noPermission: "{{ _('没有读取商品数据的权限') }}", error: "{{ _('请求失败，请稍后重试') }}"
+    };
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
+    const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const money = (value) => value === null || value === undefined || value === "" ? "—" : `${num(value)} ${esc(state.currency)}`;
+    const setStatus = (value) => { $("mobile-status").textContent = value; };
+
+    async function call(method, args = {}) {
+        const response = await fetch(`/api/method/${method}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            credentials: "same-origin",
+            body: JSON.stringify(args),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || t.error);
+        return payload.message;
+    }
+
+    function stopCamera() {
+        state.scanning = false;
+        state.stream?.getTracks().forEach((track) => track.stop());
+        state.stream = null;
+        $("mobile-video").srcObject = null;
+        $("mobile-camera").style.display = "none";
+    }
+
+    function render(data) {
+        const templates = data.templates || [];
+        const template = templates[0]?.template || {};
+        const variants = data.variants || [];
+        $("mobile-results").hidden = false;
+        $("mobile-result-title").textContent = data.title || template.item_name || template.item_code || "";
+        $("mobile-result-meta").textContent = variants.length ? `${variants.length} 项` : "";
+        $("mobile-grid").innerHTML = variants.length ? variants.map((row) => `
+            <article class="mobile-card ${state.selected === row.item_code ? "selected" : ""}" data-code="${esc(row.item_code)}">
+                ${row.image ? `<img src="${esc(row.image)}" alt="${esc(row.color || row.item_name)}" loading="lazy">` : ""}
+                <div class="mobile-card-body">
+                    <div class="mobile-card-title">${esc(row.color || row.item_name || row.item_code)}</div>
+                    <div class="mobile-card-line"><span class="mobile-card-label">货号</span><span>${esc(row.item_code)}</span></div>
+                    <div class="mobile-card-line"><span class="mobile-card-label">可用库存</span><strong>${num(row.available_qty)} ${esc(row.uom || "")}</strong></div>
+                    <div class="mobile-card-line"><span class="mobile-card-label">批发价 1 级</span><span>${money(row.wholesale_rate_1)}</span></div>
+                    <div class="mobile-card-line"><span class="mobile-card-label">批发价 3 级</span><span>${money(row.wholesale_rate_3)}</span></div>
+                    ${row.status ? `<div class="mobile-muted" style="margin-top:8px">${esc(row.status)}</div>` : ""}
+                </div>
+            </article>`).join("") : `<div class="mobile-empty">${esc(t.noData)}</div>`;
+        $("mobile-grid").querySelectorAll("[data-code]").forEach((node) => node.addEventListener("click", () => {
+            state.selected = node.dataset.code;
+            $("mobile-grid").querySelectorAll(".mobile-card").forEach((card) => card.classList.toggle("selected", card === node));
+            setStatus(`${t.selected} ${node.dataset.code}`);
+        }));
+    }
+
+    async function lookup(value) {
+        const barcode = String(value || "").trim();
+        if (!barcode) return;
+        stopCamera();
+        state.selected = "";
+        setStatus(t.searching);
+        try {
+            const data = await call("solua_home.api.mobile.lookup", { barcode, warehouse: $("mobile-warehouse").value.trim() });
+            if (data.state === "no_permission") throw new Error(t.noPermission);
+            if (data.state !== "ok" || !(data.variants || []).length) {
+                $("mobile-results").hidden = false;
+                $("mobile-grid").innerHTML = `<div class="mobile-empty">${esc(t.noData)}</div>`;
+                $("mobile-result-title").textContent = "";
+                $("mobile-result-meta").textContent = "";
+                setStatus(t.noData);
+                return;
+            }
+            render(data);
+            setStatus(t.ready);
+        } catch (error) {
+            setStatus(error.message || t.error);
+        }
+    }
+
+    async function openCamera() {
+        if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
+            $("mobile-camera-status").textContent = t.scanUnsupported;
+            $("mobile-camera").style.display = "block";
+            return;
+        }
+        try {
+            const detector = new BarcodeDetector();
+            state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+            const video = $("mobile-video");
+            video.srcObject = state.stream;
+            $("mobile-camera").style.display = "block";
+            $("mobile-camera-status").textContent = "对准条码…";
+            await video.play();
+            state.scanning = true;
+            const detect = async () => {
+                if (!state.scanning) return;
+                try {
+                    const codes = await detector.detect(video);
+                    if (codes[0]?.rawValue) {
+                        $("mobile-query").value = codes[0].rawValue;
+                        await lookup(codes[0].rawValue);
+                        return;
+                    }
+                } catch (error) { /* keep camera open and allow manual input */ }
+                requestAnimationFrame(detect);
+            };
+            requestAnimationFrame(detect);
+        } catch (error) {
+            $("mobile-camera-status").textContent = t.cameraFailed;
+        }
+    }
+
+    $("mobile-search").addEventListener("submit", (event) => { event.preventDefault(); lookup($("mobile-query").value); });
+    $("mobile-open-camera").addEventListener("click", openCamera);
+    $("mobile-stop-camera").addEventListener("click", stopCamera);
+    (async () => {
+        try {
+            const data = await call("solua_home.api.mobile.get_defaults");
+            state.company = data.company || "";
+            state.warehouse = data.warehouse || "";
+            state.currency = data.currency || "MZN";
+            $("mobile-company").value = state.company;
+            $("mobile-warehouse").value = state.warehouse;
+            setStatus(t.ready);
+        } catch (error) { setStatus(error.message || t.error); }
+    })();
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { scope: "/mobile/" }).catch(() => {});
+})();
+</script>
+{% endif %}
+{% endblock %}
