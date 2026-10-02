@@ -376,6 +376,45 @@ def format_print_money(value, currency=None, precision=0):
                                   precision=0 if precision is None else precision)
 
 
+def get_cash_discount_info(doc):
+    """Read a submitted cash discount for a Sales Invoice without changing it."""
+    if doc.doctype != "Sales Invoice" or not doc.get("name"):
+        return {"enabled": False}
+    total = float(doc.get("grand_total") or 0)
+    if total <= 0:
+        return {"enabled": False}
+    parents = frappe.get_all(
+        "Payment Entry Reference",
+        filters={
+            "reference_doctype": "Sales Invoice",
+            "reference_name": doc.name,
+            "parenttype": "Payment Entry",
+        },
+        pluck="parent",
+    )
+    for parent in dict.fromkeys(parents):
+        if frappe.db.get_value("Payment Entry", parent, "docstatus") != 1:
+            continue
+        if frappe.db.get_value("Payment Entry", parent, "mode_of_payment") != "Cash":
+            continue
+        amount = sum(
+            float(row.amount or 0)
+            for row in frappe.get_all(
+                "Payment Entry Deduction",
+                filters={"parent": parent, "account": "Discount Allowed - SH"},
+                fields=["amount"],
+            )
+        )
+        if amount > 0:
+            return {
+                "enabled": True,
+                "rate": round(amount / total * 100, 3),
+                "amount": amount,
+                "cash_paid": round(total - amount, 2),
+            }
+    return {"enabled": False}
+
+
 def get_print_total_qty(data):
     """打印表格底部的总数量；快照与实时数据都适用。"""
     return _sum_qty((data or {}).get("items") or [], "qty")
@@ -523,6 +562,7 @@ def _collect(doc):
         "payment_method": doc.get("custom_payment_method") or "",
         "deposit": doc.get("custom_deposit_amount") or 0,
         "balance_due_date": str(doc.get("custom_balance_due_date") or ""),
+        "cash_discount": get_cash_discount_info(doc),
     }
 
 
@@ -690,6 +730,7 @@ def get_wholesale_print_data(doc):
             for item in data.get("items", [])
             for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
         )
+    data["cash_discount"] = get_cash_discount_info(doc)
     data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
     if not frozen:
         data["legacy"] = doc.get("docstatus") != 0

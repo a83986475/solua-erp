@@ -4,6 +4,7 @@ import json
 import frappe
 
 PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
+SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
 WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
 
@@ -160,6 +161,8 @@ def after_install():
     configure_pos_tax()
     ensure_solua_stock_entry_types()
     sync_standard_print_formats()
+    sync_cash_discount_print_formats()
+    configure_sales_invoice_printing()
     configure_pick_list_printing()
     sync_standard_pages()
     add_member_system_fields()
@@ -171,6 +174,42 @@ def after_install():
 def after_migrate():
     """每次迁移后执行"""
     after_install()
+
+
+def sync_cash_discount_print_formats():
+    """Add the read-only cash-discount section to both app invoice formats."""
+    marker = "</table>\n{% if doc.get('custom_print_color_qr') %}"
+    block = "</table>\n{% set cd = p.get('cash_discount') or {} %}{% if cd.get('enabled') %}<table class='cash-discount'><tr><td><b>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)</b></td><td style='text-align:right'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr><tr><td><b>现金实收 / Valor recebido em numerário</b></td><td style='text-align:right'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr></table>{% endif %}\n{% if doc.get('custom_print_color_qr') %}"
+    for name in ("批发销售单（颜色版）", "批发销售单（颜色版）新版"):
+        if not frappe.db.exists("Print Format", name):
+            continue
+        doc = frappe.get_doc("Print Format", name)
+        if "cash_discount" in (doc.html or ""):
+            continue
+        if marker not in (doc.html or ""):
+            frappe.log_error(f"现金折扣打印区块插入标记不存在：{name}", "solua_home.print_formats")
+            continue
+        doc.html = doc.html.replace(marker, block, 1)
+        doc.save(ignore_permissions=True)
+
+
+def configure_sales_invoice_printing():
+    """Use the app-owned invoice format only when the standard format is still active."""
+    if not frappe.db.exists("Print Format", SALES_INVOICE_CASH_PRINT_FORMAT):
+        return
+    current = frappe.get_meta("Sales Invoice").default_print_format
+    if current not in (None, "", "Sales Invoice with Item Image", SALES_INVOICE_CASH_PRINT_FORMAT):
+        return
+    frappe.make_property_setter(
+        {
+            "doctype": "Sales Invoice",
+            "doctype_or_field": "DocType",
+            "property": "default_print_format",
+            "value": SALES_INVOICE_CASH_PRINT_FORMAT,
+            "property_type": "Link",
+        },
+        validate_fields_for_doctype=False,
+    )
 
 
 def configure_pick_list_printing():
