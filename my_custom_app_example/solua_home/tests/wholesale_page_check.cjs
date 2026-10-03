@@ -1,7 +1,7 @@
 // Candidate page rendering and route behavior without a site mutation.
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),path=require("node:path");
 const base=path.join(__dirname,".."),nodes=new Map(),roots=[];
-function node(key){if(!nodes.has(key)) nodes.set(key,{content:"",visible:true,classes:{},html(v){this.content=v;return this;},text(v){this.content=v;return this;},val(){return "";},click(){},on(){return this;},toggle(show){this.visible=!!show;return this;},toggleClass(cls,show){this.classes[cls]=show===undefined?!this.classes[cls]:!!show;return this;}});return nodes.get(key);}
+function node(key){if(!nodes.has(key)) nodes.set(key,{content:"",visible:true,classes:{},properties:{},html(v){this.content=v;return this;},append(v){this.content+=v;return this;},text(v){this.content=v;return this;},val(value){if(value===undefined)return this.properties.value||"";this.properties.value=value;return this;},click(){},trigger(){return this;},prop(key,value){if(value===undefined)return this.properties[key];this.properties[key]=value;return this;},on(){return this;},toggle(show){this.visible=!!show;return this;},toggleClass(cls,show){this.classes[cls]=show===undefined?!this.classes[cls]:!!show;return this;}});return nodes.get(key);}
 function makeRoot(){const root={handlers:[],html(){return this;},find:node,on(event,selector,handler){this.handlers.push({event,selector,handler});return this;}};roots.push(root);return root;}
 const calls=[],routes=[],newDocs=[],opened=[];
 const data={state:"ok",company:"Company",currency:"MZN",permissions:{},
@@ -136,6 +136,23 @@ setImmediate(async()=>{
  assert.deepEqual(synced.at(-1),{doctype:"Delivery Note",name:"MAT-DN-CHECK"});
  assert.deepEqual(routes.pop(),["Form","Delivery Note","MAT-DN-CHECK"]);
  frappe.call=savedCall;
+ // The homepage's shared range is off by default, leaves per-metric settings alone,
+ // and passes the same effective range to every card and its report route.
+ assert.equal(node('[data-common-enabled]').properties.checked,false);
+ const commonHandler=root.handlers.find(h=>h.selector==="[data-common-enabled]").handler;
+ const periodHandler=root.handlers.find(h=>h.selector==="[data-common-period]").handler;
+ const dateHandler=root.handlers.find(h=>h.selector==="[data-common-from], [data-common-to]").handler;
+ const totalCalls=[];frappe.call=opts=>{totalCalls.push(opts);return Promise.resolve({message:{state:"ok",amount:0,from_date:"2026-10-01",to_date:"2026-10-03"}});};
+ commonHandler.call({checked:true});await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(totalCalls.filter(call=>call.method.endsWith("business_totals.get_total")).length,5);
+ assert(totalCalls.filter(call=>call.method.endsWith("business_totals.get_total")).every(call=>call.args.period==="本月"));
+ const totalHandler=root.handlers.find(h=>h.selector==="[data-report], [data-total]").handler;
+ totalHandler.call({dataset:{total:"paid"}});assert.equal(frappe.route_options.period,"本月");assert.equal(frappe.route_options.use_route_period,1);
+ periodHandler.call({value:"自定义"});dateHandler.call({value:"2026-10-03",dataset:{commonFrom:""}});dateHandler.call({value:"2026-10-01",dataset:{commonTo:""}});
+ assert.equal(node('[data-total]').properties.disabled,true,"reversed custom range must disable totals");
+ const beforeInvalid=totalCalls.length;dateHandler.call({value:"2026-10-01",dataset:{commonFrom:""}});await new Promise(resolve=>setImmediate(resolve));
+ assert(totalCalls.length>beforeInvalid,"correcting the custom range refreshes totals");
+ frappe.call=savedCall;
  let current=[],target=null;
  const globals={boot:{solua_home:{}},provide(){},get_route:()=>current,set_route:value=>{target=value;},router:{on(){throw new Error("default route hook must not be registered");}}};
  const source=fs.readFileSync(path.join(base,"public/js/solua_home_global.js"),"utf8").split("\n(function () {")[0];
@@ -154,8 +171,8 @@ setImmediate(async()=>{
  for (const label of ["新建销售订单","销售订单","交货单","新建物料","库存入库","盘点单","采购订单","新建收款单","打印设置","标签打印","客户/门店","优惠/促销管理","公开色卡"])
   assert(!posActions.includes(label),"cashier homepage must hide: "+label);
  // the fake find() keys by selector, so the combined selector is the toggled node
- assert.equal(node('[data-section="overview"], [data-section="pending"], [data-section="data-status"]').visible,false);
- assert.equal(node('[data-section="actions"]').visible,true);
+ assert.equal(node('[data-section="overview"], [data-section="pending"], [data-section="billing"], [data-section="data-status"]').visible,false);
+ assert.equal(node('[data-section="actions"]').properties.open,true);
  assert.equal(node('[data-section="search"]').visible,true);
  assert.equal(node('[data-role="actions-title"]').content,"收银");
  assert.equal(node(".solua-home-columns").classes["solua-home-columns-single"],true);
@@ -166,9 +183,9 @@ setImmediate(async()=>{
  // an admin refresh afterwards must restore the full desk layout
  frappe.call=async()=>({message:data});
  frappe.pages["solua-home"].on_page_load({});await new Promise(resolve=>setImmediate(resolve));
- assert.equal(node('[data-section="overview"], [data-section="pending"], [data-section="data-status"]').visible,true);
+ assert.equal(node('[data-section="overview"], [data-section="pending"], [data-section="billing"], [data-section="data-status"]').visible,true);
  assert.equal(node(".solua-home-columns").classes["solua-home-columns-single"],false);
- assert.equal(node('[data-role="actions-title"]').content,"常用功能");
+ assert.equal(node('[data-role="actions-title"]').content,"全部功能");
  frappe.call=async()=>{throw new Error("network failure")};
  frappe.pages["solua-home"].on_page_load({});await new Promise(resolve=>setImmediate(resolve));
  assert.equal(node('[data-role="cards"]').content,"");assert(node('[data-role="state"]').content.includes("加载失败"));

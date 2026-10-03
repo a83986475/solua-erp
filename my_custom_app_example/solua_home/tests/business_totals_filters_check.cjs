@@ -18,3 +18,21 @@ assert.equal(values.period,'自定义');assert.equal(values.from_date,'2026-09-0
 assert.equal(JSON.parse(saved.get('solua-business-period:test:paid')).from_date,'2026-09-01');
 assert.equal(report.refreshes,4);
 console.log('PASS: switching metrics retains week/custom ranges and refreshes; new metric saves identical dates');
+
+(async () => {
+ const original = JSON.stringify({period:'本月',from_date:'',to_date:''});
+ saved.set('solua-business-period:test:orders', original);
+ report.page.main = {off(){return this;},on(){return this;}};
+ report.set_filter_value = (field, value) => {
+  Object.assign(values, typeof field === 'string' ? {[field]:value} : field);
+  return Promise.resolve();
+ };
+ Object.assign(values,{metric:'orders',period:'本周',use_route_period:1});
+ await settings.onload(report);
+ assert.equal(values.period,'本周');
+ assert.equal(values.use_route_period,0);
+ assert.equal(saved.get('solua-business-period:test:orders'),original);
+ await settings.onload(report);
+ assert.equal(values.period,'本月');
+ console.log('PASS: explicit homepage period overrides this visit without replacing independent preferences');
+})().catch(error => {console.error(error);process.exitCode=1;});

@@ -33,6 +33,11 @@
       if (result.invoice) { frappe.model.sync(result.invoice); frappe.set_route("Form", "Sales Invoice", result.invoice.name); }
      }).finally(() => { button.disabled = false; });
    });
+   // Explicit homepage ranges take priority for this visit; independent saved
+   // metric settings remain available when the user returns without an override.
+   if (report.get_filter_value("use_route_period")) {
+    return report.set_filter_value("use_route_period", 0);
+   }
    return changed(report, true);
   },
   formatter: (value, row, column, data, default_formatter) => {
@@ -42,6 +47,7 @@
    return default_formatter(value, row, column, data);
   },
   filters: [
+   {fieldname: "use_route_period", label: __("使用传入期间"), fieldtype: "Check", default: 0, hidden: 1},
    {fieldname: "company", label: __("公司"), fieldtype: "Link", options: "Company", reqd: 1, default: frappe.defaults.get_user_default("Company"), on_change: report => changed(report)},
    {fieldname: "metric", label: __("指标"), fieldtype: "Select", options: Object.entries(metrics).map(([value, label]) => ({value, label: __(label)})), default: "orders", reqd: 1, on_change: report => changed(report)},
    {fieldname: "period", label: __("时间范围"), fieldtype: "Select", options: Object.keys(periods).join("\n"), default: "本月", reqd: 1, on_change: report => changed(report)},

@@ -15,6 +15,18 @@
 .solua-home-card:focus-visible { outline: 2px solid #c59a45; outline-offset: 2px; }
 .solua-home-card:disabled { cursor: default; }
 .solua-home-totals { grid-template-columns: repeat(5, 1fr); margin-top: 12px; }
+.solua-home-period-note { margin: 10px 0 0; font-size: 12px; }
+.solua-home-period-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0; }
+.solua-home-period-control select { width: auto; min-width: 130px; }
+.solua-home-period-control input[type="date"] { display: inline-block; width: auto; }
+.solua-home-columns > [data-section="search"] { grid-column: 1 / -1; }
+.solua-home-report-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.solua-home-billing-customer { border-top: 1px solid #eef0f1; padding: 9px 2px; }
+.solua-home-billing-customer summary { cursor: pointer; font-weight: 600; }
+.solua-home-billing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 12px; }
+.solua-home-billing-row .solua-home-list-row { flex: 1; }
+.solua-home-billing-row .btn { white-space: nowrap; }
+.solua-home-section[data-section="actions"] summary { cursor: pointer; font-weight: 600; color: #37474f; }
 .solua-home-card-value { font-size: 20px; font-weight: 600; margin: 9px 0 3px; }
 .solua-home-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .solua-home-columns-single { grid-template-columns: 1fr; }

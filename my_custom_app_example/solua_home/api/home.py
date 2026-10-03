@@ -152,7 +152,9 @@ def _low_stock(warehouse):
         limit=0,
     )
     if not reorder_rows:
-        return {"state": "no_data", "count": 0, "items": []}
+        # No configured reorder levels means the alert is not configured; it does
+        # not prove that every stock item is above its threshold.
+        return {"state": "unconfigured", "count": None, "items": []}
     item_codes = list(dict.fromkeys(row.parent for row in reorder_rows))
     items = _list(
         "Item",
@@ -191,7 +193,8 @@ def _low_stock(warehouse):
     alerts.sort(key=lambda row: (row["actual_qty"] - row["reorder_level"], row["name"]))
     incomplete = bool(allowed_codes - actual.keys())
     return {"state": "incomplete" if incomplete else ("ok" if alerts else "no_data"),
-            "count": None if incomplete else len(alerts), "items": alerts[:5]}
+            "count": None if incomplete else len(alerts), "items": alerts[:5],
+            "item_codes": [row["name"] for row in alerts]}
 
 
 def _item_issue_rows(rows):
@@ -268,6 +271,7 @@ def _permissions():
         # Stock
         "new_item": _can_create("Item"),
         "read_item": _can_read("Item"),
+        "read_bin": _can_read("Bin"),
         "new_stock_entry": _can_create("Stock Entry"),
         "read_stock_entry": _can_read("Stock Entry"),
         "read_stock_reconciliation": _can_read("Stock Reconciliation"),
@@ -390,8 +394,11 @@ def get_dashboard_data(company=None, warehouse=None):
             outstanding_rows.append(row)
     outstanding = {"count": len(outstanding_rows), "total": sum(row.base_outstanding_amount for row in outstanding_rows)}
     invoice_read = any(_can_read(dt) for dt, _ in all_invoice_specs)
-    overdue_rows = sorted([row for row in outstanding_rows if row.due_date and str(row.due_date) < today],
+    overdue_all = [row for row in outstanding_rows if row.due_date and str(row.due_date) < today]
+    overdue_rows = sorted(overdue_all,
                           key=lambda row: (str(row.due_date), row.name))[:5]
+    for row in overdue_rows:
+        row.overdue_days = max(0, frappe.utils.date_diff(today, row.due_date))
     order_filters = {
         "company": company_doc.name,
         "docstatus": 1,
@@ -405,6 +412,23 @@ def get_dashboard_data(company=None, warehouse=None):
         "is_return": 0,
     })], "base_grand_total")
     purchase_read = _can_read("Purchase Order")
+    sales_order_read = _can_read("Sales Order")
+    pending_order_count = _count("Sales Order", order_filters) if sales_order_read else None
+    pending_order_items = _list(
+        "Sales Order", order_filters,
+        ["name", "customer", "transaction_date", "delivery_date", "per_delivered", "status"],
+        limit=5, order_by="delivery_date asc, modified asc",
+    ) if sales_order_read else []
+    for order in pending_order_items:
+        doc = frappe.get_doc("Sales Order", order.name)
+        doc.check_permission("read")
+        remaining = {}
+        for item in doc.items:
+            qty = max(0, flt(item.qty) - flt(item.delivered_qty))
+            if qty:
+                uom = item.uom or item.stock_uom or ""
+                remaining[uom] = remaining.get(uom, 0) + qty
+        order["remaining_by_uom"] = [{"qty": qty, "uom": uom} for uom, qty in remaining.items()]
     return {
         "state": "ok",
         "home_mode": "desk",
@@ -423,22 +447,24 @@ def get_dashboard_data(company=None, warehouse=None):
             "amount": outstanding["total"],
         },
         "orders_pending": {
-            "state": "ok" if _can_read("Sales Order") else "no_permission",
-            "count": _count("Sales Order", order_filters),
-            "items": _list(
-                "Sales Order", order_filters,
-                ["name", "customer", "transaction_date", "delivery_date", "per_delivered", "status"],
-                limit=5, order_by="delivery_date asc, modified asc",
-            ),
+            "state": ("ok" if pending_order_count else "no_data") if sales_order_read else "no_permission",
+            "count": pending_order_count,
+            "items": pending_order_items,
         },
         "delivered_today": {"state": ("ok" if delivered["count"] else "no_data") if _can_read("Delivery Note") else "no_permission", "amount": delivered["total"]},
         "invoiced_today": {"state": ("ok" if sales["count"] else "no_data") if invoice_read else "no_permission", "amount": sales["total"]},
-        "draft_sales": {"state": "ok", "items": _detail_rows(
+        "draft_sales": {"state": ("ok" if _can_read("Sales Invoice") else "no_permission"), "items": _detail_rows(
             [("Sales Invoice", {"company": company_doc.name, "docstatus": 0})],
-            {}, ["customer", "posting_date", "grand_total"], "modified desc",
+            {}, ["customer", "posting_date", "base_grand_total"], "modified desc",
         )},
+        "draft_sales_count": _count("Sales Invoice", {"company": company_doc.name, "docstatus": 0}) if _can_read("Sales Invoice") else None,
+        "overdue_count": len(overdue_all) if invoice_read else None,
+        "overdue_counts": {doctype: sum(row.doctype == doctype for row in overdue_all) for doctype, _ in all_invoice_specs},
+        "overdue_sales_invoice_exclude_topups": _has_field("Sales Invoice", "custom_is_topup"),
         "pending_purchase": {
             "state": "ok" if purchase_read else "no_permission",
+            "count": _count("Purchase Order", {"company": company_doc.name, "docstatus": 1, "per_received": ["<", 100],
+                                                   "status": ["not in", ["Closed", "Completed", "Cancelled"]]}) if purchase_read else None,
             "items": _list(
                 "Purchase Order",
                 {"company": company_doc.name, "docstatus": 1, "per_received": ["<", 100],
@@ -447,12 +473,42 @@ def get_dashboard_data(company=None, warehouse=None):
                 limit=5, order_by="transaction_date asc, modified asc",
             ),
         },
-        "overdue": {"state": ("ok" if overdue_rows else "no_data") if invoice_read else "no_permission", "items": overdue_rows},
+        "overdue": {"state": ("ok" if overdue_all else "no_data") if invoice_read else "no_permission", "items": overdue_rows},
         "low_stock": _low_stock(resolved_warehouse),
         "item_data": _item_data_status(),
         "permissions": _permissions(),
         "stock_entry_types": _stock_entry_types(),
     }
+
+
+@frappe.whitelist()
+@frappe.read_only()
+def get_billing_queue(company=None):
+    """All delivered, uninvoiced work, independent of the dashboard card periods."""
+    company_doc = _resolve_company(company)
+    if not company_doc or not _can_read("Delivery Note"):
+        return {"state": "no_permission", "customers": [], "count": None}
+    if not _can_read("Sales Invoice"):
+        return {"state": "no_permission", "customers": [], "count": None}
+    from solua_home.api.unbilled import get_rows
+    rows = get_rows(company_doc.name, "2000-01-01", nowdate())
+    customers = {}
+    for row in rows:
+        key = row["customer"]
+        group = customers.setdefault(key, {"customer": key, "amount": 0, "waiting_days": 0,
+            "delivery_notes": [], "draft_invoices": [], "has_draft": False})
+        group["amount"] += flt(row["amount"])
+        group["waiting_days"] = max(group["waiting_days"], int(row.get("waiting_days") or 0))
+        group.setdefault("jobs", []).append({"name": row["name"], "date": row.get("date"), "amount": row["amount"],
+                                             "waiting_days": row.get("waiting_days", 0), "draft_invoices": row.get("draft_invoices") or []})
+        group["delivery_notes"].append(row["name"])
+        group["draft_invoices"].extend(row.get("draft_invoices") or [])
+        group["has_draft"] = group["has_draft"] or bool(row.get("draft_invoices"))
+    result = sorted(customers.values(), key=lambda item: (-item["waiting_days"], item["customer"]))
+    for item in result:
+        item["draft_invoices"] = list(dict.fromkeys(item["draft_invoices"]))
+    return {"state": "ok" if result else "no_data", "customers": result, "count": len(result),
+            "delivery_note_count": len(rows), "can_invoice": _can_create("Sales Invoice")}
 
 
 def _search_fields():
@@ -461,7 +517,7 @@ def _search_fields():
 
 @frappe.whitelist()
 @frappe.read_only()
-def search_items(query=None):
+def search_items(query=None, warehouse=None, company=None):
     """Find permitted items by code, public order code, SPU or barcode."""
     query = (query or "").strip()
     if not query or len(query) > 120:
@@ -470,12 +526,19 @@ def search_items(query=None):
         return {"state": "no_permission", "items": []}
     fields = ["name", "item_code", "item_name", "variant_of", "has_variants", "stock_uom"]
     fields.extend(field for field in ["custom_order_code", "custom_spu_code", "custom_pos_short_name"] if _has_field("Item", field))
-    items = _list("Item", {"disabled": 0}, fields, limit=20, or_filters=[[field, "=", query] for field in _search_fields()])
+    searchable = _search_fields()
+    items = _list("Item", {"disabled": 0}, fields, limit=20,
+                  or_filters=[[field, "=", query] for field in searchable] +
+                  [[field, "like", f"%{query}%"] for field in searchable if field in {"item_code", "item_name", "custom_order_code", "custom_spu_code"}])
     if _can_read("Item"):
         parents = [row.parent for row in _list("Item Barcode", {"barcode": query}, ["parent"], limit=20)]
         if parents:
             items.extend(_list("Item", {"name": ["in", parents], "disabled": 0}, fields, limit=20))
     items_by_name = {row.name: row for row in items}
+    template_matches = [row.name for row in items_by_name.values() if row.get("has_variants")]
+    if template_matches:
+        for row in _list("Item", {"variant_of": ["in", template_matches], "disabled": 0}, fields, limit=0, order_by="name asc"):
+            items_by_name[row.name] = row
     if not items_by_name:
         return {"state": "no_data", "items": []}
     colors = {}
@@ -484,13 +547,29 @@ def search_items(query=None):
             "Item Variant Attribute", {"parent": ["in", list(items_by_name)], "attribute": "Cor"},
             ["parent", "attribute_value"], limit=0,
         )}
-    return {"state": "ok", "items": [{
+    template_names = list(dict.fromkeys(row.variant_of for row in items_by_name.values() if row.get("variant_of")))
+    templates = {row.name: row.item_name for row in _list("Item", {"name": ["in", template_names]}, ["name", "item_name"], limit=0)} if template_names else {}
+    resolved_warehouse = _resolve_warehouse(_resolve_company(company), warehouse)
+    stock = {}
+    stock_state = "no_permission"
+    if resolved_warehouse and _can_read("Bin"):
+        bins = _list("Bin", {"item_code": ["in", list(items_by_name)], "warehouse": resolved_warehouse},
+                     ["item_code", "actual_qty", "reserved_qty"], limit=0)
+        stock = {row.item_code: {"actual_qty": flt(row.actual_qty), "reserved_qty": flt(row.reserved_qty)} for row in bins}
+        stock_state = "ok"
+    return {"state": "ok", "warehouse": resolved_warehouse, "stock_state": stock_state, "items": [{
         "name": row.name, "item_code": row.item_code, "item_name": row.item_name,
         "variant_of": row.variant_of, "color": colors.get(row.name),
+        "template_name": templates.get(row.variant_of) or row.item_name,
         "order_code": row.get("custom_order_code") or "", "spu_code": row.get("custom_spu_code") or "",
         # Native Cor is current; custom_color_code is legacy-only compatibility.
         "color_code": colors.get(row.name) or row.get("custom_color_code") or "", "pos_short_name": row.get("custom_pos_short_name") or "",
         "stock_uom": row.stock_uom,
+        "has_variants": int(row.get("has_variants") or 0),
+        "stock_state": "no_permission" if stock_state == "no_permission" else ("ok" if row.name in stock else "no_data"),
+        "actual_qty": stock.get(row.name, {}).get("actual_qty"),
+        "reserved_qty": stock.get(row.name, {}).get("reserved_qty"),
+        "available_qty": (stock[row.name]["actual_qty"] - stock[row.name]["reserved_qty"]) if stock_state == "ok" and row.name in stock else None,
     } for row in items_by_name.values()]}
 
 
