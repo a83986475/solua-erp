@@ -79,7 +79,7 @@
         <h1>{{ _("管理员移动台") }}</h1>
         {% if frappe.session.user == "Guest" %}
         <p class="mobile-muted">{{ _("请先登录管理员账号。") }}</p>
-        <a class="btn btn-primary" href="{% if mobile_order %}/login?redirect-to=/mobile%3Fview%3Dorder{% else %}/login?redirect-to=/mobile{% endif %}">{{ _("登录") }}</a>
+        <a class="btn btn-primary" href="{% if mobile_order %}/login?redirect-to=/mobile%3Fview%3Dorder{% elif mobile_customer %}/login?redirect-to=/mobile%3Fview%3Dcustomer{% else %}/login?redirect-to=/mobile{% endif %}">{{ _("登录") }}</a>
         {% else %}
         <p class="mobile-muted">{{ _("此页面仅限 Administrator 或 System Manager 使用。") }}</p>
         {% endif %}
