@@ -168,7 +168,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	}
 
 	function load_totals(data) {
-		const labels = {orders: "总订单金额", invoices: "总开票金额", receivable: "总应收款", paid: "总已付金额"};
+		const labels = {orders: "总订单金额", invoices: "总开票金额", receivable: "总应收款", paid: "总已付金额", unbilled: "未开票金额"};
 		let section = root.find('[data-role="totals"]');
 		if (typeof section.length === "number" && !section.length) {
 			root.find('[data-section="overview"]').append(`<div class="solua-home-cards solua-home-totals" data-role="totals"></div>`);
@@ -176,7 +176,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		}
 		section.html(Object.entries(labels).map(([key, label]) => `<button type="button" class="solua-home-card" data-total="${key}"><div class="solua-home-card-label">${text(__(label))} ›</div><div class="solua-home-card-value" data-total-value="${key}">—</div><div class="solua-home-card-state" data-total-period="${key}">${__("加载中…")}</div></button>`).join(""));
 		for (const metric of Object.keys(labels)) {
-			let settings = {period: "本月"};
+			let settings = {period: metric === "unbilled" ? "本年" : "本月"};
 			try { settings = {...settings, ...JSON.parse(window.localStorage?.getItem(`solua-business-period:${frappe.session?.user}:${metric}`) || "{}")}; } catch (_) {}
 			frappe.call({method: "solua_home.api.business_totals.get_total", args: {metric, company: data.company, ...settings}}).then(response => {
 				const result = response.message || {};

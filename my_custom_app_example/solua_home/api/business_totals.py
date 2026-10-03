@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import flt, getdate, nowdate
 from solua_home.api.home import _can_read, _invoice_specs, _list, _resolve_company
 
-METRICS = {"orders": "总订单金额", "invoices": "总开票金额", "receivable": "总应收款", "paid": "总已付金额", "delivered": "送货金额"}
+METRICS = {"orders": "总订单金额", "invoices": "总开票金额", "receivable": "总应收款", "paid": "总已付金额", "delivered": "送货金额", "unbilled": "未开票金额"}
 
 
 def date_range(period="month", from_date=None, to_date=None):
@@ -29,13 +29,21 @@ def date_range(period="month", from_date=None, to_date=None):
 
 @frappe.whitelist()
 @frappe.read_only()
-def get_total(metric="orders", period="month", from_date=None, to_date=None, company=None):
+def get_total(metric="orders", period="month", from_date=None, to_date=None, company=None, customer=None):
     if metric not in METRICS:
         frappe.throw("无效的统计指标")
     company_doc = _resolve_company(company)
     if not company_doc:
         return {"state": "no_permission", "amount": None, "items": []}
     start, end = date_range(period, from_date, to_date)
+    if metric == "unbilled":
+        from solua_home.api.unbilled import get_rows
+        if not _can_read("Delivery Note"):
+            return {"state": "no_permission", "amount": None, "items": []}
+        items = get_rows(company_doc.name, start, end, customer)
+        return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items), "items": items,
+                "from_date": start, "to_date": end, "company": company_doc.name,
+                "currency": company_doc.default_currency, "metric": metric, "period": period}
     base = {"company": company_doc.name, "docstatus": 1}
     invoice_specs = _invoice_specs(company_doc.name, ["between", [start, end]])
     specs = [("Sales Order", {**base, "transaction_date": ["between", [start, end]]})] if metric == "orders" else invoice_specs
@@ -52,6 +60,8 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
             fields += ["outstanding_amount", "conversion_rate"]
         if metric == "receivable":
             filters = {**filters, "outstanding_amount": [">", 0]}
+        if customer:
+            filters = {**filters, "customer": customer}
         for row in _list(dt, filters, fields, order_by=f"{date_field} asc, name asc"):
             amount = flt(row.base_grand_total)
             if metric == "receivable":
