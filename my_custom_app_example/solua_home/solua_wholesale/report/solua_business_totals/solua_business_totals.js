@@ -12,7 +12,7 @@
    try { saved = JSON.parse(localStorage.getItem(storageKey(metric)) || "{}"); } catch (_) {}
    restoring = true;
    return Promise.resolve(report.set_filter_value({period: saved.period || "本月", from_date: saved.from_date || "", to_date: saved.to_date || ""}))
-    .finally(() => { restoring = false; });
+    .finally(() => { restoring = false; if (!report._no_refresh) report.refresh(); });
    return;
   }
   const settings = {period: report.get_filter_value("period"), from_date: report.get_filter_value("from_date"), to_date: report.get_filter_value("to_date")};
