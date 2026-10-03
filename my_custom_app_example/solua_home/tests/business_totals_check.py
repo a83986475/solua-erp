@@ -43,8 +43,8 @@ for args in [('bad',),('custom',),('custom','2026-10-03','2026-10-01')]:
 assert m.get_total('orders')['amount'] == 100
 assert m.get_total('invoices')['amount'] == 75
 assert m.get_total('receivable')['amount'] == 20
-assert m.get_total('paid')['amount'] == 58
+assert m.get_total('paid')['amount'] == 55
 home._can_read = m._can_read = lambda dt: False
 assert m.get_total('paid')['state'] == 'no_permission'
 assert m.get_total('paid')['amount'] is None
-print('PASS: week/quarter/year/custom, invalid dates, totals, FX, refunds/POS/advances and permission boundary')
+print('PASS: week/quarter/year/custom, invalid dates, totals, FX, invoice settlement/POS/returns and permission boundary')

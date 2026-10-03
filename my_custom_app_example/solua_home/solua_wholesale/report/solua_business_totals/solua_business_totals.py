@@ -19,5 +19,5 @@ def execute(filters=None):
     if result["metric"] == "receivable":
         message += "按发票日期筛选，显示这些发票当前仍未收回的余额。"
     elif result["metric"] == "paid":
-        message += "按收款日期统计客户实收（含预收款及 POS 现金收款），客户退款扣减；不包含日记账核销。"
+        message += "按发票日期筛选，显示这些发票当前已结算的金额（开票金额减未收余额，包含已核销预收款、折扣及核销调整）；退货按负数抵减。"
     return columns, result["items"], message, None, [{"label": METRICS[result["metric"]], "value": result["amount"], "datatype": "Currency", "currency": result["currency"]}]
