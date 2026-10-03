@@ -14,9 +14,14 @@
     .mobile-head h1 { margin: 0; color: var(--mobile-blue); font-size: 23px; }
     .mobile-muted { color: var(--mobile-muted); font-size: 13px; }
     .mobile-panel { background: #fff; border: 1px solid var(--mobile-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .mobile-step-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 9px; color: var(--mobile-blue); font-weight: 700; }
     .mobile-context { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .mobile-context label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
     .mobile-context input, .mobile-search input { min-height: 46px; font-size: 16px; }
+    .mobile-customer-wrap { position: relative; }
+    .mobile-customer-selected { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px; border-radius: 8px; background: var(--mobile-soft); }
+    .mobile-customer-name { font-weight: 700; color: var(--mobile-blue); }
+    .mobile-address { margin-top: 9px; min-height: 42px; }
     .mobile-search { display: flex; gap: 8px; }
     .mobile-query-wrap { position: relative; min-width: 0; flex: 1; }
     .mobile-suggestions { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--mobile-border); border-radius: 10px; background: #fff; box-shadow: 0 8px 22px rgba(22, 58, 95, .16); }
@@ -38,7 +43,18 @@
     .mobile-card-title { font-weight: 700; word-break: break-word; }
     .mobile-card-line { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; font-size: 14px; }
     .mobile-card-label { color: var(--mobile-muted); }
+    .mobile-card-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .mobile-card-qty { width: 74px; min-height: 38px; }
+    .mobile-card-actions button { flex: 1; min-height: 38px; }
     .mobile-empty { padding: 20px 4px; color: var(--mobile-muted); text-align: center; }
+    .mobile-cart-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--mobile-border); }
+    .mobile-cart-row:last-child { border-bottom: 0; }
+    .mobile-cart-meta { color: var(--mobile-muted); font-size: 13px; margin-top: 3px; }
+    .mobile-cart-actions { display: flex; align-items: center; gap: 6px; }
+    .mobile-cart-qty { width: 62px; min-height: 38px; }
+    .mobile-cart-total { display: flex; justify-content: space-between; margin-top: 12px; font-weight: 700; color: var(--mobile-blue); }
+    .mobile-order-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .mobile-order-actions button { min-height: 44px; }
     .mobile-login { text-align: center; padding: 42px 12px; }
     @media (max-width: 540px) {
         .mobile-app { padding: 10px 8px 30px; }
@@ -67,20 +83,34 @@
     </div>
 
     <div class="mobile-panel">
+        <div class="mobile-step-head"><span>1. 选择客户</span><button class="btn btn-default btn-sm" type="button" id="mobile-clear-customer" hidden>更换客户</button></div>
+        <div class="mobile-customer-wrap" id="mobile-customer-wrap">
+            <input id="mobile-customer-query" class="form-control" type="search" autocomplete="off" placeholder="搜索客户名称、手机号">
+            <div id="mobile-customer-suggestions" class="mobile-suggestions" role="listbox" hidden></div>
+        </div>
+        <div id="mobile-customer-selected" class="mobile-customer-selected" hidden></div>
+        <select id="mobile-address" class="form-control mobile-address" hidden>
+            <option value="">请选择客户地址/门店（可选）</option>
+        </select>
+        <div class="mobile-muted" id="mobile-order-hint" style="margin-top:8px">请先选择客户，再添加商品。</div>
+    </div>
+
+    <div class="mobile-panel">
         <div class="mobile-context">
             <label>{{ _("公司") }}<input id="mobile-company" class="form-control" readonly></label>
             <label>{{ _("仓库") }}<input id="mobile-warehouse" class="form-control" placeholder="{{ _('可留空使用默认仓库') }}"></label>
         </div>
     </div>
 
-    <div class="mobile-panel">
+    <div class="mobile-panel" id="mobile-product-panel">
+        <div class="mobile-step-head"><span>2. 添加商品</span><span class="mobile-muted">可扫码、模糊搜索或输入模板货号</span></div>
         <form class="mobile-search" id="mobile-search">
             <div class="mobile-query-wrap">
                 <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
-                       placeholder="{{ _('扫描条码、模糊搜索货号或输入名称') }}">
+                       placeholder="{{ _('请先选择客户') }}" disabled>
                 <div id="mobile-suggestions" class="mobile-suggestions" role="listbox" hidden></div>
             </div>
-            <button class="btn btn-primary" type="submit">{{ _("查询") }}</button>
+            <button class="btn btn-primary" type="submit" disabled>{{ _("查询") }}</button>
         </form>
         <div class="mobile-camera" id="mobile-camera">
             <video id="mobile-video" playsinline muted></video>
@@ -89,7 +119,17 @@
                 <span class="mobile-muted" id="mobile-camera-status"></span>
             </div>
         </div>
-        <button class="btn btn-default" type="button" id="mobile-open-camera" style="margin-top:8px">{{ _("打开摄像头扫码") }}</button>
+        <button class="btn btn-default" type="button" id="mobile-open-camera" style="margin-top:8px" disabled>{{ _("打开摄像头扫码") }}</button>
+    </div>
+
+    <div class="mobile-panel" id="mobile-cart-panel" hidden>
+        <div class="mobile-step-head"><span>3. 购物车</span><span class="mobile-muted" id="mobile-cart-count"></span></div>
+        <div id="mobile-cart"></div>
+        <div class="mobile-cart-total"><span>合计</span><span id="mobile-cart-total">—</span></div>
+        <div class="mobile-order-actions">
+            <button class="btn btn-default" type="button" id="mobile-save-order">保存草稿</button>
+            <button class="btn btn-primary" type="button" id="mobile-submit-order">提交订单</button>
+        </div>
     </div>
 
     <div class="mobile-panel" id="mobile-results" hidden>
@@ -107,25 +147,38 @@
 {% if mobile_admin %}
 <script>
 (() => {
-    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0 };
+    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false };
     const $ = (id) => document.getElementById(id);
     const t = {
         loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
         noData: "{{ _('没有找到可用的颜色变体') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请手动输入条码') }}",
         cameraFailed: "{{ _('摄像头无法打开，请检查浏览器权限') }}", selected: "{{ _('已选择') }}",
-        noPermission: "{{ _('没有读取商品数据的权限') }}", error: "{{ _('请求失败，请稍后重试') }}"
+        noPermission: "{{ _('没有读取商品数据的权限') }}", error: "{{ _('请求失败，请稍后重试') }}", customerFirst: "{{ _('请先选择客户') }}", saved: "{{ _('草稿已保存') }}", submitted: "{{ _('订单已提交') }}"
     };
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
     const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const money = (value) => value === null || value === undefined || value === "" || Number(value) <= 0 ? "—" : `${num(value)} ${esc(state.currency)}`;
     const setStatus = (value) => { $("mobile-status").textContent = value; };
     const hideSuggestions = () => { $("mobile-suggestions").hidden = true; $("mobile-suggestions").innerHTML = ""; };
+    const hideCustomerSuggestions = () => { $("mobile-customer-suggestions").hidden = true; $("mobile-customer-suggestions").innerHTML = ""; };
 
     async function call(method, args = {}) {
         const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
         const response = await fetch(`/api/method/${method}${query.toString() ? `?${query}` : ""}`, {
             credentials: "same-origin",
             headers: { Accept: "application/json" },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || t.error);
+        return payload.message;
+    }
+
+    async function writeCall(method, args = {}) {
+        const response = await fetch(`/api/method/${method}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            credentials: "same-origin",
+            body: JSON.stringify(args),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || payload.exc) throw new Error(payload.message || t.error);
@@ -157,6 +210,10 @@
                     <div class="mobile-card-line"><span class="mobile-card-label">批发价 1 级</span><span>${money(row.wholesale_rate_1)}</span></div>
                     <div class="mobile-card-line"><span class="mobile-card-label">批发价 3 级</span><span>${money(row.wholesale_rate_3)}</span></div>
                     ${row.status ? `<div class="mobile-muted" style="margin-top:8px">${esc(row.status)}</div>` : ""}
+                    <div class="mobile-card-actions">
+                        <input class="form-control mobile-card-qty" type="number" min="1" step="1" value="1" data-qty-code="${esc(row.item_code)}" aria-label="数量">
+                        <button class="btn btn-primary" type="button" data-add-code="${esc(row.item_code)}">加入购物车</button>
+                    </div>
                 </div>
             </article>`).join("") : `<div class="mobile-empty">${esc(t.noData)}</div>`;
         $("mobile-grid").querySelectorAll("[data-code]").forEach((node) => node.addEventListener("click", () => {
@@ -164,6 +221,156 @@
             $("mobile-grid").querySelectorAll(".mobile-card").forEach((card) => card.classList.toggle("selected", card === node));
             setStatus(`${t.selected} ${node.dataset.code}`);
         }));
+        $("mobile-grid").querySelectorAll("[data-add-code]").forEach((node) => node.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const code = node.dataset.addCode;
+            const row = variants.find((item) => item.item_code === code);
+            const qtyInput = [...$("mobile-grid").querySelectorAll("[data-qty-code]")].find((input) => input.dataset.qtyCode === code);
+            const qty = Number(qtyInput?.value || 0);
+            addToCart(row, qty);
+        }));
+    }
+
+    function setOrderEnabled(enabled) {
+        $("mobile-query").disabled = !enabled;
+        $("mobile-query").placeholder = enabled ? "扫描条码、模糊搜索货号或输入名称" : t.customerFirst;
+        $("mobile-search").querySelector("button[type=submit]").disabled = !enabled;
+        $("mobile-open-camera").disabled = !enabled;
+        $("mobile-order-hint").textContent = enabled ? "选择商品和数量后加入购物车。" : t.customerFirst;
+    }
+
+    function renderCart() {
+        const panel = $("mobile-cart-panel");
+        const cart = state.cart;
+        panel.hidden = !cart.length;
+        $("mobile-cart-count").textContent = cart.length ? `${cart.length} 项` : "";
+        if (!cart.length) {
+            $("mobile-cart").innerHTML = "";
+            $("mobile-cart-total").textContent = "—";
+            return;
+        }
+        $("mobile-cart").innerHTML = cart.map((row) => `
+            <div class="mobile-cart-row">
+                <div><strong>${esc(row.color || row.item_name || row.item_code)}</strong><div class="mobile-cart-meta">${esc(row.item_code)} · ${money(row.rate)} / ${esc(row.uom || "")}</div></div>
+                <div class="mobile-cart-actions"><input class="form-control mobile-cart-qty" type="number" min="1" step="1" value="${row.qty}" data-cart-code="${esc(row.item_code)}" ${state.submitted ? "disabled" : ""}><button class="btn btn-default btn-sm" type="button" data-remove-code="${esc(row.item_code)}" ${state.submitted ? "disabled" : ""}>删除</button></div>
+            </div>`).join("");
+        $("mobile-cart-total").textContent = money(cart.reduce((total, row) => total + Number(row.rate || 0) * Number(row.qty || 0), 0));
+        $("mobile-cart").querySelectorAll("[data-cart-code]").forEach((input) => input.addEventListener("change", () => {
+            const row = cart.find((item) => item.item_code === input.dataset.cartCode);
+            const qty = Number(input.value);
+            if (!row || !Number.isInteger(qty) || qty <= 0) return renderCart();
+            row.qty = qty;
+            renderCart();
+        }));
+        $("mobile-cart").querySelectorAll("[data-remove-code]").forEach((button) => button.addEventListener("click", () => {
+            state.cart = state.cart.filter((row) => row.item_code !== button.dataset.removeCode);
+            renderCart();
+        }));
+        $("mobile-save-order").disabled = state.submitted;
+        $("mobile-submit-order").disabled = state.submitted;
+    }
+
+    function addToCart(row, qty) {
+        if (!state.customer) return setStatus(t.customerFirst);
+        if (!row || !Number.isInteger(qty) || qty <= 0) return setStatus("数量必须为正整数");
+        const existing = state.cart.find((item) => item.item_code === row.item_code);
+        if (existing) existing.qty += qty;
+        else state.cart.push({ item_code: row.item_code, item_name: row.item_name, color: row.color, uom: row.uom, rate: row.wholesale_rate_1 || row.rate || 0, warehouse: row.warehouse, qty });
+        renderCart();
+        setStatus(`已加入购物车：${row.item_code}`);
+    }
+
+    async function saveOrder(submit) {
+        if (state.orderBusy || !state.customer || !state.cart.length) return setStatus(state.customer ? "请先加入商品" : t.customerFirst);
+        if (submit && !window.confirm("确认提交销售订单？提交后将进入正式订单状态。")) return;
+        state.orderBusy = true;
+        setStatus(submit ? "提交中…" : "保存中…");
+        try {
+            const result = await writeCall("solua_home.api.mobile.save_sales_order", {
+                customer: state.customer,
+                address: state.address,
+                warehouse: $("mobile-warehouse").value.trim(),
+                rows: state.cart.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse })),
+                name: state.orderName,
+                submit: submit ? 1 : 0,
+            });
+            state.orderName = result.name || state.orderName;
+            state.submitted = result.state === "submitted";
+            setOrderEnabled(!state.submitted && !!state.customer);
+            renderCart();
+            setStatus(`${state.submitted ? t.submitted : t.saved}：${state.orderName}`);
+        } catch (error) { setStatus(error.message || t.error); }
+        finally { state.orderBusy = false; }
+    }
+
+    function renderCustomerSuggestions(rows) {
+        const box = $("mobile-customer-suggestions");
+        if (!(rows || []).length) return hideCustomerSuggestions();
+        box.innerHTML = rows.slice(0, 8).map((row) => `
+            <button class="mobile-suggestion" type="button" role="option" data-customer="${esc(row.customer)}">
+                <div class="mobile-suggestion-code">${esc(row.customer_name || row.customer)}</div>
+                <div class="mobile-suggestion-name">${esc(row.mobile_no || row.customer)}</div>
+            </button>`).join("");
+        box.hidden = false;
+        box.querySelectorAll("[data-customer]").forEach((node) => node.addEventListener("click", () => {
+            const row = rows.find((item) => item.customer === node.dataset.customer);
+            if (row) chooseCustomer(row);
+        }));
+    }
+
+    async function chooseCustomer(row) {
+        if (state.cart.length && !window.confirm("更换客户将清空当前购物车，继续吗？")) return;
+        state.customer = row.customer;
+        state.address = "";
+        state.cart = [];
+        state.orderName = "";
+        state.submitted = false;
+        hideCustomerSuggestions();
+        $("mobile-customer-query").value = "";
+        $("mobile-customer-selected").innerHTML = `<div><div class="mobile-customer-name">${esc(row.customer_name || row.customer)}</div><div class="mobile-muted">${esc(row.mobile_no || row.customer)}</div></div>`;
+        $("mobile-customer-selected").hidden = false;
+        $("mobile-clear-customer").hidden = false;
+        const select = $("mobile-address");
+        select.innerHTML = '<option value="">请选择客户地址/门店（可选）</option>';
+        try {
+            const addresses = await call("solua_home.api.mobile.get_customer_addresses", { customer: state.customer });
+            addresses.forEach((address) => { select.insertAdjacentHTML("beforeend", `<option value="${esc(address.address)}">${esc(address.title)}${address.line1 ? ` · ${esc(address.line1)}` : ""}${address.city ? ` · ${esc(address.city)}` : ""}</option>`); });
+            select.hidden = !addresses.length;
+            if (addresses.length === 1) { state.address = addresses[0].address; select.value = state.address; }
+        } catch (error) { select.hidden = true; }
+        setOrderEnabled(true);
+        renderCart();
+        setStatus(`已选择客户：${row.customer_name || row.customer}`);
+    }
+
+    function clearCustomer() {
+        if (state.cart.length && !window.confirm("清除客户将清空当前购物车，继续吗？")) return;
+        state.customer = "";
+        state.address = "";
+        state.cart = [];
+        state.orderName = "";
+        state.submitted = false;
+        $("mobile-customer-query").value = "";
+        $("mobile-customer-selected").hidden = true;
+        $("mobile-customer-selected").innerHTML = "";
+        $("mobile-clear-customer").hidden = true;
+        $("mobile-address").hidden = true;
+        hideCustomerSuggestions();
+        setOrderEnabled(false);
+        renderCart();
+    }
+
+    function suggestCustomers(value) {
+        const query = String(value || "").trim();
+        clearTimeout(state.customerTimer);
+        if (query.length < 2) return hideCustomerSuggestions();
+        const request = ++state.customerRequest;
+        state.customerTimer = setTimeout(async () => {
+            try {
+                const rows = await call("solua_home.api.mobile.search_customers", { query });
+                if (request === state.customerRequest) renderCustomerSuggestions(rows);
+            } catch (error) { if (request === state.customerRequest) hideCustomerSuggestions(); }
+        }, 250);
     }
 
     function renderSuggestions(rows) {
@@ -200,6 +407,7 @@
     async function lookup(value) {
         const barcode = String(value || "").trim();
         if (!barcode) return;
+        if (!state.customer) return setStatus(t.customerFirst);
         ++state.suggestionRequest;
         clearTimeout(state.suggestionTimer);
         hideSuggestions();
@@ -260,9 +468,19 @@
     $("mobile-search").addEventListener("submit", (event) => { event.preventDefault(); lookup($("mobile-query").value); });
     $("mobile-query").addEventListener("input", (event) => suggest(event.target.value));
     $("mobile-query").addEventListener("focus", (event) => suggest(event.target.value));
-    document.addEventListener("click", (event) => { if (!event.target.closest(".mobile-query-wrap")) hideSuggestions(); });
+    $("mobile-customer-query").addEventListener("input", (event) => suggestCustomers(event.target.value));
+    $("mobile-customer-query").addEventListener("focus", (event) => suggestCustomers(event.target.value));
+    $("mobile-clear-customer").addEventListener("click", clearCustomer);
+    $("mobile-address").addEventListener("change", (event) => { state.address = event.target.value; });
+    $("mobile-save-order").addEventListener("click", () => saveOrder(false));
+    $("mobile-submit-order").addEventListener("click", () => saveOrder(true));
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".mobile-query-wrap")) hideSuggestions();
+        if (!event.target.closest(".mobile-customer-wrap")) hideCustomerSuggestions();
+    });
     $("mobile-open-camera").addEventListener("click", openCamera);
     $("mobile-stop-camera").addEventListener("click", stopCamera);
+    setOrderEnabled(false);
     (async () => {
         try {
             const data = await call("solua_home.api.mobile.get_defaults");
