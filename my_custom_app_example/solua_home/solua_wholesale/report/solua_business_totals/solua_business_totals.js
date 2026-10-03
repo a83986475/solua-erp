@@ -23,7 +23,7 @@
   onload: report => { report.solua_initialized = true; return changed(report, true); },
   filters: [
    {fieldname: "company", label: __("公司"), fieldtype: "Link", options: "Company", reqd: 1, default: frappe.defaults.get_user_default("Company"), on_change: report => changed(report)},
-   {fieldname: "metric", label: __("指标"), fieldtype: "Select", options: Object.entries(metrics).map(([value, label]) => ({value, label: __(label)})), default: "orders", reqd: 1, on_change: report => changed(report, true)},
+   {fieldname: "metric", label: __("指标"), fieldtype: "Select", options: Object.entries(metrics).map(([value, label]) => ({value, label: __(label)})), default: "orders", reqd: 1, on_change: report => changed(report)},
    {fieldname: "period", label: __("时间范围"), fieldtype: "Select", options: Object.keys(periods).join("\n"), default: "本月", reqd: 1, on_change: report => changed(report)},
    {fieldname: "from_date", label: __("开始日期"), fieldtype: "Date", depends_on: "eval:doc.period=='自定义'", on_change: report => changed(report)},
    {fieldname: "to_date", label: __("结束日期"), fieldtype: "Date", depends_on: "eval:doc.period=='自定义'", on_change: report => changed(report)},
