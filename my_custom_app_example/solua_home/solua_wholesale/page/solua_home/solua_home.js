@@ -22,7 +22,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				<section class="solua-home-section" data-section="search"><h3>${__("商品查找")}</h3><div class="solua-home-search"><input class="form-control" data-role="search" placeholder="${__("款号、商品名称、颜色或原包装条码")}"><button class="btn btn-default" data-action="search">${__("查找")}</button></div><div data-role="results"></div></section>
 			</div>
 			<details class="solua-home-section" data-section="actions"><summary data-role="actions-title">${__("全部功能")}</summary><div class="solua-home-actions" data-role="actions"></div></details>
-			<section class="solua-home-section" data-section="data-status"><h3>${__("资料准备")}</h3><div data-role="data-status"></div></section>
+			<details class="solua-home-section" data-section="data-status"><summary data-role="data-status-title">${__("资料准备")}</summary><div data-role="data-status"></div></details>
 		</div>`);
 
 	const root = page.main;
@@ -172,6 +172,9 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	function render_item_data(item_data) {
 		const target = root.find('[data-role="data-status"]');
 		const data = item_data || {};
+		const ready = data.state === "ok" && (data.issues || []).every(issue => issue.count === 0);
+		root.find('[data-section="data-status"]').prop("open", !ready);
+		root.find('[data-role="data-status-title"]').text(ready ? __("资料准备 · 已齐全") : __("资料准备"));
 		if (data.state === "no_permission") return target.html(`<div class="text-muted">${__("商品资料")}：— ${__("无权限查看，不会伪装为 0")}</div>`);
 		if (!data.item_count) return target.html(`<div class="text-muted">${text(state_label(data.state), __("暂无物料"))}</div>`);
 		const issues = data.issues || [];

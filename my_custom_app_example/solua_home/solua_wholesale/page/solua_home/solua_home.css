@@ -26,7 +26,7 @@
 .solua-home-billing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 12px; }
 .solua-home-billing-row .solua-home-list-row { flex: 1; }
 .solua-home-billing-row .btn { white-space: nowrap; }
-.solua-home-section[data-section="actions"] summary { cursor: pointer; font-weight: 600; color: #37474f; }
+.solua-home-section summary { cursor: pointer; font-weight: 600; color: #37474f; }
 .solua-home-card-value { font-size: 20px; font-weight: 600; margin: 9px 0 3px; }
 .solua-home-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .solua-home-columns-single { grid-template-columns: 1fr; }
