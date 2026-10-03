@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import re
 
 import frappe
@@ -9,10 +10,15 @@ from frappe import _
 
 
 DOCTYPE_CONFIG = {
-    "Sales Order": ["qty", "uom", "rate", "amount"],
+    "Sales Order": ["additional_notes", "qty", "uom", "rate", "amount"],
     "Sales Invoice": ["qty", "uom", "rate", "amount"],
     "Delivery Note": ["ordered", "remaining", "qty", "uom", "rate", "amount", "trace"],
     "Pick List": ["qty", "picked", "uom", "warehouse", "order"],
+}
+DEFAULT_PRINT_FORMATS = {
+	"Sales Order": "客户订单确认单（颜色版）",
+	"Delivery Note": "Guia de Remessa",
+	"Pick List": "拣货单（简版）",
 }
 BASE_COLUMNS = ["image", "name", "spu", "sku", "color_code", "barcode", "description"]
 COLUMN_LABELS = {
@@ -20,7 +26,7 @@ COLUMN_LABELS = {
     "color_code": "Cor", "barcode": "EAN / 条码", "description": "Descrição / 描述",
     "ordered": "Qt. pedido / 已订购", "remaining": "Qt. restante / 剩余",
     "qty": "Qt/数量", "picked": "Qt separado / 已拣", "uom": "Un.", "rate": "Prc",
-    "amount": "Valor / 金额", "trace": "Rastreabilidade / 追溯",
+    "amount": "Valor / 金额", "additional_notes": "补充说明", "trace": "Rastreabilidade / 追溯",
     "warehouse": "Armazém / 仓库", "order": "S.O. / 订单",
 }
 FORMAT_META = "<!--SOLUA_A4_DESIGNER:v1:{}-->"
@@ -30,6 +36,7 @@ FORMAT_META_RE = re.compile(r"<!--SOLUA_A4_DESIGNER:v1:([A-Za-z0-9_-]+=*)-->")
 FEATURE_DEFAULTS = {
 	"payment_schedule": False,
 	"color_qr": False,
+	"additional_notes": False,
 	"footer": True,
 	"legacy_warning": False,
 	"legacy_controls": False,
@@ -41,6 +48,7 @@ CONTROL_DEFAULTS = {
 	"custom_print_color_code": True,
 	"custom_print_cor": True,
 	"custom_print_description": True,
+	"custom_print_additional_notes": True,
 }
 LEGACY_IMPORT_MARKERS = (
 	"get_wholesale_print_data(doc)",
@@ -57,6 +65,47 @@ def _allowed_doctype(doctype):
 
 def _can_save():
 	return frappe.has_permission("Print Format", ptype="create")
+
+
+def _can_publish(doctype):
+	return _can_save() and frappe.has_permission(doctype, ptype="write")
+
+
+def _active_print_format(doctype):
+	_allowed_doctype(doctype)
+	name = frappe.get_meta(doctype).default_print_format or ""
+	if name:
+		row = frappe.db.get_value("Print Format", name, ["doc_type", "disabled"], as_dict=True)
+		if row and row.get("doc_type") == doctype and not row.get("disabled"):
+			return name
+	return DEFAULT_PRINT_FORMATS.get(doctype, "")
+
+
+def _get_mutable_format(name):
+	doc = frappe.get_doc("Print Format", name)
+	if not frappe.has_permission(doc=doc, ptype="write"):
+		frappe.throw(_("Print Format write permission is required"), frappe.PermissionError)
+	_allowed_doctype(doc.doc_type)
+	if doc.get("standard") == "Yes" or not doc.get("custom_format"):
+		frappe.throw(_("只能修改自定义打印格式"))
+	return doc
+
+
+def _assert_not_active(doc):
+	if _active_print_format(doc.doc_type) == doc.name:
+		frappe.throw(_("当前使用格式不能直接停用或删除，请先发布其他格式"))
+
+
+def _backup_format_before_delete(doc):
+	stamp = frappe.utils.now_datetime().strftime("%Y%m%d_%H%M%S")
+	folder = frappe.get_site_path("private", "deployment_snapshots", f"{stamp}-print-format-delete")
+	os.makedirs(folder, mode=0o750, exist_ok=False)
+	path = os.path.join(folder, f"{frappe.scrub(doc.name).replace('_', '-')}.json")
+	temporary = f"{path}.tmp"
+	with open(temporary, "w", encoding="utf-8") as handle:
+		json.dump(doc.as_dict(), handle, ensure_ascii=False, indent=2, default=str)
+	os.replace(temporary, path)
+	return path
 
 
 def _items_for(doc):
@@ -104,7 +153,15 @@ def _format_summary(row, html=""):
 
 @frappe.whitelist()
 def get_access():
-	return {"can_save": bool(_can_save()), "doctypes": list(DOCTYPE_CONFIG)}
+	return {"can_save": bool(_can_save()), "can_publish": bool(_can_save()), "doctypes": list(DOCTYPE_CONFIG)}
+
+
+@frappe.whitelist()
+def get_active_format(doctype):
+	_allowed_doctype(doctype)
+	if not frappe.has_permission(doctype, ptype="read"):
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
+	return _active_print_format(doctype)
 
 
 @frappe.whitelist()
@@ -166,6 +223,7 @@ def get_preview(doctype, name, print_format=None):
 		out["ordered"] = row.get("ordered_qty") or ""
 		out["remaining"] = row.get("remaining_qty") or ""
 		out["picked"] = row.get("picked_qty") or ""
+		out["additional_notes"] = row.get("additional_notes") or row.get("pos_additional_notes") or row.get("custom_additional_notes") or ""
 		out["order"] = row.get("sales_order") or doc.get("sales_order") or ""
 		data.append(out)
 		template_code = row.get("template_code") or ""
@@ -188,6 +246,9 @@ def get_preview(doctype, name, print_format=None):
 		"delivery_date": doc.get("delivery_date") or "", "payment_method": source.get("payment_method") or "",
 		"deposit": source.get("deposit") or 0, "balance_due_date": source.get("balance_due_date") or "",
 		"invoice_plan": source.get("invoice_plan") or "",
+		"cash_discount": source.get("cash_discount") or {"enabled": False},
+		"additional_notes": doc.get("custom_additional_notes") or "",
+		"show_additional_notes": doc.get("custom_print_additional_notes") if doc.get("custom_print_additional_notes") is not None else 1,
 		"payment_schedule": [{"payment_term": row.get("payment_term") or "", "due_date": row.get("due_date") or "", "payment_amount": row.get("payment_amount") or 0} for row in doc.get("payment_schedule") or []],
 		"qr_items": qr_items,
 		"items": data,
@@ -308,24 +369,34 @@ def _template(config):
 		"qty": '<td>{{ format_print_qty(item.qty) }}</td>', "picked": '<td>{{ format_print_qty(item.picked_qty) }}</td>',
 		"uom": '<td>{{ item.uom | e }}</td>', "rate": '<td>{{ format_print_money(item.rate) }}</td>',
 		"amount": '<td>{{ format_print_money(item.amount) }}</td>',
-		"trace": '<td>{{ (item.batch_no or item.serial_no or item.serial_and_batch_bundle or "—") | e }}</td>',
+        "trace": '<td>{{ (item.batch_no or item.serial_no or item.serial_and_batch_bundle or "—") | e }}</td>',
+        "additional_notes": '<td>{{ (item.additional_notes or "—") | e }}</td>',
 		"warehouse": '<td>{{ item.warehouse | e }}</td>', "order": '<td>{{ item.sales_order | e }}</td>',
 	}
 	cells = "".join(conditional(key, cell_map[key]) for key in keys)
 	provider = "get_a4_print_data(doc)"
 	items = 'p["items"]'
-	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Venda / 销售单",
+	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Factura / 销售单",
 	         "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单"}[doctype]
 	settings = config["settings"]
 	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", True)) else "0"
 	css = (f'@page{{size:A4;margin:0}} .print-format{{width:210mm;min-height:297mm;padding:{settings["pageMargin"]}mm;box-sizing:border-box;color:#25313a;font-size:{settings["fontSize"]}pt;overflow-wrap:anywhere}}'
 	       f'h1{{font-size:{settings["titleSize"]}pt;color:{settings["titleColor"]}}}.items{{width:100%;table-layout:fixed;border-collapse:collapse;font-size:{settings["fontSize"]}pt;line-height:{settings["lineHeight"]}}}'
 	       f'.items th{{font-size:{settings["headSize"]}pt;background:{settings["headBg"]}}}.items th,.items td{{padding:{settings["cellPadding"]}mm;border:{item_border};vertical-align:top;overflow-wrap:anywhere}}'
-	       '.items thead{display:table-header-group}.items tbody tr{break-inside:avoid;page-break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.brand{width:100%;border-collapse:collapse;margin-bottom:4mm}.brand td{border:0;vertical-align:middle;padding:0}.brand-logo{width:' + str(settings["logoWidth"]) + 'mm}.brand-logo img{display:block;width:' + str(settings["logoWidth"]) + 'mm;height:' + str(settings["logoHeight"]) + 'mm;object-fit:contain;object-position:left center}.brand-title h2{margin:0;color:' + settings["titleColor"] + ';font-size:' + str(settings["titleSize"]) + 'pt;text-align:left}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm}.sign{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
+	       '.items thead{display:table-header-group}.items tbody tr{break-inside:avoid;page-break-inside:avoid}.photo{display:block;width:min(12mm,100%);aspect-ratio:1;object-fit:cover}.brand{width:100%;border-collapse:collapse;margin-bottom:4mm}.brand td{border:0;vertical-align:middle;padding:0}.brand-logo{width:' + str(settings["logoWidth"]) + 'mm}.brand-logo img{display:block;width:' + str(settings["logoWidth"]) + 'mm;height:' + str(settings["logoHeight"]) + 'mm;object-fit:contain;object-position:left center}.brand-title h2{margin:0;color:' + settings["titleColor"] + ';font-size:' + str(settings["titleSize"]) + 'pt;text-align:left}.parties{width:100%;border-collapse:collapse;margin:10px 0}.parties td{width:50%;padding:2mm;border:1px solid #aeb8be;vertical-align:top}.warning{color:#a35c00;margin:3mm 0}.block{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm}.sign{page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:4mm}.qty-total,.total{width:100%;display:block;clear:both;box-sizing:border-box;text-align:right;font-weight:700;margin-top:3mm}.total{font-size:10pt}.totals{page-break-inside:avoid;margin-top:3mm;border:1px solid #d8c49b;background:#f5f1e9;padding:2mm}.totals .total{margin:0}.cash-summary{border-top:1px solid #d8c49b;margin-top:2mm;padding-top:2mm;text-align:right}.cash-summary div{margin-top:1mm}.footer{text-align:center;margin-top:8mm;color:#52606a}.payment-schedule th,.payment-schedule td{padding:1.5mm;border:1px solid #aeb8be}.color-qr{display:flex;gap:6mm;flex-wrap:wrap}.color-qr img{height:18mm;width:18mm}')
 	# The shared print CSS already embeds the company logo inside its <style> block
 	# (get_solua_print_css writes logo_css + logo_html INSIDE <style>). Don't add a
 	# stray rule here that places it outside, which would render behind the body.
 	css += '.print-format table.items th,.print-format table.items td{border:' + item_border + ' !important;}'
+	# Frappe's print preview adds a later global rule that resets the wrapper
+	# font size and makes all table headers normal weight. Keep the visual
+	# designer and the real print preview identical by scoping explicit rules
+	# to the generated A4 format and using !important only at that boundary.
+	css += (f'.print-format{{font-size:{settings["fontSize"]}pt !important;}}'
+	        f'.print-format .brand-title h2{{font-size:{settings["titleSize"]}pt !important;font-weight:700 !important;}}'
+	        f'.print-format .items{{font-size:{settings["fontSize"]}pt !important;}}'
+	        f'.print-format .items th{{font-size:{settings["headSize"]}pt !important;font-weight:700 !important;}}'
+	        f'.print-format .items td{{font-size:{settings["fontSize"]}pt !important;}}')
 	css += '.solua-global-logo{display:none!important}'
 	controls = ""
 	if legacy_controls:
@@ -335,7 +406,8 @@ def _template(config):
 			f"{{% set show_sku = doc.get('custom_print_sku') if doc.get('custom_print_sku') is not none else {int(control_defaults['custom_print_sku'])} %}}"
 			f"{{% set show_color_code = doc.get('custom_print_color_code') if doc.get('custom_print_color_code') is not none else {int(control_defaults['custom_print_color_code'])} %}}"
 			f"{{% set show_cor = doc.get('custom_print_cor') if doc.get('custom_print_cor') is not none else {int(control_defaults['custom_print_cor'])} %}}"
-			f"{{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else {int(control_defaults['custom_print_description'])} %}}")
+			f"{{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else {int(control_defaults['custom_print_description'])} %}}"
+			f"{{% set show_additional_notes = doc.get('custom_print_additional_notes') if doc.get('custom_print_additional_notes') is not none else {int(control_defaults['custom_print_additional_notes'])} %}}")
 	warning = "{% if p.get('legacy') %}<div class=\"warning\">历史单据未保存打印快照；补充资料来自当前主档。</div>{% endif %}" if features.get("legacy_warning") else ""
 	payment = '<div class="block">Plano de pagamento / 付款安排: {{ p.get("payment_method") or "未维护" | e }} · Depósito / 定金: {{ format_print_money(p.get("deposit"), currency=doc.currency) }} · Vencimento do saldo / 尾款到期: {{ p.get("balance_due_date") or "—" | e }}<br>Plano de faturação / 开票安排: {{ p.get("invoice_plan") or "未维护" | e }}</div>'
 	if features.get("payment_schedule"):
@@ -359,6 +431,11 @@ def _template(config):
 		meta_rows = "<tr><td>N.º / 编号: {{ doc.name | e }}<br>N.º encomenda cliente / 客户订单号: {{ doc.get('custom_customer_order_no') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or doc.get('transaction_date') }}<br>Prazo de entrega / 交期: {{ doc.get('delivery_date') or '—' }}</td></tr>"
 		table_title = "{{ doc.name | e }} · 订购 / Encomenda"
 		closing = payment
+	cash = ''
+	if doctype == "Sales Invoice":
+		cash = ('{% set cd = p.get("cash_discount") or {} %}{% if cd.get("enabled") %}'
+		        '<div class="cash-summary"><div>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%): -{{ format_print_money(cd.amount, currency=doc.currency) }}</div>'
+		        '<div><b>现金实收 / Valor recebido em numerário: {{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></div></div>{% endif %}')
 	return (FORMAT_META.format(meta) + "{{ get_solua_print_css() }}<style>" + css + "</style>" + controls
 	        + f"{{% set p = {provider} %}}{{% set company = p.get('company') or {{}} %}}{{% set customer = p.get('customer') or {{}} %}}"
 	        + '<table class="brand"><tr><td class="brand-logo">{% if company.get("logo") %}<img class="company-logo" src="{{ company.logo | e }}" alt="Company Logo">{% endif %}</td><td class="brand-title"><h2>' + title + '</h2></td></tr></table>'
@@ -366,7 +443,7 @@ def _template(config):
 	        + "<table class=\"parties\"><tr><td><b>{{ company.name | e }}</b><br>NUIT: {{ company.nuit | e }}<br>{{ company.address }}<br>Tel: {{ company.phone | e }}</td><td><b>Cliente / 客户: {{ customer.name | e }}</b><br>NUIT: {{ customer.nuit or 'Não informado / 未提供' | e }}<br>Loja / 门店: {{ customer.store | e }}<br>{{ customer.address }}<br>{{ customer.contact }} · {{ customer.phone | e }}</td></tr>" + meta_rows + "</table>"
 	        + f'<table class="items"><colgroup>{cols}</colgroup><thead><tr><th colspan="{len(keys)}">{table_title}</th></tr><tr>{headers}</tr></thead><tbody>{{% for item in {items} %}}<tr>{cells}</tr>{{% endfor %}}</tbody></table>'
 	        + '<div class="qty-total">Total Qty / 总数量: {{ format_print_qty(p.get("total_qty") or 0) }}</div>'
-	        + ("<div class=\"total\">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" if doctype in ("Sales Order", "Sales Invoice") else "")
+	        + (("<div class=\"totals\"><div class=\"total\">发票总额 / Invoice total: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" + cash + "</div>") if doctype == "Sales Invoice" else ("<div class=\"total\">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" if doctype == "Sales Order" else ""))
 	        + closing + qr + footer)
 
 
@@ -381,9 +458,9 @@ def _legacy_import_config(print_format):
 	config = {
 		"version": 2,
 		"doctype": doctype,
-		"visible": {key: True for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype]},
+		"visible": {key: key != "additional_notes" for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype]},
 		"widths": {
-			"image": 7, "name": 12, "spu": 8, "sku": 12, "color_code": 8,
+			"image": 7, "name": 12, "spu": 8, "sku": 12, "color_code": 8, "additional_notes": 10,
 			"barcode": 11, "description": 23, "qty": 5, "uom": 5, "rate": 4, "amount": 5,
 		},
 		"settings": {
@@ -394,6 +471,7 @@ def _legacy_import_config(print_format):
 		"features": {
 			"payment_schedule": "payment_schedule" in html,
 			"color_qr": "get_color_card_qr_img" in html,
+			"additional_notes": "custom_additional_notes" in html or "补充说明" in html,
 			"footer": "footer-html" in html,
 			"legacy_warning": "p.get('legacy')" in html or 'p.get("legacy")' in html,
 			"legacy_controls": "custom_print_" in html,
@@ -405,6 +483,7 @@ def _legacy_import_config(print_format):
 			"custom_print_color_code": control_default("color_code", True),
 			"custom_print_cor": control_default("cor", False),
 			"custom_print_description": control_default("description", True),
+			"custom_print_additional_notes": control_default("additional_notes", True),
 		},
 	}
 	return _validate_config(config)
@@ -433,9 +512,15 @@ def list_formats(doctype):
 	                      fields=["name", "doc_type", "print_format_type", "print_format_builder", "disabled", "custom_format", "standard"],
 	                      order_by="modified desc", page_length=100)
 	result = []
+	try:
+		active_name = _active_print_format(doctype)
+	except Exception:
+		active_name = ""
 	for row in rows:
 		html = frappe.db.get_value("Print Format", row.get("name"), "html") or ""
-		result.append(_format_summary(row, html))
+		summary = _format_summary(row, html)
+		summary["active"] = summary.get("name") == active_name
+		result.append(summary)
 	return result
 
 
@@ -458,7 +543,7 @@ def load_config(name):
 
 
 @frappe.whitelist()
-def save_format(name, config, sample_name):
+def save_format(name, config, sample_name, publish=0):
 	if not _can_save():
 		frappe.throw(_("Print Format create permission is required"), frappe.PermissionError)
 	config = _validate_config(config)
@@ -495,7 +580,37 @@ def save_format(name, config, sample_name):
 		if (not rendered or rendered.count("<colgroup>") != 1 or rendered.count("</colgroup>") != 1
 				or rendered.count("<col ") != len(expected_keys)):
 			frappe.throw(_("Rendered print output is invalid"))
+		if int(publish or 0):
+			if not _can_publish(doctype):
+				frappe.throw(_("当前账号没有发布该单据类型打印格式的权限"), frappe.PermissionError)
+			frappe.make_property_setter(
+				{"doctype": doctype, "doctype_or_field": "DocType", "property": "default_print_format",
+				 "value": name, "property_type": "Link"},
+				validate_fields_for_doctype=False,
+			)
+			frappe.clear_cache(doctype=doctype)
 		return {"name": name, "doctype": doctype}
 	except Exception:
 		frappe.db.rollback()
 		raise
+
+
+@frappe.whitelist()
+def set_format_status(name, disabled=1):
+	doc = _get_mutable_format(name)
+	_assert_not_active(doc)
+	doc.db_set("disabled", 1 if int(disabled or 0) else 0)
+	frappe.clear_cache(doctype=doc.doc_type)
+	return {"name": doc.name, "disabled": int(doc.disabled)}
+
+
+@frappe.whitelist()
+def delete_format(name):
+	doc = _get_mutable_format(name)
+	_assert_not_active(doc)
+	if not frappe.has_permission(doc=doc, ptype="delete"):
+		frappe.throw(_("Print Format delete permission is required"), frappe.PermissionError)
+	backup_path = _backup_format_before_delete(doc)
+	frappe.delete_doc("Print Format", doc.name)
+	frappe.clear_cache(doctype=doc.doc_type)
+	return {"name": doc.name, "backup_path": backup_path}
