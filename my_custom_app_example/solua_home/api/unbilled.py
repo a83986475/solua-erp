@@ -1,7 +1,15 @@
 """Delivery-based billing queue; no invoice is saved or submitted here."""
+from importlib import import_module
+from importlib.util import find_spec
+
 import frappe
 from frappe.utils import flt, date_diff, nowdate
 from solua_home.api.home import _can_read, _can_create, _list
+
+
+def billing_module():
+    path = "erpnext.stock.doctype.delivery_note.mapper"
+    return import_module(path if find_spec(path) else "erpnext.stock.doctype.delivery_note.delivery_note")
 
 
 def pending_qty(row, invoiced_qty=0, returned_qty=0):
@@ -23,7 +31,8 @@ def linked_drafts(company, notes):
 
 
 def get_rows(company, start, end, customer=None):
-    from erpnext.stock.doctype.delivery_note.mapper import get_invoiced_qty_map, get_returned_qty_map
+    billing = billing_module()
+    get_invoiced_qty_map, get_returned_qty_map = billing.get_invoiced_qty_map, billing.get_returned_qty_map
     filters = {"company": company, "docstatus": 1, "is_return": 0,
                "posting_date": ["between", [start, end]], "per_billed": ["<", 100],
                "status": ["not in", ["Closed", "Completed"]]}
@@ -52,7 +61,9 @@ def get_rows(company, start, end, customer=None):
 @frappe.whitelist()
 @frappe.read_only()
 def prepare_invoice(delivery_note):
-    from erpnext.stock.doctype.delivery_note.mapper import make_sales_invoice, get_invoiced_qty_map, get_returned_qty_map
+    billing = billing_module()
+    make_sales_invoice = billing.make_sales_invoice
+    get_invoiced_qty_map, get_returned_qty_map = billing.get_invoiced_qty_map, billing.get_returned_qty_map
     source = frappe.get_doc("Delivery Note", delivery_note)
     source.check_permission("read")
     if source.docstatus != 1 or source.is_return or source.status in ("Closed", "Completed"):
