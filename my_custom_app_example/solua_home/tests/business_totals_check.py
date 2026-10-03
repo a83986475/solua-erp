@@ -40,6 +40,8 @@ for args in [('bad',),('custom',),('custom','2026-10-03','2026-10-01')]:
     try: m.date_range(*args)
     except ValueError: pass
     else: raise AssertionError(args)
+rows['Delivery Note']=[Row(name='DN',posting_date='2026-10-03',customer='C',base_grand_total=42)]
+assert m.get_total('delivered')['amount'] == 42
 assert m.get_total('orders')['amount'] == 100
 assert m.get_total('invoices')['amount'] == 75
 assert m.get_total('receivable')['amount'] == 20

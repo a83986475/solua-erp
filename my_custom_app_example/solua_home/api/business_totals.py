@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import flt, getdate, nowdate
 from solua_home.api.home import _can_read, _invoice_specs, _list, _resolve_company
 
-METRICS = {"orders": "总订单金额", "invoices": "总开票金额", "receivable": "总应收款", "paid": "总已付金额"}
+METRICS = {"orders": "总订单金额", "invoices": "总开票金额", "receivable": "总应收款", "paid": "总已付金额", "delivered": "送货金额"}
 
 
 def date_range(period="month", from_date=None, to_date=None):
@@ -39,6 +39,8 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
     base = {"company": company_doc.name, "docstatus": 1}
     invoice_specs = _invoice_specs(company_doc.name, ["between", [start, end]])
     specs = [("Sales Order", {**base, "transaction_date": ["between", [start, end]]})] if metric == "orders" else invoice_specs
+    if metric == "delivered":
+        specs = [("Delivery Note", {**base, "posting_date": ["between", [start, end]], "is_return": 0})]
     if not any(_can_read(dt) for dt, _ in specs):
         return {"state": "no_permission", "amount": None, "items": []}
     items = []

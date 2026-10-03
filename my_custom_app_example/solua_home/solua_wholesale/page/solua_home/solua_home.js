@@ -140,7 +140,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			["Sales Register", {company: data.company, from_date: data.query_time?.slice(0, 10), to_date: data.query_time?.slice(0, 10)}],
 			["Accounts Receivable", {company: data.company}],
 			["Sales Order Analysis", {company: data.company, status: ["To Deliver", "To Deliver and Bill"], from_date: "2000-01-01", to_date: data.query_time?.slice(0, 10)}],
-			["Delivery Note Trends", {company: data.company, from_date: data.query_time?.slice(0, 10), to_date: data.query_time?.slice(0, 10)}],
+			["Solua Delivery Summary", {company: data.company, from_date: data.query_time?.slice(0, 10), to_date: data.query_time?.slice(0, 10)}],
 			["Stock Projected Qty", {company: data.company, warehouse: data.warehouse}],
 		];
 		const cards = [
