@@ -72,6 +72,73 @@ def search_customers(query):
 
 
 @frappe.whitelist()
+def get_customer_form_options():
+    _require_admin()
+    meta = frappe.get_meta("Customer")
+    type_field = meta.get_field("customer_type")
+    types = [value for value in (type_field.options or "").splitlines() if value]
+    observed = frappe.get_all("Customer", fields=["customer_type"], limit_page_length=200)
+    observed_types = {row.customer_type for row in observed if row.customer_type}
+    types = [value for value in types if value in observed_types] or ["Company"]
+    groups = frappe.get_all(
+        "Customer Group", filters={"is_group": 0}, pluck="name", order_by="name asc", limit_page_length=100
+    )
+    territories = frappe.get_all(
+        "Territory", filters={"is_group": 0}, pluck="name", order_by="name asc", limit_page_length=100
+    )
+    existing = frappe.get_all(
+        "Customer", fields=["customer_group", "territory"], limit_page_length=200, order_by="modified desc"
+    )
+    default_group = next((row.customer_group for row in existing if row.customer_group in groups), groups[0] if groups else "")
+    default_territory = next(
+        (row.territory for row in existing if row.territory in territories), territories[0] if territories else ""
+    )
+    return {
+        "customer_types": types,
+        "customer_groups": groups,
+        "territories": territories,
+        "defaults": {"customer_type": types[0], "customer_group": default_group, "territory": default_territory},
+    }
+
+
+@frappe.whitelist()
+def create_customer(customer_name, customer_type="Company", customer_group=None, territory=None, tax_id=None):
+    _require_admin()
+    customer_name = str(customer_name or "").strip()
+    customer_type = str(customer_type or "Company").strip()
+    customer_group = str(customer_group or "").strip()
+    territory = str(territory or "").strip()
+    tax_id = str(tax_id or "").strip()
+    if not customer_name:
+        frappe.throw(_("请输入客户名称"))
+    if len(customer_name) > 140 or len(tax_id) > 140:
+        frappe.throw(_("客户名称或税号过长"))
+    if not customer_group or not territory:
+        frappe.throw(_("请选择客户分组和地区"))
+    if frappe.db.exists("Customer", {"customer_name": customer_name, "disabled": 0}):
+        frappe.throw(_("客户已存在：{0}").format(customer_name))
+    types = [value for value in (frappe.get_meta("Customer").get_field("customer_type").options or "").splitlines() if value]
+    if customer_type not in types:
+        frappe.throw(_("客户类型无效"))
+    for doctype, value, label in (("Customer Group", customer_group, "客户分组"), ("Territory", territory, "地区")):
+        if value and not frappe.db.exists(doctype, {"name": value, "is_group": 0}):
+            frappe.throw(_("{0}无效").format(label))
+    doc = frappe.new_doc("Customer")
+    doc.customer_name = customer_name
+    doc.customer_type = customer_type
+    if customer_group:
+        doc.customer_group = customer_group
+    if territory:
+        doc.territory = territory
+    if tax_id:
+        doc.tax_id = tax_id
+    if frappe.get_meta("Customer").has_field("custom_status"):
+        doc.custom_status = "正常"
+    doc.insert()
+    return {"state": "ok", "name": doc.name, "customer_name": doc.customer_name}
+
+
+@frappe.whitelist()
 def get_customer_addresses(customer):
     _require_admin()
     customer = _customer(customer)

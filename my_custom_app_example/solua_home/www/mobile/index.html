@@ -12,7 +12,7 @@
     .mobile-app { max-width: 760px; margin: 0 auto; padding: 14px 12px 42px; }
     .mobile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .mobile-head h1 { margin: 0; color: var(--mobile-blue); font-size: 23px; }
-    .mobile-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: var(--mobile-soft); }
+    .mobile-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: var(--mobile-soft); }
     .mobile-tab { display: block; padding: 10px; border-radius: 7px; color: var(--mobile-blue); text-align: center; text-decoration: none; }
     .mobile-tab.active { background: #fff; box-shadow: 0 1px 5px rgba(22, 58, 95, .12); font-weight: 700; }
     .mobile-muted { color: var(--mobile-muted); font-size: 13px; }
@@ -58,6 +58,11 @@
     .mobile-cart-total { display: flex; justify-content: space-between; margin-top: 12px; font-weight: 700; color: var(--mobile-blue); }
     .mobile-order-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
     .mobile-order-actions button { min-height: 44px; }
+    .mobile-customer-form { display: grid; gap: 10px; }
+    .mobile-customer-form label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
+    .mobile-customer-form input, .mobile-customer-form select { min-height: 44px; font-size: 16px; }
+    .mobile-customer-form button { min-height: 46px; margin-top: 4px; }
+    .mobile-customer-note { margin-top: 4px; }
     .mobile-login { text-align: center; padding: 42px 12px; }
     @media (max-width: 540px) {
         .mobile-app { padding: 10px 8px 30px; }
@@ -85,10 +90,27 @@
         <span class="mobile-muted" id="mobile-status">{{ _("加载中…") }}</span>
     </div>
     <nav class="mobile-tabs" aria-label="移动台功能">
-        <a class="mobile-tab{% if not mobile_order %} active{% endif %}" href="/mobile">库存查询</a>
+        <a class="mobile-tab{% if not mobile_order and not mobile_customer %} active{% endif %}" href="/mobile">库存查询</a>
         <a class="mobile-tab{% if mobile_order %} active{% endif %}" href="/mobile?view=order">销售开单</a>
+        <a class="mobile-tab{% if mobile_customer %} active{% endif %}" href="/mobile?view=customer">新建客户</a>
     </nav>
 
+    {% if mobile_customer %}
+    <div class="mobile-panel">
+        <div class="mobile-step-head"><span>新建客户</span><span class="mobile-muted">只填写业务需要的信息</span></div>
+        <form class="mobile-customer-form" id="mobile-customer-form">
+            <label>客户名称<input id="mobile-new-customer-name" class="form-control" type="text" maxlength="140" required autocomplete="organization" placeholder="请输入客户名称"></label>
+            <label>客户类型<select id="mobile-new-customer-type" class="form-control" required></select></label>
+            <label>客户分组<select id="mobile-new-customer-group" class="form-control" required></select></label>
+            <label>地区<select id="mobile-new-customer-territory" class="form-control" required></select></label>
+            <label>税号 / NUIT<input id="mobile-new-customer-tax-id" class="form-control" type="text" maxlength="140" autocomplete="off" placeholder="可留空"></label>
+            <div class="mobile-muted mobile-customer-note">手机号、邮箱、地址和会员信息暂不在这里录入，按现有 ERPNext 客户资料流程单独维护。</div>
+            <button class="btn btn-primary" type="submit" id="mobile-create-customer">保存客户</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if not mobile_customer %}
     <div class="mobile-panel mobile-order-only"{% if not mobile_order %} hidden{% endif %}>
         <div class="mobile-step-head"><span>1. 选择客户</span><button class="btn btn-default btn-sm" type="button" id="mobile-clear-customer" hidden>更换客户</button></div>
         <div class="mobile-customer-wrap" id="mobile-customer-wrap">
@@ -146,12 +168,62 @@
         </div>
         <div class="mobile-grid" id="mobile-grid"></div>
     </div>
+    {% endif %}
 {% endif %}
 </div>
 {% endblock %}
 
 {% block script %}
-{% if mobile_admin %}
+{% if mobile_admin and mobile_customer %}
+<script>
+(() => {
+    const $ = (id) => document.getElementById(id);
+    const form = $("mobile-customer-form");
+    const status = (value) => { const node = document.querySelector(".mobile-step-head .mobile-muted"); if (node) node.textContent = value; };
+    const errorText = "请求失败，请稍后重试";
+    async function call(method, args = {}) {
+        const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
+        const response = await fetch(`/api/method/${method}${query.toString() ? `?${query}` : ""}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || errorText);
+        return payload.message ?? payload;
+    }
+    function fillSelect(id, values, selected) {
+        const select = $(id);
+        select.innerHTML = (values || []).map((value) => `<option value="${String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">${String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</option>`).join("");
+        if (selected) select.value = selected;
+    }
+    async function loadOptions() {
+        try {
+            const data = await call("solua_home.api.mobile.get_customer_form_options");
+            fillSelect("mobile-new-customer-type", data.customer_types, data.defaults?.customer_type);
+            fillSelect("mobile-new-customer-group", data.customer_groups, data.defaults?.customer_group);
+            fillSelect("mobile-new-customer-territory", data.territories, data.defaults?.territory);
+        } catch (error) { status(error.message || errorText); }
+    }
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = $("mobile-create-customer");
+        button.disabled = true;
+        status("保存中…");
+        try {
+            const result = await call("solua_home.api.mobile.create_customer", {
+                customer_name: $("mobile-new-customer-name").value.trim(),
+                customer_type: $("mobile-new-customer-type").value,
+                customer_group: $("mobile-new-customer-group").value,
+                territory: $("mobile-new-customer-territory").value,
+                tax_id: $("mobile-new-customer-tax-id").value.trim(),
+            });
+            status(`已创建：${result.customer_name || result.name}`);
+            form.reset();
+            await loadOptions();
+        } catch (error) { status(error.message || errorText); }
+        finally { button.disabled = false; }
+    });
+    loadOptions();
+})();
+</script>
+{% elif mobile_admin %}
 <script>
 (() => {
     const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false };
