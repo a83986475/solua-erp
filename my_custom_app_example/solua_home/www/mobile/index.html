@@ -12,6 +12,9 @@
     .mobile-app { max-width: 760px; margin: 0 auto; padding: 14px 12px 42px; }
     .mobile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .mobile-head h1 { margin: 0; color: var(--mobile-blue); font-size: 23px; }
+    .mobile-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: var(--mobile-soft); }
+    .mobile-tab { display: block; padding: 10px; border-radius: 7px; color: var(--mobile-blue); text-align: center; text-decoration: none; }
+    .mobile-tab.active { background: #fff; box-shadow: 0 1px 5px rgba(22, 58, 95, .12); font-weight: 700; }
     .mobile-muted { color: var(--mobile-muted); font-size: 13px; }
     .mobile-panel { background: #fff; border: 1px solid var(--mobile-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
     .mobile-step-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 9px; color: var(--mobile-blue); font-weight: 700; }
@@ -71,7 +74,7 @@
         <h1>{{ _("管理员移动台") }}</h1>
         {% if frappe.session.user == "Guest" %}
         <p class="mobile-muted">{{ _("请先登录管理员账号。") }}</p>
-        <a class="btn btn-primary" href="/login?redirect-to=/mobile">{{ _("登录") }}</a>
+        <a class="btn btn-primary" href="{% if mobile_order %}/login?redirect-to=/mobile%3Fview%3Dorder{% else %}/login?redirect-to=/mobile{% endif %}">{{ _("登录") }}</a>
         {% else %}
         <p class="mobile-muted">{{ _("此页面仅限 Administrator 或 System Manager 使用。") }}</p>
         {% endif %}
@@ -81,8 +84,12 @@
         <h1>{{ _("管理员移动台") }}</h1>
         <span class="mobile-muted" id="mobile-status">{{ _("加载中…") }}</span>
     </div>
+    <nav class="mobile-tabs" aria-label="移动台功能">
+        <a class="mobile-tab{% if not mobile_order %} active{% endif %}" href="/mobile">库存查询</a>
+        <a class="mobile-tab{% if mobile_order %} active{% endif %}" href="/mobile?view=order">销售开单</a>
+    </nav>
 
-    <div class="mobile-panel">
+    <div class="mobile-panel mobile-order-only"{% if not mobile_order %} hidden{% endif %}>
         <div class="mobile-step-head"><span>1. 选择客户</span><button class="btn btn-default btn-sm" type="button" id="mobile-clear-customer" hidden>更换客户</button></div>
         <div class="mobile-customer-wrap" id="mobile-customer-wrap">
             <input id="mobile-customer-query" class="form-control" type="search" autocomplete="off" placeholder="搜索客户名称、手机号">
@@ -103,7 +110,7 @@
     </div>
 
     <div class="mobile-panel" id="mobile-product-panel">
-        <div class="mobile-step-head"><span>2. 添加商品</span><span class="mobile-muted">可扫码、模糊搜索或输入模板货号</span></div>
+        <div class="mobile-step-head"><span id="mobile-product-step">{% if mobile_order %}2. 添加商品{% else %}库存查询{% endif %}</span><span class="mobile-muted">可扫码、模糊搜索或输入模板货号</span></div>
         <form class="mobile-search" id="mobile-search">
             <div class="mobile-query-wrap">
                 <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
@@ -122,7 +129,7 @@
         <button class="btn btn-default" type="button" id="mobile-open-camera" style="margin-top:8px" disabled>{{ _("打开摄像头扫码") }}</button>
     </div>
 
-    <div class="mobile-panel" id="mobile-cart-panel" hidden>
+    <div class="mobile-panel mobile-order-only" id="mobile-cart-panel"{% if not mobile_order %} hidden{% endif %}>
         <div class="mobile-step-head"><span>3. 购物车</span><span class="mobile-muted" id="mobile-cart-count"></span></div>
         <div id="mobile-cart"></div>
         <div class="mobile-cart-total"><span>合计</span><span id="mobile-cart-total">—</span></div>
@@ -148,6 +155,7 @@
 <script>
 (() => {
     const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false };
+    const orderMode = new URLSearchParams(window.location.search).get("view") === "order";
     const $ = (id) => document.getElementById(id);
     const t = {
         loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
@@ -210,10 +218,10 @@
                     <div class="mobile-card-line"><span class="mobile-card-label">批发价 1 级</span><span>${money(row.wholesale_rate_1)}</span></div>
                     <div class="mobile-card-line"><span class="mobile-card-label">批发价 3 级</span><span>${money(row.wholesale_rate_3)}</span></div>
                     ${row.status ? `<div class="mobile-muted" style="margin-top:8px">${esc(row.status)}</div>` : ""}
-                    <div class="mobile-card-actions">
+                    ${orderMode ? `<div class="mobile-card-actions">
                         <input class="form-control mobile-card-qty" type="number" min="1" step="1" value="1" data-qty-code="${esc(row.item_code)}" aria-label="数量">
                         <button class="btn btn-primary" type="button" data-add-code="${esc(row.item_code)}">加入购物车</button>
-                    </div>
+                    </div>` : ""}
                 </div>
             </article>`).join("") : `<div class="mobile-empty">${esc(t.noData)}</div>`;
         $("mobile-grid").querySelectorAll("[data-code]").forEach((node) => node.addEventListener("click", () => {
@@ -232,11 +240,13 @@
     }
 
     function setOrderEnabled(enabled) {
+        enabled = orderMode ? enabled : true;
         $("mobile-query").disabled = !enabled;
         $("mobile-query").placeholder = enabled ? "扫描条码、模糊搜索货号或输入名称" : t.customerFirst;
         $("mobile-search").querySelector("button[type=submit]").disabled = !enabled;
         $("mobile-open-camera").disabled = !enabled;
-        $("mobile-order-hint").textContent = enabled ? "选择商品和数量后加入购物车。" : t.customerFirst;
+        if (orderMode) $("mobile-order-hint").textContent = enabled ? "选择商品和数量后加入购物车。" : t.customerFirst;
+        $("mobile-product-step").textContent = orderMode ? "2. 添加商品" : "库存查询";
     }
 
     function renderCart() {
@@ -271,7 +281,7 @@
     }
 
     function addToCart(row, qty) {
-        if (!state.customer) return setStatus(t.customerFirst);
+        if (orderMode && !state.customer) return setStatus(t.customerFirst);
         if (!row || !Number.isInteger(qty) || qty <= 0) return setStatus("数量必须为正整数");
         const existing = state.cart.find((item) => item.item_code === row.item_code);
         if (existing) existing.qty += qty;
@@ -407,7 +417,7 @@
     async function lookup(value) {
         const barcode = String(value || "").trim();
         if (!barcode) return;
-        if (!state.customer) return setStatus(t.customerFirst);
+        if (orderMode && !state.customer) return setStatus(t.customerFirst);
         ++state.suggestionRequest;
         clearTimeout(state.suggestionTimer);
         hideSuggestions();
@@ -480,7 +490,7 @@
     });
     $("mobile-open-camera").addEventListener("click", openCamera);
     $("mobile-stop-camera").addEventListener("click", stopCamera);
-    setOrderEnabled(false);
+    setOrderEnabled(orderMode ? false : true);
     (async () => {
         try {
             const data = await call("solua_home.api.mobile.get_defaults");
