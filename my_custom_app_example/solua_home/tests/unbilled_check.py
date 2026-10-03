@@ -27,3 +27,14 @@ assert m.pending_qty({**row,'si_detail':'invoice-item'})==0
 assert m.pending_qty(row,0,10)==0
 assert m.pending_qty({**row,'rate':0})==10
 print('PASS: partial billing, direct-SO billing, returns, overbilling, pre-invoiced delivery and free items')
+
+# Existing drafts remain viewable to readers and never call the invoice mapper.
+class Source:
+    name='DN';company='Test';docstatus=1;is_return=0;status='To Bill'
+    def check_permission(self, permission): assert permission=='read'
+m.frappe.get_doc=lambda *args:Source()
+m._can_create=lambda dt:False
+m.linked_drafts=lambda *args:{'DN':['DRAFT']}
+m.billing_module=lambda:types.SimpleNamespace(make_sales_invoice=lambda *args,**kw:(_ for _ in ()).throw(AssertionError('duplicate')),get_invoiced_qty_map=lambda dn:{},get_returned_qty_map=lambda dn:{})
+assert m.prepare_invoice('DN')=={'draft_invoices':['DRAFT']}
+print('PASS: existing draft opens for readers without generating a duplicate')
