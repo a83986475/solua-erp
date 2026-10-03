@@ -188,6 +188,17 @@
         if (!response.ok || payload.exc) throw new Error(payload.message || errorText);
         return payload.message ?? payload;
     }
+    async function writeCall(method, args = {}) {
+        const response = await fetch(`/api/method/${method}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            credentials: "same-origin",
+            body: JSON.stringify(args),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || errorText);
+        return payload.message ?? payload;
+    }
     function fillSelect(id, values, selected) {
         const select = $(id);
         select.innerHTML = (values || []).map((value) => `<option value="${String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">${String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</option>`).join("");
@@ -207,7 +218,7 @@
         button.disabled = true;
         status("保存中…");
         try {
-            const result = await call("solua_home.api.mobile.create_customer", {
+            const result = await writeCall("solua_home.api.mobile.create_customer", {
                 customer_name: $("mobile-new-customer-name").value.trim(),
                 customer_type: $("mobile-new-customer-type").value,
                 customer_group: $("mobile-new-customer-group").value,
