@@ -136,6 +136,13 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	}
 
 	function render_desk_panels(data) {
+		const links = [
+			["Sales Register", {company: data.company, from_date: data.query_time?.slice(0, 10), to_date: data.query_time?.slice(0, 10)}],
+			["Accounts Receivable", {company: data.company}],
+			["Sales Order Analysis", {company: data.company, status: ["To Deliver", "To Deliver and Bill"], from_date: "2000-01-01", to_date: data.query_time?.slice(0, 10)}],
+			["Delivery Note Trends", {company: data.company, from_date: data.query_time?.slice(0, 10), to_date: data.query_time?.slice(0, 10)}],
+			["Stock Projected Qty", {company: data.company, warehouse: data.warehouse}],
+		];
 		const cards = [
 			[__("今日已开票额"), money(data.invoiced_today?.amount, data.currency), data.invoiced_today?.state],
 			[__("客户未收款"), money(data.outstanding?.amount, data.currency), data.outstanding?.state],
@@ -143,7 +150,8 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			[__("今日已送货额"), money(data.delivered_today?.amount, data.currency), data.delivered_today?.state],
 			[__("库存预警"), data.low_stock?.count ?? "—", data.low_stock?.state],
 		];
-		root.find('[data-role="cards"]').html(cards.map(([label, value, state]) => `<div class="solua-home-card"><div class="solua-home-card-label">${text(label)}</div><div class="solua-home-card-value">${["ok", "no_data"].includes(state) ? text(value) : "—"}</div><div class="solua-home-card-state">${text(state_label(state), "")}</div></div>`).join(""));
+		root.find('[data-role="cards"]').html(cards.map(([label, value, state], index) => `<button type="button" class="solua-home-card" data-report="${text(links[index][0])}" data-report-filters="${text(JSON.stringify(links[index][1]))}" ${state === "no_permission" ? "disabled" : ""}><div class="solua-home-card-label">${text(label)} ›</div><div class="solua-home-card-value">${["ok", "no_data"].includes(state) ? text(value) : "—"}</div><div class="solua-home-card-state">${text(state_label(state), "")}</div></button>`).join(""));
+		load_totals(data);
 		const pending = data.orders_pending?.items || [];
 		root.find('[data-role="pending"]').html([
 			`<div class="solua-home-pending-title">${__("待交付订单")}：${data.orders_pending?.state === "no_permission" ? "—" : data.orders_pending?.count ?? "—"}</div>`,
@@ -157,6 +165,25 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		].join(""));
 		root.find('[data-role="data-status"]').html("");
 		render_item_data(data.item_data);
+	}
+
+	function load_totals(data) {
+		const labels = {orders: "总订单金额", invoices: "总开票金额", receivable: "总应收款", paid: "总已付金额"};
+		let section = root.find('[data-role="totals"]');
+		if (typeof section.length === "number" && !section.length) {
+			root.find('[data-section="overview"]').append(`<div class="solua-home-cards solua-home-totals" data-role="totals"></div>`);
+			section = root.find('[data-role="totals"]');
+		}
+		section.html(Object.entries(labels).map(([key, label]) => `<button type="button" class="solua-home-card" data-total="${key}"><div class="solua-home-card-label">${text(__(label))} ›</div><div class="solua-home-card-value" data-total-value="${key}">—</div><div class="solua-home-card-state" data-total-period="${key}">${__("加载中…")}</div></button>`).join(""));
+		for (const metric of Object.keys(labels)) {
+			let settings = {period: "本月"};
+			try { settings = {...settings, ...JSON.parse(window.localStorage?.getItem(`solua-business-period:${frappe.session?.user}:${metric}`) || "{}")}; } catch (_) {}
+			frappe.call({method: "solua_home.api.business_totals.get_total", args: {metric, company: data.company, ...settings}}).then(response => {
+				const result = response.message || {};
+				root.find(`[data-total-value="${metric}"]`).text(["ok", "no_data"].includes(result.state) ? money(result.amount, data.currency) : "—");
+				root.find(`[data-total-period="${metric}"]`).text(result.from_date ? `${settings.period} · ${result.from_date} ~ ${result.to_date}` : state_label(result.state));
+			}).catch(() => root.find(`[data-total-period="${metric}"]`).text(__("加载失败")));
+		}
 	}
 
 	// 收银员的入口：只用 POS（收银台 / 交班 / 查看自己开的 POS 销售单）
@@ -292,6 +319,14 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		if (this.classList) this.classList.toggle("solua-home-issue-open");
 	});
 	root.on("click", "[data-action=refresh]", load);
+	root.on("click", "[data-report], [data-total]", function () {
+		if (this.dataset.total) {
+			frappe.route_options = {metric: this.dataset.total};
+			return frappe.set_route("query-report", "Solua Business Totals");
+		}
+		frappe.route_options = JSON.parse(this.dataset.reportFilters || "{}");
+		frappe.set_route("query-report", this.dataset.report);
+	});
 	root.on("click", "[data-action=search]", () => {
 		const query = root.find('[data-role="search"]').val().trim();
 		if (!query) return;
@@ -357,4 +392,10 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		route(doctype, this.dataset.name || null);
 	});
 	load();
+	wrapper.solua_home_refresh = load;
+};
+
+frappe.pages["solua-home"].on_page_show = wrapper => {
+ if (wrapper.solua_home_shown) wrapper.solua_home_refresh?.();
+ wrapper.solua_home_shown = true;
 };
