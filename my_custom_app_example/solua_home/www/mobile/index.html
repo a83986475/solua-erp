@@ -60,7 +60,8 @@
     .mobile-order-actions button { min-height: 44px; }
     .mobile-customer-form { display: grid; gap: 10px; }
     .mobile-customer-form label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
-    .mobile-customer-form input, .mobile-customer-form select { min-height: 44px; font-size: 16px; }
+    .mobile-customer-form input, .mobile-customer-form select, .mobile-customer-form textarea { min-height: 44px; font-size: 16px; }
+    .mobile-customer-form textarea { min-height: 78px; resize: vertical; }
     .mobile-customer-form button { min-height: 46px; margin-top: 4px; }
     .mobile-customer-note { margin-top: 4px; }
     .mobile-login { text-align: center; padding: 42px 12px; }
@@ -104,7 +105,10 @@
             <label>客户分组<select id="mobile-new-customer-group" class="form-control" required></select></label>
             <label>地区<select id="mobile-new-customer-territory" class="form-control" required></select></label>
             <label>税号 / NUIT<input id="mobile-new-customer-tax-id" class="form-control" type="text" maxlength="140" autocomplete="off" placeholder="可留空"></label>
-            <div class="mobile-muted mobile-customer-note">手机号、邮箱、地址和会员信息暂不在这里录入，按现有 ERPNext 客户资料流程单独维护。</div>
+            <label>地址<textarea id="mobile-new-customer-address" class="form-control" maxlength="140" autocomplete="street-address" placeholder="可留空"></textarea></label>
+            <label>城市<input id="mobile-new-customer-city" class="form-control" type="text" maxlength="140" autocomplete="address-level2" placeholder="填写地址时请同时填写，可留空"></label>
+            <label>电话 / 手机<input id="mobile-new-customer-phone" class="form-control" type="tel" maxlength="140" autocomplete="tel" placeholder="可留空"></label>
+            <div class="mobile-muted mobile-customer-note">地址和电话会分别关联到 ERPNext 的 Address、Contact；不填写时不会创建空白资料。</div>
             <button class="btn btn-primary" type="submit" id="mobile-create-customer">保存客户</button>
         </form>
     </div>
@@ -224,6 +228,9 @@
                 customer_group: $("mobile-new-customer-group").value,
                 territory: $("mobile-new-customer-territory").value,
                 tax_id: $("mobile-new-customer-tax-id").value.trim(),
+                address: $("mobile-new-customer-address").value.trim(),
+                city: $("mobile-new-customer-city").value.trim(),
+                phone: $("mobile-new-customer-phone").value.trim(),
             });
             status(`已创建：${result.customer_name || result.name}`);
             form.reset();

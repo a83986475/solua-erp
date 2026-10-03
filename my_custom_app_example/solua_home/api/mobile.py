@@ -102,19 +102,29 @@ def get_customer_form_options():
 
 
 @frappe.whitelist()
-def create_customer(customer_name, customer_type="Company", customer_group=None, territory=None, tax_id=None):
+def create_customer(
+    customer_name, customer_type="Company", customer_group=None, territory=None, tax_id=None,
+    address=None, city=None, phone=None,
+):
     _require_admin()
     customer_name = str(customer_name or "").strip()
     customer_type = str(customer_type or "Company").strip()
     customer_group = str(customer_group or "").strip()
     territory = str(territory or "").strip()
     tax_id = str(tax_id or "").strip()
+    address = str(address or "").strip()
+    city = str(city or "").strip()
+    phone = str(phone or "").strip()
     if not customer_name:
         frappe.throw(_("请输入客户名称"))
-    if len(customer_name) > 140 or len(tax_id) > 140:
-        frappe.throw(_("客户名称或税号过长"))
+    if any(len(value) > 140 for value in (customer_name, tax_id, address, city, phone)):
+        frappe.throw(_("客户名称、税号、地址、城市或电话过长"))
     if not customer_group or not territory:
         frappe.throw(_("请选择客户分组和地区"))
+    if address and not city:
+        frappe.throw(_("填写地址时请同时填写城市"))
+    if city and not address:
+        frappe.throw(_("填写城市时请同时填写地址"))
     if frappe.db.exists("Customer", {"customer_name": customer_name, "disabled": 0}):
         frappe.throw(_("客户已存在：{0}").format(customer_name))
     types = [value for value in (frappe.get_meta("Customer").get_field("customer_type").options or "").splitlines() if value]
@@ -135,6 +145,26 @@ def create_customer(customer_name, customer_type="Company", customer_group=None,
     if frappe.get_meta("Customer").has_field("custom_status"):
         doc.custom_status = "正常"
     doc.insert()
+    if address:
+        address_doc = frappe.new_doc("Address")
+        address_doc.address_title = customer_name
+        address_doc.address_type = "Shop"
+        address_doc.address_line1 = address
+        address_doc.city = city
+        address_doc.is_primary_address = 1
+        address_doc.append("links", {"link_doctype": "Customer", "link_name": doc.name})
+        address_doc.insert()
+        doc.customer_primary_address = address_doc.name
+    if phone:
+        contact = frappe.new_doc("Contact")
+        contact.first_name = customer_name
+        contact.is_primary_contact = 1
+        contact.append("links", {"link_doctype": "Customer", "link_name": doc.name})
+        contact.append("phone_nos", {"phone": phone, "is_primary_mobile_no": 1})
+        contact.insert()
+        doc.customer_primary_contact = contact.name
+    if address or phone:
+        doc.save()
     return {"state": "ok", "name": doc.name, "customer_name": doc.customer_name}
 
 

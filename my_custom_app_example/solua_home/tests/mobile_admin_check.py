@@ -11,6 +11,7 @@ assert "System Manager" in api and "get_sales_order_color_variants" in api
 assert "search_sales_order_items" in api and "Wholesale Selling 3" in api
 assert "def search_customers" in api and "def get_customer_addresses" in api and "def save_sales_order" in api
 assert "def get_customer_form_options" in api and "def create_customer" in api
+assert 'frappe.new_doc("Address")' in api and 'frappe.new_doc("Contact")' in api
 assert "solua_home.api.mobile.lookup" in page
 assert "批发价 1 级" in page and "批发价 3 级" in page
 assert "new URLSearchParams" in page and "async function writeCall" in page
@@ -20,4 +21,6 @@ assert "mobile_order" in page_context and "view" in page_context
 assert "mobile-order-only" in page and "view=order" in page
 assert "mobile_customer" in page_context and "view=customer" in page
 assert "mobile-customer-form" in page and "mobile-new-customer-tax-id" in page
+assert "mobile-new-customer-address" in page and "mobile-new-customer-phone" in page
+assert 'writeCall("solua_home.api.mobile.create_customer"' in page
 print("mobile admin checks passed")
