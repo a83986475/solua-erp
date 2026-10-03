@@ -18,6 +18,12 @@
     .mobile-context label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
     .mobile-context input, .mobile-search input { min-height: 46px; font-size: 16px; }
     .mobile-search { display: flex; gap: 8px; }
+    .mobile-query-wrap { position: relative; min-width: 0; flex: 1; }
+    .mobile-suggestions { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--mobile-border); border-radius: 10px; background: #fff; box-shadow: 0 8px 22px rgba(22, 58, 95, .16); }
+    .mobile-suggestion { display: block; width: 100%; padding: 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
+    .mobile-suggestion:hover, .mobile-suggestion:focus { background: var(--mobile-soft); outline: 0; }
+    .mobile-suggestion-code { font-weight: 700; color: var(--mobile-blue); }
+    .mobile-suggestion-name { margin-top: 3px; color: var(--mobile-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mobile-search button, .mobile-camera-actions button { min-height: 46px; white-space: nowrap; }
     .mobile-camera { display: none; margin-top: 10px; }
     .mobile-camera video { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 10px; background: #111; }
@@ -69,8 +75,11 @@
 
     <div class="mobile-panel">
         <form class="mobile-search" id="mobile-search">
-            <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
-                   placeholder="{{ _('扫描条码、模糊搜索货号或输入名称') }}">
+            <div class="mobile-query-wrap">
+                <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
+                       placeholder="{{ _('扫描条码、模糊搜索货号或输入名称') }}">
+                <div id="mobile-suggestions" class="mobile-suggestions" role="listbox" hidden></div>
+            </div>
             <button class="btn btn-primary" type="submit">{{ _("查询") }}</button>
         </form>
         <div class="mobile-camera" id="mobile-camera">
@@ -98,7 +107,7 @@
 {% if mobile_admin %}
 <script>
 (() => {
-    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "" };
+    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0 };
     const $ = (id) => document.getElementById(id);
     const t = {
         loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
@@ -110,6 +119,7 @@
     const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const money = (value) => value === null || value === undefined || value === "" || Number(value) <= 0 ? "—" : `${num(value)} ${esc(state.currency)}`;
     const setStatus = (value) => { $("mobile-status").textContent = value; };
+    const hideSuggestions = () => { $("mobile-suggestions").hidden = true; $("mobile-suggestions").innerHTML = ""; };
 
     async function call(method, args = {}) {
         const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
@@ -156,9 +166,43 @@
         }));
     }
 
+    function renderSuggestions(rows) {
+        const box = $("mobile-suggestions");
+        const suggestions = (rows || []).slice(0, 8);
+        if (!suggestions.length) return hideSuggestions();
+        box.innerHTML = suggestions.map((row) => `
+            <button class="mobile-suggestion" type="button" role="option" data-code="${esc(row.item_code)}">
+                <div class="mobile-suggestion-code">${esc(row.item_code)}</div>
+                <div class="mobile-suggestion-name">${esc(row.color || row.item_name || row.name || "")}</div>
+            </button>`).join("");
+        box.hidden = false;
+        box.querySelectorAll("[data-code]").forEach((node) => node.addEventListener("click", () => {
+            const code = node.dataset.code;
+            $("mobile-query").value = code;
+            hideSuggestions();
+            lookup(code);
+        }));
+    }
+
+    function suggest(value) {
+        const query = String(value || "").trim();
+        clearTimeout(state.suggestionTimer);
+        if (query.length < 2) return hideSuggestions();
+        const request = ++state.suggestionRequest;
+        state.suggestionTimer = setTimeout(async () => {
+            try {
+                const data = await call("solua_home.api.mobile.lookup", { barcode: query, warehouse: $("mobile-warehouse").value.trim() });
+                if (request === state.suggestionRequest) renderSuggestions(data.variants);
+            } catch (error) { if (request === state.suggestionRequest) hideSuggestions(); }
+        }, 250);
+    }
+
     async function lookup(value) {
         const barcode = String(value || "").trim();
         if (!barcode) return;
+        ++state.suggestionRequest;
+        clearTimeout(state.suggestionTimer);
+        hideSuggestions();
         stopCamera();
         state.selected = "";
         setStatus(t.searching);
@@ -214,6 +258,9 @@
     }
 
     $("mobile-search").addEventListener("submit", (event) => { event.preventDefault(); lookup($("mobile-query").value); });
+    $("mobile-query").addEventListener("input", (event) => suggest(event.target.value));
+    $("mobile-query").addEventListener("focus", (event) => suggest(event.target.value));
+    document.addEventListener("click", (event) => { if (!event.target.closest(".mobile-query-wrap")) hideSuggestions(); });
     $("mobile-open-camera").addEventListener("click", openCamera);
     $("mobile-stop-camera").addEventListener("click", stopCamera);
     (async () => {
