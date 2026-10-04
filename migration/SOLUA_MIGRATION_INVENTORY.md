@@ -8,8 +8,8 @@
 
 | 当前路径 | 目标位置 | 风险 | 优先级 | 状态 |
 |---|---|---:|---:|---|
-| `public/` | `solua_home/public/` | 低 | P1 | 待迁移 |
-| `printing/` | `solua_home/printing/` | 低~中 | P1 | 待迁移 |
+| `public/` | `solua_home/public/` | 低 | P1 | 已复制到迁移骨架，待验证 |
+| `printing/` | `solua_home/printing/` | 低~中 | P1 | 部分已复制：label_helpers.py / color_card.py，待验证 |
 | `print_format/` | fixtures / `solua_home/printing/` | 中 | P1 | 待分类 |
 | `api/` | `solua_home/api/` | 中 | P2 | 待迁移 |
 | `whatsapp_inbox/` | `solua_home/whatsapp/` 或保留模块名 | 中 | P2 | 待迁移 |
@@ -93,3 +93,22 @@ repo root
 5. 再进入下一模块
 
 禁止一次性全部切换。
+
+
+## F. P1 执行记录（2026-10-05）
+
+已在分支 `architecture/solua-home-p1` 中完成第一批“只复制、不切换”的迁移：
+
+- `public/css/` → `migration/solua_home_app/solua_home/public/css/`
+- `public/js/` → `migration/solua_home_app/solua_home/public/js/`
+- `public/images/` → `migration/solua_home_app/solua_home/public/images/`
+- `printing/label_helpers.py` → `migration/solua_home_app/solua_home/printing/label_helpers.py`
+- `printing/color_card.py` → `migration/solua_home_app/solua_home/printing/color_card.py`
+
+说明：
+
+- 所有源文件保持原样，未删除。
+- 二进制图片通过 Git blob/tree 原样复用，没有重新编码。
+- 生产 hooks 未切换。
+- main 未修改。
+- 当前仅完成代码物理归位，尚未执行 bench build / migrate / 页面回归验证。
