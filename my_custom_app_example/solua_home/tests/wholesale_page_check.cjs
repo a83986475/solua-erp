@@ -4,7 +4,7 @@ const base=path.join(__dirname,".."),nodes=new Map(),roots=[];
 function node(key){if(!nodes.has(key)) nodes.set(key,{content:"",visible:true,classes:{},properties:{},html(v){this.content=v;return this;},append(v){this.content+=v;return this;},text(v){this.content=v;return this;},val(value){if(value===undefined)return this.properties.value||"";this.properties.value=value;return this;},click(){},trigger(){return this;},prop(key,value){if(value===undefined)return this.properties[key];this.properties[key]=value;return this;},on(){return this;},toggle(show){this.visible=!!show;return this;},toggleClass(cls,show){this.classes[cls]=show===undefined?!this.classes[cls]:!!show;return this;}});return nodes.get(key);}
 function makeRoot(){const root={handlers:[],html(){return this;},find:node,on(event,selector,handler){this.handlers.push({event,selector,handler});return this;}};roots.push(root);return root;}
 const calls=[],routes=[],newDocs=[],opened=[];
-const data={state:"ok",company:"Company",currency:"MZN",permissions:{},
+const data={state:"ok",company:"Company",currency:"MZN",query_time:"2026-10-04 12:00:00",permissions:{},
  stock_entry_types:{issue:"Material Issue",consumption:"Consumption",wastage:"Wastage"},
  invoiced_today:{state:"no_permission",amount:0},outstanding:{state:"no_permission",amount:0},
  orders_pending:{state:"no_permission",count:0},delivered_today:{state:"no_permission",amount:0},
@@ -15,7 +15,7 @@ function FakeDialog(options){dialogs.push(options);this.options=options;this.sho
 const frappe={pages:{"solua-home":{}},ui:{make_app_page:()=>({main:makeRoot()}),Dialog:FakeDialog},utils:{escape_html:String},
  model:{sync:(doc)=>synced.push(doc)},db:{exists:async()=>true},
  router:{slug:(value)=>String(value).toLowerCase().replace(/[^a-z0-9]+/g,"-")},
- workspaces:{selling:{name:"Selling"},stock:{name:"Stock"},buying:{name:"Buying"},invoicing:{name:"Invoicing"}},
+ workspaces:{selling:{name:"Selling"},stock:{name:"Stock"},buying:{name:"Buying"},invoicing:{name:"Invoicing"}},datetime:{add_months:(date,months)=>{assert.equal(date,"2026-10-04");assert.equal(months,-1);return "2026-09-04";}},
  call:async()=>({message:data}),new_doc:(...args)=>newDocs.push(args),set_route:(...args)=>routes.push(args),msgprint:()=>{},route_options:null};
 // __() interpolates {0} placeholders like Frappe does, so the assertions can read real text.
 const tr=(text,args)=>Array.isArray(args)?args.reduce((out,value,index)=>out.replace(`{${index}}`,value),text):text;
@@ -67,12 +67,14 @@ setImmediate(async()=>{
   read_sales_order:true,read_delivery_note:true,read_sales_invoice:true,read_pos_invoice:true,read_quotation:true,
   read_stock_entry:true,read_warehouse:true,read_stock_reconciliation:true,read_purchase_receipt:true,
   new_purchase_order:true,read_purchase_order:true,read_purchase_invoice:true,
-  new_payment_entry:true,read_payment_entry:true};
+  new_payment_entry:true,read_payment_entry:true,read_item_price:true,read_stock_ledger:true,read_bin:true,read_pick_list:true};
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));root=roots.at(-1);
  const actions=node('[data-role="actions"]').content;
- for (const label of ["销售","新建销售订单","销售订单","新建交货单","按销售订单开交货单","交货单","销售发票","POS 销售单","报价单","客户/门店","优惠/促销管理","库存","新建物料","物料列表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","采购","新建采购订单","采购订单","采购收货","收货记录","采购发票","供应商","财务","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
+ for (const label of ["采购","新建采购订单","采购订单","采购收货","收货记录","采购发票","供应商","销售","新建销售订单","销售订单分析报表","物料销售明细","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
   assert(actions.includes(label),"missing homepage action: "+label);
+ assert(actions.includes('data-report="Item-wise Sales History"')&&actions.includes('"from_date":"2026-09-04"'),"item-wise sales history must default to the last calendar month");
+ assert(actions.includes("Item Price")&&actions.includes("sales-invoice-approval"),"price list and invoice-submit check entry points are present");
  // Group titles are the entrance to the module workspace, so each block is a one-click jump.
  for (const workspace of ["Selling","Stock","Buying","Invoicing"])
   assert(actions.includes('data-workspace="'+workspace+'"'),"missing workspace link: "+workspace);
@@ -101,6 +103,7 @@ setImmediate(async()=>{
  actionHandler.call({dataset:{utility:"print_settings"}});assert.deepEqual(routes.pop(),["Form","Print Settings"]);
  actionHandler.call({dataset:{utility:"print_designer"}});assert.deepEqual(routes.pop(),["print-designer"]);
  actionHandler.call({dataset:{utility:"a4_print_designer"}});assert.deepEqual(routes.pop(),["a4-print-designer"]);
+ actionHandler.call({dataset:{utility:"sales_invoice_approval"}});assert.deepEqual(routes.pop(),["sales-invoice-approval"]);
  actionHandler.call({dataset:{utility:"label_print"}});actionHandler.call({dataset:{utility:"promotion"}});actionHandler.call({dataset:{utility:"pos_closing"}});
  assert.deepEqual(calls,["label","promotion","pos"]);
  actionHandler.call({dataset:{utility:"xpos"}});assert.equal(opened.at(-1)[0],"/desk/x-pos?sidebar=X%20POS");

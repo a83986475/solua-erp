@@ -272,6 +272,8 @@ def _permissions():
         "new_item": _can_create("Item"),
         "read_item": _can_read("Item"),
         "read_bin": _can_read("Bin"),
+        "read_stock_ledger": _can_read("Stock Ledger Entry"),
+        "read_pick_list": _can_read("Pick List"),
         "new_stock_entry": _can_create("Stock Entry"),
         "read_stock_entry": _can_read("Stock Entry"),
         "read_stock_reconciliation": _can_read("Stock Reconciliation"),

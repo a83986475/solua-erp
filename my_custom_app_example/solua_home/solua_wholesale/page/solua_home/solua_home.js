@@ -81,10 +81,23 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 
 	function utility_action(label, key, allowed = false) {
 		if (!allowed) return "";
-		const hrefs = { print_settings: "/app/print-settings", print_designer: "/app/print-designer", a4_print_designer: "/desk/a4-print-designer", wholesale_print_format: "/app/print-format" };
+		const hrefs = { print_settings: "/app/print-settings", print_designer: "/app/print-designer", a4_print_designer: "/desk/a4-print-designer", wholesale_print_format: "/app/print-format", sales_invoice_approval: "/desk/sales-invoice-approval" };
 		const href = hrefs[key] ? ` href="${text(hrefs[key])}"` : "";
 		const tag = href ? "a" : "button";
 		return `<${tag} class="btn btn-default btn-sm solua-home-action" data-utility="${text(key)}"${href}>${text(label)}</${tag}>`;
+	}
+
+	function report_action(label, report, allowed = false, filters = {}) {
+		if (!allowed) return "";
+		const today = dashboard_data?.query_time?.slice(0, 10);
+		const dated = ["Item-wise Sales History", "Sales Order Analysis", "Sales Register", "Gross Profit", "Stock Balance", "Stock Ledger"].includes(report);
+		const dates = dated && today ? {from_date: frappe.datetime.add_months(today, -1), to_date: today} : {};
+		return `<button type="button" class="btn btn-default btn-sm" data-report="${text(report)}" data-report-filters="${text(JSON.stringify({company: dashboard_data?.company, ...dates, ...filters}))}">${text(label)}</button>`;
+	}
+
+	function filtered_action(label, doctype, allowed, filters) {
+		if (!allowed) return "";
+		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-filters="${text(JSON.stringify({company: dashboard_data?.company, ...filters}))}">${text(label)}</button>`;
 	}
 
 	// The group header doubles as the entrance to the module workspace, so the block is
@@ -140,6 +153,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		root.find('[data-role="report-links"]').append(`<button type="button" class="btn btn-default btn-sm" data-sidebar-open="1">${__("打开批发侧栏")}</button>`);
 		root.find('[data-role="quick-actions"]').html([
 			new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
+			report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 			utility_action(__("按订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
 			permissions.read_delivery_note && permissions.read_sales_invoice ? `<button class="btn btn-default btn-sm" data-scroll="billing">${__("待开票客户")}</button>` : "",
 			new_action(__("新建收款单"), "Payment Entry", permissions.new_payment_entry),
@@ -271,18 +285,29 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			action_group(__("销售"), { workspace: "Selling", fallback: "Sales Order" }, [
 				new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
 				view_action(__("销售订单"), "Sales Order", permissions.read_sales_order),
+				report_action(__("销售订单分析报表"), "Sales Order Analysis", permissions.read_sales_order),
+				report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 				new_action(__("新建交货单"), "Delivery Note", permissions.new_delivery_note),
 				utility_action(__("按销售订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
 				view_action(__("交货单"), "Delivery Note", permissions.read_delivery_note),
+				report_action(__("送货汇总报表"), "Solua Delivery Summary", permissions.read_delivery_note),
+				view_action(__("拣货单"), "Pick List", permissions.read_pick_list),
 				view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
+				report_action(__("销售发票明细报表"), "Sales Register", permissions.read_sales_invoice),
+				filtered_action(__("待完成发票草稿"), "Sales Invoice", permissions.read_sales_invoice, {docstatus: 0}),
+				filtered_action(__("销售退货"), "Sales Invoice", permissions.read_sales_invoice, {is_return: 1}),
 				view_action(__("POS 销售单"), "POS Invoice", permissions.read_pos_invoice),
 				view_action(__("报价单"), "Quotation", permissions.read_quotation),
 				view_action(__("客户/门店"), "Customer", permissions.read_customer),
+				view_action(__("价格表"), "Item Price", permissions.read_item_price),
 				utility_action(__("优惠/促销管理"), "promotion", permissions.new_pricing_rule),
 			], Boolean(permissions.read_sales_order || permissions.new_sales_order || permissions.read_delivery_note || permissions.new_delivery_note || permissions.read_sales_invoice || permissions.read_pos_invoice || permissions.read_quotation || permissions.new_pricing_rule)),
 			action_group(__("库存"), { workspace: "Stock", fallback: "Item" }, [
 				new_action(__("新建物料"), "Item", permissions.new_item),
 				view_action(__("物料列表"), "Item", permissions.read_item),
+				report_action(__("库存树报表"), "Template Stock Tree", permissions.read_bin, {warehouse: current_warehouse}),
+				report_action(__("库存余额报表"), "Stock Balance", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
+				report_action(__("库存流水报表"), "Stock Ledger", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
 				action(__("库存入库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Receipt", stock_entry_type: "Material Receipt" }),
 				action(__("物料出库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue", stock_entry_type: stock_entry_types.issue || "Material Issue" }),
 				action(__("领用"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Issue", stock_entry_type: stock_entry_types.consumption || "领用" }),
@@ -301,7 +326,12 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				view_action(__("供应商"), "Supplier", permissions.read_supplier),
 			], Boolean(permissions.read_purchase_order || permissions.new_purchase_order || permissions.new_purchase_receipt || permissions.read_purchase_receipt || permissions.read_purchase_invoice || permissions.read_supplier)),
 			action_group(__("财务"), { workspace: "Invoicing", fallback: "Sales Invoice" }, [
+				report_action(__("经营金额报表"), "Solua Business Totals", permissions.read_sales_invoice),
+				report_action(__("应收账款报表"), "Accounts Receivable", permissions.read_sales_invoice, {report_date: dashboard_data?.query_time?.slice(0, 10)}),
+				report_action(__("销售毛利报表"), "Gross Profit", permissions.read_sales_invoice),
+				filtered_action(__("未收款发票"), "Sales Invoice", permissions.read_sales_invoice, {docstatus: 1, outstanding_amount: [">", 0]}),
 				view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
+				utility_action(__("销售发票提交检查"), "sales_invoice_approval", permissions.read_sales_invoice),
 				view_action(__("采购发票"), "Purchase Invoice", permissions.read_purchase_invoice),
 				new_action(__("新建收款单"), "Payment Entry", permissions.new_payment_entry),
 				view_action(__("收付款单"), "Payment Entry", permissions.read_payment_entry),
@@ -465,6 +495,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		if (utility === "print_designer") return frappe.set_route("print-designer");
 		if (utility === "a4_print_designer") return frappe.set_route("a4-print-designer");
 		if (utility === "wholesale_print_format") return open_print_format_editor();
+		if (utility === "sales_invoice_approval") return frappe.set_route("sales-invoice-approval");
 		if (utility === "label_print") {
 			if (typeof window.solua_home?.label_print?.open === "function") return window.solua_home.label_print.open();
 			return frappe.msgprint(__("标签打印功能尚未加载，请刷新后重试。"));
