@@ -7,7 +7,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		remaining: "Qt. restante / 剩余", qty: "Qt/数量", picked: "Qt separado / 已拣", uom: "Un.", rate: "Prc",
 		amount: "Valor / 金额", additional_notes: "补充说明", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
 	};
-	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", footer: "页脚页码" };
+	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", order_total_box: "订单总额金色外框", footer: "页脚页码" };
 	const base = ["image", "name", "spu", "sku", "color_code", "barcode", "description"];
 	const columns = {
 		"Sales Order": ["additional_notes", "qty", "uom", "rate", "amount"],
@@ -21,7 +21,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		"Delivery Note": { image: 6, name: 10, spu: 8, sku: 10, color_code: 6, barcode: 8, description: 11, ordered: 9, remaining: 9, qty: 8, uom: 5, rate: 5, amount: 6, trace: 5 },
 		"Pick List": { image: 8, name: 14, spu: 8, sku: 12, color_code: 7, barcode: 11, description: 16, qty: 7, picked: 7, uom: 5, warehouse: 8, order: 5 },
 	};
-	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, footer: true, legacy_warning: false, legacy_controls: false };
+	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, order_total_box: false, footer: true, legacy_warning: false, legacy_controls: false };
 	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true, custom_print_additional_notes: true };
 	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: false };
 	const config = {
@@ -93,7 +93,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		const colgroup = cols.map(key => `<col style="width:${(widths[key] || 1).toFixed(3)}%">`).join("");
 		const currency = preview.currency ? ` ${esc(preview.currency)}` : "";
 		const cash = preview.cash_discount && preview.cash_discount.enabled ? `<div class="a4d-cash-summary"><div>现金付款折扣 / Desconto pronto pagamento (${esc(preview.cash_discount.rate)}%): -${Number(preview.cash_discount.amount || 0).toLocaleString("en-US")} ${esc(preview.currency || "")}</div><div><b>现金实收 / Valor recebido em numerário: ${Number(preview.cash_discount.cash_paid || 0).toLocaleString("en-US")} ${esc(preview.currency || "")}</b></div></div>` : "";
-		const totals = config.doctype === "Sales Invoice" ? `<div class="a4d-totals"><div class="a4d-total">发票总额 / Invoice total: ${esc(preview.total)}${currency}</div>${cash}</div>` : (config.doctype === "Sales Order" ? `<div class="a4d-total">Total / 含税合计: ${esc(preview.total)}${currency}</div>` : "");
+		const totals = config.doctype === "Sales Invoice" ? `<div class="a4d-totals"><div class="a4d-total">发票总额 / Invoice total: ${esc(preview.total)}${currency}</div>${cash}</div>` : (config.doctype === "Sales Order" ? (config.features.order_total_box ? `<div class="a4d-totals"><div class="a4d-total">Total / 含税合计: ${esc(preview.total)}${currency}</div></div>` : `<div class="a4d-total">Total / 含税合计: ${esc(preview.total)}${currency}</div>`) : "");
 		const warning = preview.docstatus === 0 ? '<div style="color:#a35c00;margin:3mm 0">RASCUNHO / 草稿 — Documento não oficial / 非正式凭证</div>' : (preview.docstatus === 2 ? '<div style="color:#a35c00;margin:3mm 0">CANCELADO / 已取消 — Documento não oficial / 非正式凭证</div>' : "");
 		const payment = `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">Plano de pagamento / 付款安排: ${esc(preview.payment_method || "未维护")} · Depósito / 定金: ${esc(preview.deposit || 0)} · Vencimento do saldo / 尾款到期: ${esc(preview.balance_due_date || "—")}<br>Plano de faturação / 开票安排: ${esc(preview.invoice_plan || "未维护")}</div>`;
 		const schedule = config.features.payment_schedule && (preview.payment_schedule || []).length ? `<table><thead><tr><th>Condições de pagamento / 付款条件</th><th>Data de vencimento / 到期日</th><th>Valor / 金额</th></tr></thead><tbody>${preview.payment_schedule.map(row => `<tr><td>${esc(row.payment_term)}</td><td>${esc(row.due_date)}</td><td>${esc(row.payment_amount)}</td></tr>`).join("")}</tbody></table>` : "";

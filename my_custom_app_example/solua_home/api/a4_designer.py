@@ -37,6 +37,7 @@ FEATURE_DEFAULTS = {
 	"payment_schedule": False,
 	"color_qr": False,
 	"additional_notes": False,
+	"order_total_box": False,
 	"footer": True,
 	"legacy_warning": False,
 	"legacy_controls": False,
@@ -437,6 +438,11 @@ def _template(config):
 		cash = ('{% set cd = p.get("cash_discount") or {} %}{% if cd.get("enabled") %}'
 		        '<div class="cash-summary"><div>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%): -{{ format_print_money(cd.amount, currency=doc.currency) }}</div>'
 		        '<div><b>现金实收 / Valor recebido em numerário: {{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></div></div>{% endif %}')
+	order_total = ''
+	if doctype == "Sales Order":
+		order_total = ('<div class="totals"><div class="total">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div></div>'
+		               if features.get("order_total_box") else
+		               '<div class="total">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>')
 	return (FORMAT_META.format(meta) + "{{ get_solua_print_css() }}<style>" + css + "</style>" + controls
 	        + f"{{% set p = {provider} %}}{{% set company = p.get('company') or {{}} %}}{{% set customer = p.get('customer') or {{}} %}}"
 	        + '<table class="brand"><tr><td class="brand-logo">{% if company.get("logo") %}<img class="company-logo" src="{{ company.logo | e }}" alt="Company Logo">{% endif %}</td><td class="brand-title"><h2>' + title + '</h2></td></tr></table>'
@@ -444,7 +450,7 @@ def _template(config):
 	        + "<table class=\"parties\"><tr><td><b>{{ company.name | e }}</b><br>NUIT: {{ company.nuit | e }}<br>{{ company.address }}<br>Tel: {{ company.phone | e }}</td><td><b>Cliente / 客户: {{ customer.name | e }}</b><br>NUIT: {{ customer.nuit or 'Não informado / 未提供' | e }}<br>Loja / 门店: {{ customer.store | e }}<br>{{ customer.address }}<br>{{ customer.contact }} · {{ customer.phone | e }}</td></tr>" + meta_rows + "</table>"
 	        + f'<table class="items"><colgroup>{cols}</colgroup><thead><tr><th colspan="{len(keys)}">{table_title}</th></tr><tr>{headers}</tr></thead><tbody>{{% for item in {items} %}}<tr>{cells}</tr>{{% endfor %}}</tbody></table>'
 	        + '<div class="qty-total">Total Qty / 总数量: {{ format_print_qty(p.get("total_qty") or 0) }}</div>'
-	        + (("<div class=\"totals\"><div class=\"total\">发票总额 / Invoice total: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" + cash + "</div>") if doctype == "Sales Invoice" else ("<div class=\"total\">Total / 含税合计: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" if doctype == "Sales Order" else ""))
+	        + (("<div class=\"totals\"><div class=\"total\">发票总额 / Invoice total: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" + cash + "</div>") if doctype == "Sales Invoice" else order_total)
 	        + closing + qr + footer)
 
 

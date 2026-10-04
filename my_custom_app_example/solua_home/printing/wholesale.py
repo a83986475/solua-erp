@@ -473,7 +473,7 @@ def get_pick_list_rows(doc):
             "item_code": item_code,
             "item_name": row.get("item_name") or item_code,
             "spu": get_item_spu(item_code),
-            "order_code": color.get("order_code") or item_code,
+            "order_code": item_code,
             "color_code": color.get("color_code") or "",
             "color": color.get("color_name") or "",
             "barcode": display.get("barcode") or "",
