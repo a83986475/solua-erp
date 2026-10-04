@@ -23,18 +23,18 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	};
 	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, footer: true, legacy_warning: false, legacy_controls: false };
 	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true, custom_print_additional_notes: true };
-	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: true };
+	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: false };
 	const config = {
 		doctype: types[0],
 		visible: Object.fromEntries(types.map(type => [type, Object.fromEntries([...base, ...columns[type]].map(key => [key, key !== "image" && key !== "additional_notes"]))])),
 		widths: Object.fromEntries(types.map(type => [type, JSON.parse(JSON.stringify(defaults[type]))])),
-		settings: { ...defaultSettings, itemBordersByDoctype: Object.fromEntries(types.map(type => [type, true])) },
+		settings: { ...defaultSettings, itemBordersByDoctype: Object.fromEntries(types.map(type => [type, false])) },
 		features: { ...defaultFeatures },
 		control_defaults: { ...defaultControlDefaults },
 	};
 	const currentSettings = () => {
 		const map = config.settings.itemBordersByDoctype || (config.settings.itemBordersByDoctype = Object.fromEntries(types.map(type => [type, !!config.settings.itemBorders])));
-		config.settings.itemBorders = map[config.doctype] !== undefined ? !!map[config.doctype] : true;
+		config.settings.itemBorders = map[config.doctype] !== undefined ? !!map[config.doctype] : false;
 		return config.settings;
 	};
 	config.visible["Delivery Note"].qty = false;
@@ -52,7 +52,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	root.find('[data-action="load-preview"]').after('<button class="btn btn-default" data-action="export-pdf">导出当前单据 PDF</button>');
 	root.find('[data-action="open-format"]').after('<button class="btn btn-default" data-action="toggle-disabled">停用/启用选中格式</button><button class="btn btn-danger" data-action="delete-format">删除选中格式</button>');
 	root.find('[data-action="save"]').after('<button class="btn btn-success" data-action="publish">发布新版本并设为当前格式</button>');
-	root.find('[data-setting="headBg"]').closest("label").after('<label class="a4d-field">商品信息边框（当前单据类型）<input data-setting="itemBorders" type="checkbox" checked></label>');
+	root.find('[data-setting="headBg"]').closest("label").after('<label class="a4d-field">商品信息边框（当前单据类型）<input data-setting="itemBorders" type="checkbox"></label>');
 	const call = (method, args = {}) => frappe.call({ method: `solua_home.api.a4_designer.${method}`, args }).then(r => r.message);
 	const status = text => root.find('[data-role="status"]').text(text);
 	const esc = value => frappe.utils.escape_html(String(value == null ? "" : value));

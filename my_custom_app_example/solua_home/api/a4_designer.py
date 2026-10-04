@@ -308,7 +308,8 @@ def _validate_config(config):
 		if not isinstance(value, str) or not HEX_RE.fullmatch(value):
 			frappe.throw(_("Invalid color"))
 		clean_settings[key] = value.lower()
-	item_borders = settings.get("itemBorders", True)
+	# New visual designs start borderless; saved formats keep their explicit value.
+	item_borders = settings.get("itemBorders", False)
 	if not isinstance(item_borders, bool):
 		frappe.throw(_("Invalid layout setting: itemBorders"))
 	clean_settings["itemBorders"] = item_borders
@@ -379,7 +380,7 @@ def _template(config):
 	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Factura / 销售单",
 	         "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单"}[doctype]
 	settings = config["settings"]
-	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", True)) else "0"
+	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", False)) else "0"
 	css = (f'@page{{size:A4;margin:0}} .print-format{{width:210mm;min-height:297mm;padding:{settings["pageMargin"]}mm;box-sizing:border-box;color:#25313a;font-size:{settings["fontSize"]}pt;overflow-wrap:anywhere}}'
 	       f'h1{{font-size:{settings["titleSize"]}pt;color:{settings["titleColor"]}}}.items{{width:100%;table-layout:fixed;border-collapse:collapse;font-size:{settings["fontSize"]}pt;line-height:{settings["lineHeight"]}}}'
 	       f'.items th{{font-size:{settings["headSize"]}pt;background:{settings["headBg"]}}}.items th,.items td{{padding:{settings["cellPadding"]}mm;border:{item_border};vertical-align:top;overflow-wrap:anywhere}}'
