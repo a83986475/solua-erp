@@ -10,6 +10,11 @@
 > - **状态**：本地示例副本 / GitHub `721e541` / 服务器三处一致，POS 扫码选色与 get_items 拦截已验证生效
 > - ⚠️ 本文档后续命令/路径中的 `solua_home` 即为当前模块名（历史操作如 `bench new-app solua_home` 按新名执行即可）
 
+> 🏗️ **2026-10-04 架构治理更新**
+> - 已确认当前 `a83986475/solua-erp` 实际为“完整 ERPNext fork + SOLUA 自定义代码”，并非纯 `solua_home` 独立 App。
+> - 从现在起采用“冻结现有边界、所有新功能进入独立 SOLUA App、旧模块渐进迁移”的策略，禁止继续把新的 SOLUA 业务逻辑直接堆入 ERPNext core。
+> - ERPNext 上游更新必须人工审查 `.github/workflows`、tests 和核心差异，不再无条件同步官方 release/backport/translation/定时 CI。
+> - 完整目标架构、目录分类、迁移阶段和 CI 规则见仓库根目录 **`SOLUA_ARCHITECTURE.md`**。
 > 🔄 **2026-09-01 变更记录：补充 xPos 最终架构、同步排错、权限/翻译规则与商品建档记录**
 > - 明确服务器 ERPNext 账号、xPos 本地账号、同步服务账号三者职责，避免把 `Administrator`、本地 `admin` 和收银员混用
 > - 固化 POS Profile 可多人共用、收银员按登录身份核验；同步 API Key/Secret 只属于服务账号，不使用 cashier 的 API
@@ -78,8 +83,9 @@
 | **本地开发** | WSL2: `~/frappe-bench/` | 编码、调试、测试 | `bench start` (开发服务器) |
 | **生产服务器** | 服务器: `/home/xxx/frappe-bench/` | 正式运行 | `supervisor` + `nginx` |
 
-**核心原则：永远不要修改 `apps/erpnext/` 和 `apps/frappe/` 中的源码！**
-所有定制都在自定义 App 中完成。
+**目标原则：`apps/erpnext/` 和 `apps/frappe/` 保持接近官方源码，SOLUA 新功能统一进入独立自定义 App。**
+
+> ⚠️ 当前仓库尚未完全达到这一目标：`solua-erp` 仍是 ERPNext fork 与 SOLUA 自定义代码混合状态。现有生产代码暂不一次性搬迁，按 `SOLUA_ARCHITECTURE.md` 的渐进迁移方案执行。
 
 ---
 
