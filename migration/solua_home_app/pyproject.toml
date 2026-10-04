@@ -1,0 +1,19 @@
+[project]
+name = "solua_home"
+version = "0.1.0"
+description = "SOLUA HOME customizations for Frappe/ERPNext"
+authors = [
+    { name = "Solua Home, Lda", email = "admin@solua.one" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "qrcode[pil]>=7.4,<9"
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<18.0.0"
+erpnext = ">=16.0.0,<18.0.0"
