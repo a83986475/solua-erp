@@ -24,6 +24,11 @@ def validate_sales_document(doc, method=None):
         row.discounted_amount = 0
 
 
+def before_validate_sales_document(doc, method=None):
+    if excludes_cash_discount(doc) and doc.get("payment_terms_template") == "PRONTO PAGAMENTO":
+        frappe.throw(_("3级批发价不适用现金付款3%折扣，请选择不含折扣的付款条款。"))
+
+
 def payment_is_excluded(doc):
     if excludes_cash_discount(doc):
         return True

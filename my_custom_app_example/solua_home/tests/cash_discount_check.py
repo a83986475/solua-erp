@@ -41,6 +41,13 @@ for doc in (payment("AN LAN"), payment(invoice="level3")):
         raise AssertionError("Level three cash discount was accepted")
 module.validate_payment_entry(payment())
 module.validate_payment_entry(payment("AN LAN", deduction=0))
+try:
+    module.before_validate_sales_document(Doc(customer="AN LAN", payment_terms_template="PRONTO PAGAMENTO"))
+except Blocked:
+    pass
+else:
+    raise AssertionError("Discount-bearing cash payment terms were accepted for level three")
+module.before_validate_sales_document(Doc(customer="ordinary", payment_terms_template="PRONTO PAGAMENTO"))
 module.validate_payment_entry(Doc(party_type="Supplier", deductions=[Doc(account="Discount Allowed - SH", amount=3)]))
 row = Doc(discount=3, discount_type="Percentage", discounted_amount=3, discount_date="2026-10-09")
 module.validate_sales_document(Doc(selling_price_list="Wholesale Selling 3", payment_schedule=[row]))
