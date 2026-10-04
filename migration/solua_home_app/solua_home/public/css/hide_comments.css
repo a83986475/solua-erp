@@ -1,0 +1,18 @@
+/* ============================================
+   solua_home: 隐藏表单页面的评论输入框，保留活动时间线
+   表单底部结构：.form-footer > .after-save > .comment-box + .timeline
+   - .comment-box   = 评论输入框（要隐藏）
+   - .timeline      = 活动时间线（要保留）
+   ============================================ */
+
+/* 评论输入框 */
+.form-footer .after-save > .comment-box {
+	display: none !important;
+}
+
+/* 保险：直接挂载在 form-footer 下的评论框 */
+.form-footer > .comment-box {
+	display: none !important;
+}
+
+/* 活动时间线保持可见（默认即显示，无需额外规则） */
