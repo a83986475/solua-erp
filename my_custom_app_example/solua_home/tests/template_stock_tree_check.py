@@ -5,14 +5,18 @@ from pathlib import Path
 
 source = Path(__file__).parents[1] / "solua_wholesale/report/template_stock_tree/template_stock_tree.py"
 tree = ast.parse(source.read_text(encoding="utf-8"))
-functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_report_values", "group_rows"}]
+functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_filter_items", "_report_values", "group_rows"}]
 namespace = {"json": json, "flt": float}
+namespace["cint"] = int
 exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
 items = {
     "TPL": dict(name="TPL", item_name="Template", has_variants=1, stock_uom="条"),
     "RED": dict(name="RED", item_name="Red", variant_of="TPL", stock_uom="条"),
     "BLUE": dict(name="BLUE", item_name="Blue", variant_of="TPL", stock_uom="条"),
 }
+assert set(namespace["_filter_items"](items, True)) == {"TPL", "RED", "BLUE"}
+assert "SH151060-LEGACY" not in namespace["_filter_items"]({"SH151060-LEGACY": {}}, True)
+assert "SH151060-LEGACY" in namespace["_filter_items"]({"SH151060-LEGACY": {}}, False)
 bins = [dict(item_code="RED", warehouse="A", actual_qty=20, reserved_qty=6),
         dict(item_code="BLUE", warehouse="A", actual_qty=34, reserved_qty=0),
         dict(item_code="RED", warehouse="B", actual_qty=2, reserved_qty=3)]

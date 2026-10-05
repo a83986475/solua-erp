@@ -3,7 +3,13 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
+
+
+def _filter_items(items, exclude_legacy):
+    if not exclude_legacy:
+        return items
+    return {name: item for name, item in items.items() if "LEGACY" not in name.upper()}
 
 def _report_values(item, actual, reserved, opening=0, sold=0):
     """Return report quantities in the item's configured sales UOM when safe."""
@@ -77,6 +83,7 @@ def execute(filters=None):
         "Item", filters={"is_stock_item": 1},
         fields=["name", "item_name", "variant_of", "has_variants", "stock_uom", "sales_uom"], limit_page_length=0
     )}
+    items = _filter_items(items, cint(filters.get("exclude_legacy")))
     sales_uom_factors = {
         (row.parent, row.uom): flt(row.conversion_factor)
         for row in frappe.get_all(
