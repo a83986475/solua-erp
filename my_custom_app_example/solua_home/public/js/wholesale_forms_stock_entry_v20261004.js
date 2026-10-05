@@ -338,6 +338,13 @@
 				} finally { busy = false; }
 			},
 		});
+		const sync_result_qty = () => {
+			const default_qty = Number(dialog.get_value("default_qty"));
+			if (!is_positive_integer(default_qty)) return;
+			for (const row of dialog.fields_dict.results.df.data || []) row.qty = default_qty;
+			dialog.fields_dict.results.grid.refresh();
+		};
+		dialog.fields_dict.default_qty.$input?.on("change.solua", sync_result_qty);
 		const set_selection = (value) => {
 			set_table_selection(dialog.fields_dict.results.grid.data, value);
 			dialog.fields_dict.results.grid.refresh();
