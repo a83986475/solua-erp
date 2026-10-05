@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-def _report_values(item, actual, reserved, opening=0):
+def _report_values(item, actual, reserved, opening=0, sold=0):
     """Return report quantities in the item's configured sales UOM when safe."""
     factor = flt(item.get("report_factor") or 1)
     uom = item.get("report_uom") or item.get("stock_uom")
@@ -18,13 +18,15 @@ def _report_values(item, actual, reserved, opening=0):
         "reserved_qty": flt(reserved) / factor,
         "available_qty": (flt(actual) - flt(reserved)) / factor,
         "opening_qty": flt(opening) / factor,
+        "sold_qty": flt(sold) / factor,
     }
 
 
-def group_rows(items, bins, warehouse="", opening_quantities=None):
+def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantities=None):
     groups = {}
     quantities = {}
     opening_quantities = opening_quantities or {}
+    sold_quantities = sold_quantities or {}
     for stock in bins:
         qty = quantities.setdefault(stock["item_code"], [0, 0])
         qty[0] += flt(stock["actual_qty"])
@@ -39,7 +41,7 @@ def group_rows(items, bins, warehouse="", opening_quantities=None):
         if key not in groups:
             groups[key] = []
         actual, reserved = quantities.get(item["name"], [0, 0])
-        groups[key].append({**_report_values(item, actual, reserved, opening_quantities.get(item["name"], 0)), "warehouse": warehouse})
+        groups[key].append({**_report_values(item, actual, reserved, opening_quantities.get(item["name"], 0), sold_quantities.get(item["name"], 0)), "warehouse": warehouse})
     for item in items.values():
         if item.get("has_variants") and not any(key[0] == item["name"] for key in groups):
             groups[(item["name"], item.get("report_uom") or item["stock_uom"])] = []
@@ -53,7 +55,7 @@ def group_rows(items, bins, warehouse="", opening_quantities=None):
                 "item_code": code, "item_name": items[code]["item_name"],
                 "warehouse": warehouse, "stock_uom": items[code].get("report_uom") or uom,
                 **{field: sum(row[field] for row in children)
-                   for field in ("actual_qty", "reserved_qty", "available_qty", "opening_qty")},
+                   for field in ("actual_qty", "reserved_qty", "available_qty", "opening_qty", "sold_qty")},
             })
             for child in sorted(children, key=lambda row: row["item_code"]):
                 rows.append({**child, "node_id": json.dumps((*key, child["item_code"])),
@@ -116,6 +118,19 @@ def execute(filters=None):
                 fields=["item_code", "qty"], limit_page_length=0,
             ):
                 opening_quantities[row.item_code] = opening_quantities.get(row.item_code, 0) + flt(row.qty)
+    sold_quantities = {}
+    if warehouses and items:
+        for row in frappe.get_all(
+            "Stock Ledger Entry",
+            filters={
+                "warehouse": ["in", warehouses],
+                "item_code": ["in", list(items)],
+                "voucher_type": ["in", ["Delivery Note", "Sales Invoice"]],
+                "is_cancelled": 0,
+            },
+            fields=["item_code", "actual_qty"], limit_page_length=0,
+        ):
+            sold_quantities[row.item_code] = sold_quantities.get(row.item_code, 0) - flt(row.actual_qty)
     if filters.template:
         items = {name: item for name, item in items.items()
                  if name == filters.template or item.get("variant_of") == filters.template}
@@ -129,4 +144,5 @@ def execute(filters=None):
                    for field, label in [("actual_qty", "实际数量"), ("reserved_qty", "销售预留数量"), ("available_qty", "可用数量")])
     warehouse_label = filters.warehouse or _("全部有权限仓库")
     columns.insert(4, {"fieldname": "opening_qty", "label": _("初始库存"), "fieldtype": "Float", "precision": "0", "width": 130})
-    return columns, group_rows(items, bins, warehouse_label, opening_quantities) if warehouses else []
+    columns.insert(5, {"fieldname": "sold_qty", "label": _("已销售数量"), "fieldtype": "Float", "precision": "0", "width": 130})
+    return columns, group_rows(items, bins, warehouse_label, opening_quantities, sold_quantities) if warehouses else []

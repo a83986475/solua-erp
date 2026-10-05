@@ -22,6 +22,9 @@ assert (rows[0]["actual_qty"], rows[0]["reserved_qty"], rows[0]["available_qty"]
 opening_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34})
 assert next(row for row in opening_rows if row["item_code"] == "TPL")["opening_qty"] == 54
 assert next(row for row in opening_rows if row["item_code"] == "RED")["opening_qty"] == 20
+sales_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, sold_quantities={"RED": 4, "BLUE": 12})
+assert next(row for row in sales_rows if row["item_code"] == "TPL")["sold_qty"] == 16
+assert next(row for row in sales_rows if row["item_code"] == "RED")["sold_qty"] == 4
 assert rows[1]["parent_id"] == rows[0]["node_id"] and rows[1]["indent"] == 1
 assert namespace["group_rows"](items, [bins[2]])[2]["available_qty"] == -1
 assert len({row["node_id"] for row in rows}) == len(rows)
