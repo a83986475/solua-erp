@@ -20,10 +20,25 @@ const CASH_DISCOUNT_RATE = 3;
 const CASH_DISCOUNT_ACCOUNT = "Discount Allowed - SH";
 const CASH_DISCOUNT_COST_CENTER = "Main - SH";
 
+// 抹零：直接抹去小数位（向零截断），不做四舍五入。
+function truncate_decimals(value) {
+	const cents = Math.round((Number(value) || 0) * 100) / 100;
+	return cents < 0 ? Math.ceil(cents) : Math.floor(cents);
+}
+
+// 现金折扣 = 毛额 × rate% 后再抹零；抹掉的零头和折扣一起进抵扣，
+// 所以 discount 必须等于毛额与实收的精确差额，保证 实收 + 抵扣 = 毛额。
 function calculate_pronto_pagamento(gross, rate = CASH_DISCOUNT_RATE) {
 	const total = Number(gross) || 0;
-	const discount = Math.round(((total * rate) / 100) * 100) / 100;
-	return { discount, net: Math.round((total - discount) * 100) / 100 };
+	const net = truncate_decimals((total * (100 - rate)) / 100);
+	const discount = Math.round((total - net) * 100) / 100;
+	return { discount, net };
+}
+
+function has_cash_discount(frm) {
+	return (frm.doc?.deductions || []).some(
+		(row) => row.account === CASH_DISCOUNT_ACCOUNT && flt(row.amount),
+	);
 }
 
 function clear_pronto_pagamento(frm) {
@@ -39,7 +54,7 @@ function clear_pronto_pagamento(frm) {
 	frm.refresh_fields(["paid_amount", "received_amount", "deductions"]);
 }
 
-async function apply_pronto_pagamento(frm) {
+async function apply_pronto_pagamento(frm, options = {}) {
 	if (!frm?.doc || frm.doc.docstatus !== 0) return;
 	const request = (frm.__solua_cash_discount_request || 0) + 1;
 	frm.__solua_cash_discount_request = request;
@@ -48,6 +63,11 @@ async function apply_pronto_pagamento(frm) {
 		(frm.doc.mode_of_payment && frm.doc.mode_of_payment !== "Cash")
 	) {
 		clear_pronto_pagamento(frm);
+		return;
+	}
+	// 只补空：重新打开或保存后刷新时，已经填过现金折扣就不再重算覆盖，
+	// 否则用户手改的实收与抵扣会被脚本改回自动算出的值。
+	if (options.only_if_missing && (frm.__solua_cash_discount_applied || has_cash_discount(frm))) {
 		return;
 	}
 	const references = (frm.doc.references || []).filter((row) => row.reference_doctype === "Sales Invoice");
@@ -105,7 +125,7 @@ async function apply_pronto_pagamento(frm) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento };
+	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento, truncate_decimals };
 }
 
 if (typeof frappe !== "undefined") {
@@ -113,17 +133,17 @@ if (typeof frappe !== "undefined") {
 		onload_post_render: apply_payment_entry_labels,
 		refresh(frm) {
 			apply_payment_entry_labels(frm);
-			apply_pronto_pagamento(frm);
+			apply_pronto_pagamento(frm, { only_if_missing: true });
 		},
-		custom_payment_term: apply_pronto_pagamento,
-		mode_of_payment: apply_pronto_pagamento,
-		party: apply_pronto_pagamento,
+		custom_payment_term: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		mode_of_payment: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		party: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 	});
 
 	frappe.ui.form.on("Payment Entry Reference", {
-		allocated_amount: apply_pronto_pagamento,
-		reference_name: apply_pronto_pagamento,
-		references_remove: apply_pronto_pagamento,
+		allocated_amount: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		reference_name: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		references_remove: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 	});
 
 	apply_payment_entry_labels(

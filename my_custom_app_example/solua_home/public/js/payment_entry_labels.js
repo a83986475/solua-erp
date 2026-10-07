@@ -20,10 +20,19 @@ const CASH_DISCOUNT_RATE = 3;
 const CASH_DISCOUNT_ACCOUNT = "Discount Allowed - SH";
 const CASH_DISCOUNT_COST_CENTER = "Main - SH";
 
+// 抹零：直接抹去小数位（向零截断），不做四舍五入。
+function truncate_decimals(value) {
+	const cents = Math.round((Number(value) || 0) * 100) / 100;
+	return cents < 0 ? Math.ceil(cents) : Math.floor(cents);
+}
+
+// 现金折扣 = 毛额 × rate% 后再抹零；抹掉的零头和折扣一起进抵扣，
+// 所以 discount 必须等于毛额与实收的精确差额，保证 实收 + 抵扣 = 毛额。
 function calculate_pronto_pagamento(gross, rate = CASH_DISCOUNT_RATE) {
 	const total = Number(gross) || 0;
-	const discount = Math.round(((total * rate) / 100) * 100) / 100;
-	return { discount, net: Math.round((total - discount) * 100) / 100 };
+	const net = truncate_decimals((total * (100 - rate)) / 100);
+	const discount = Math.round((total - net) * 100) / 100;
+	return { discount, net };
 }
 
 function clear_pronto_pagamento(frm) {

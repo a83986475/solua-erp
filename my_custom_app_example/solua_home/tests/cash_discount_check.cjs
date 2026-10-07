@@ -30,6 +30,9 @@ function form() {
   await apply_pronto_pagamento(frm);
   assert.equal(frm.doc.paid_amount, 100);
   assert.equal(calculate_pronto_pagamento(154500).net, 149865);
+  const truncated = calculate_pronto_pagamento(114840);
+  assert.equal(truncated.discount, 3446);
+  assert.equal(truncated.net, 111394);
   let resolve;
   context.frappe.call = () => new Promise(done => {resolve = done;});
   const stale = form();
@@ -39,5 +42,14 @@ function form() {
   resolve({message: {eligible: true}});
   await pending;
   assert.equal(stale.doc.paid_amount, 100);
-  console.log("PASS: excluded/ordinary customers, clearing, submitted guard, stale response");
+  // 刷新时只补空：已填好的现金折扣（含手改过的金额）不被重算覆盖
+  const kept = form();
+  kept.doc.deductions = [{account: "Discount Allowed - SH", amount: 3446}];
+  kept.doc.paid_amount = 111394;
+  kept.doc.received_amount = 111394;
+  await apply_pronto_pagamento(kept, {only_if_missing: true});
+  assert.equal(kept.doc.paid_amount, 111394);
+  assert.equal(kept.doc.received_amount, 111394);
+  assert.deepEqual(kept.doc.deductions.map(row => row.amount), [3446]);
+  console.log("PASS: excluded/ordinary customers, clearing, submitted guard, stale response, refresh keeps manual amounts");
 })().catch(error => {console.error(error); process.exitCode = 1;});
