@@ -198,10 +198,10 @@ export function formatPercent(value: number | string | null | undefined, precisi
 }
 
 /**
- * A quantity: formatted at `float_precision` but with trailing zeros trimmed, so
- * a whole `2` prints as `2` rather than `2.000`.
+ * Quantities default to whole units; explicit precision keeps fractional values.
+ * Trailing zeros are trimmed, so a whole `2` prints as `2` rather than `2.000`.
  */
-export function formatQty(value: number | string | null | undefined, precision?: number | null): string {
+export function formatQty(value: number | string | null | undefined, precision: number | null = 0): string {
 	const info = getNumberFormatInfo();
 	const formatted = formatFloat(value, precision);
 	if (!info.decimalStr || !formatted.includes(info.decimalStr)) return formatted;

@@ -176,9 +176,10 @@ describe("formatFloat, formatInt, formatPercent, formatQty", () => {
 		expect(formatPercent(12.5, 1)).toBe("12,5%");
 	});
 
-	it("trims the trailing zeros off a quantity", () => {
+	it("displays quantities as integers by default while retaining explicit precision", () => {
 		expect(formatQty(2)).toBe("2");
-		expect(formatQty(2.5)).toBe("2,5");
+		expect(formatQty(2.5)).toBe("3");
+		expect(formatQty(2.5, 1)).toBe("2,5");
 		expect(formatQty(1234)).toBe("1.234");
 	});
 
