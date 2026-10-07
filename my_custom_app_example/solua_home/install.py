@@ -158,6 +158,7 @@ def after_install():
     add_discount_approval_field()
     add_company_discount_settings()
     add_pos_profile_settings()
+    add_payment_entry_discount_field()
     configure_pos_tax()
     ensure_solua_stock_entry_types()
     sync_standard_print_formats()
@@ -177,19 +178,57 @@ def after_migrate():
 
 
 def sync_cash_discount_print_formats():
-    """Add the read-only cash-discount section to both app invoice formats."""
-    marker = "</table>\n{% if doc.get('custom_print_color_qr') %}"
-    block = "</table>\n{% set cd = p.get('cash_discount') or {} %}{% if cd.get('enabled') %}<table class='cash-discount'><tr><td><b>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)</b></td><td style='text-align:right'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr><tr><td><b>现金实收 / Valor recebido em numerário</b></td><td style='text-align:right'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr></table>{% endif %}\n{% if doc.get('custom_print_color_qr') %}"
-    for name in ("批发销售单（颜色版）", "批发销售单（颜色版）新版"):
+    """Keep cash discount inside the invoice total block for every custom format."""
+    wholesale_specs = {
+        "批发销售单（颜色版）": "4 + show_images + show_item_name + show_sku + show_color_code + show_description",
+        "批发销售单（颜色版）新版": "4 + show_images + show_item_name + show_sku + show_color_code + show_cor + show_description",
+    }
+    for name, colspan in wholesale_specs.items():
         if not frappe.db.exists("Print Format", name):
             continue
         doc = frappe.get_doc("Print Format", name)
-        if "cash_discount" in (doc.html or ""):
-            continue
-        if marker not in (doc.html or ""):
-            frappe.log_error(f"现金折扣打印区块插入标记不存在：{name}", "solua_home.print_formats")
-            continue
-        doc.html = doc.html.replace(marker, block, 1)
+        html = doc.html or ""
+        original = html
+        html = html.replace("{{ _('批发销售单') }}", "Factura / 销售单").replace("Venda por atacado / 批发销售单", "Factura / 销售单")
+        if "wholesale-cash-summary" not in html:
+            start = html.find("\n{% set cd = p.get('cash_discount') or {} %}")
+            end = html.find("\n{% if doc.get('custom_print_color_qr') %}", start)
+            if start >= 0 and end >= 0:
+                html = html[:start] + html[end:]
+            cash_rows = ("{% set cd = p.get('cash_discount') or {} %}{% if cd.get('enabled') %}"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)</td><td style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr>"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9'>现金实收 / Valor recebido em numerário</td><td style='text-align:right;background:#f5f1e9'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}")
+            marker = "</tfoot>\n</table>"
+            if marker in html:
+                html = html.replace(marker, cash_rows + marker, 1)
+        if "wholesale-title" in html and ".wholesale-cash-summary" not in html:
+            html = html.replace("<style>\n", "<style>\n  .wholesale-title { color: #99732c !important; }\n  .wholesale-items th { background: #f5f1e9 !important; }\n", 1)
+        if html != original:
+            doc.html = html
+            doc.save(ignore_permissions=True)
+
+    name = SALES_INVOICE_CASH_PRINT_FORMAT
+    if not frappe.db.exists("Print Format", name):
+        return
+    doc = frappe.get_doc("Print Format", name)
+    html = doc.html or ""
+    original = html
+    html = html.replace('{%- if doc.apply_discount_on == "Net Total" -%}', '{%- if doc.apply_discount_on == "Net Total" and (doc.additional_discount_percentage or 0) -%}')
+    html = html.replace('{%- if doc.apply_discount_on == "Grand Total" -%}', '{%- if doc.apply_discount_on == "Grand Total" and (doc.additional_discount_percentage or 0) -%}')
+    if "cash-summary" not in html:
+        cash_rows = ('\n\t\t\t\t{% set cash_discount = get_wholesale_print_data(doc).get("cash_discount") or {} %}\n\t\t\t\t{% if cash_discount.get("enabled") %}'
+                     '<tr class="cash-summary"><td colspan="2" class="text-right text-muted" style="border-top:2px solid #d8c49b;background:#f5f1e9;padding-right:30px !important;">现金付款折扣 ({{ cash_discount.rate }}%):</td><td class="text-right" style="border-top:2px solid #d8c49b;background:#f5f1e9;">-{{ format_print_money(cash_discount.amount, currency=doc.currency) }}</td></tr>'
+                     '<tr class="cash-summary"><td colspan="2" class="text-right text-muted" style="background:#f5f1e9;padding-right:30px !important;">现金实收:</td><td class="text-right" style="background:#f5f1e9;"><b>{{ format_print_money(cash_discount.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}\n')
+        start = html.find('{% set cash_discount = get_wholesale_print_data(doc).get("cash_discount") or {} %}')
+        end = html.find('\n\t\t<!-- Terms -->', start)
+        close = html.rfind('\n\t\t\t</table>\n\t\t</div>', 0, start if start >= 0 else len(html))
+        if close >= 0:
+            if start >= 0 and end >= 0:
+                html = html[:close] + cash_rows + html[close:start] + html[end:]
+            else:
+                html = html[:close] + cash_rows + html[close:]
+    if html != original:
+        doc.html = html
         doc.save(ignore_permissions=True)
 
 
@@ -210,6 +249,12 @@ def configure_sales_invoice_printing():
         },
         validate_fields_for_doctype=False,
     )
+    if not frappe.get_meta("POS Profile").has_field("default_print_format"):
+        return
+    for profile_name in frappe.get_all("POS Profile", filters={"company": "Solua Home, Lda"}, pluck="name"):
+        current = frappe.db.get_value("POS Profile", profile_name, "default_print_format")
+        if not current or current == "Sales Invoice with Item Image":
+            frappe.db.set_value("POS Profile", profile_name, "default_print_format", SALES_INVOICE_CASH_PRINT_FORMAT)
 
 
 def configure_pick_list_printing():
@@ -260,9 +305,44 @@ def sync_standard_print_formats():
             continue
         try:
             import_file_by_path(json_path, force=True, ignore_version=True)
+            _sync_additional_notes_print_format(folder)
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
+
+
+def _sync_additional_notes_print_format(folder):
+    """保持三种批发单据的补充说明开关和输出幂等。"""
+    specs = {
+        "sales_order_wholesale_color": (
+            "客户订单确认单（颜色版）",
+            "{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else 1 %}",
+            "{% if doc.get('custom_print_color_qr') %}",
+        ),
+        "delivery_note_guia_remessa": (
+            "Guia de Remessa",
+            "{% set show_traceability = 1 if traceability_setting and p.get('has_traceability') else 0 %}",
+            "{% if doc.get('custom_print_color_qr') %}",
+        ),
+        "pick_list_simple": (
+            "拣货单（简版）",
+            "{% set p = get_pick_list_print_data(doc) %}",
+            '<div id="footer-html"',
+        ),
+    }
+    spec = specs.get(folder)
+    if not spec:
+        return
+    name, set_marker, output_marker = spec
+    doc = frappe.get_doc("Print Format", name) if frappe.db.exists("Print Format", name) else None
+    if not doc or "custom_print_additional_notes" in doc.html:
+        return
+    show_set = "{% set show_additional_notes = doc.get('custom_print_additional_notes') if doc.get('custom_print_additional_notes') is not none else 1 %}"
+    note = "{% if show_additional_notes and doc.get('custom_additional_notes') %}<div class=\"block\">补充说明 / Observações: {{ doc.get('custom_additional_notes') | e }}</div>{% endif %}"
+    html = doc.html.replace(set_marker, set_marker + show_set, 1)
+    html = html.replace(output_marker, note + output_marker, 1)
+    doc.html = html
+    doc.save(ignore_permissions=True)
 
 
 def sync_standard_pages():
@@ -674,6 +754,31 @@ def add_pos_profile_settings():
     frappe.db.commit()
 
 
+def add_payment_entry_discount_field():
+    """Payment Entry shortcut for the standard same-day cash discount."""
+    field = {
+        "dt": "Payment Entry",
+        "fieldname": "custom_payment_term",
+        "label": "付款条件",
+        "fieldtype": "Select",
+        "options": "\nPRONTO PAGAMENTO",
+        "insert_after": "mode_of_payment",
+        "description": "选择后按引用发票总额自动填入3%现金折扣；付款单仍需手动提交。",
+    }
+    existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
+    if not existing:
+        frappe.get_doc({"doctype": "Custom Field", **field, "owner": "Administrator"}).insert(
+            ignore_permissions=True
+        )
+    else:
+        frappe.db.set_value(
+            "Custom Field",
+            existing,
+            {key: field[key] for key in ("label", "options", "insert_after", "description")},
+        )
+    frappe.db.commit()
+
+
 def configure_pos_tax():
     """POS 增值税配置（模式 A：标签价含税，价内税拆分）
 
@@ -985,17 +1090,25 @@ def add_sales_color_print_fields():
 def add_wholesale_fields(commit=True):
     """Add only the small snapshots needed for wholesale order/delivery prints."""
     fields = [
+        {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_html", "label": "差价明细（打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细打印快照，不参与会计计算。"},
+        {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_json", "label": "差价明细（结构化打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细结构化打印快照，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail", "label": "差价明细", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价摘要，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail_html", "label": "差价明细（打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细打印快照，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail_json", "label": "差价明细（结构化打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细结构化打印快照，不参与会计计算。"},
+    ] + [
         {"dt": dt, "fieldname": "custom_wholesale_snapshot", "label": "Wholesale print snapshot",
          "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "no_copy": 1}
         for dt in ("Sales Order", "Delivery Note")
     ] + [
         {"dt": "Sales Order", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
         {"dt": "Sales Order", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
+        {"dt": "Sales Order", "fieldname": "custom_store_address", "label": "客户门店地址记录", "fieldtype": "Link", "options": "Address", "hidden": 1, "read_only": 1, "no_copy": 1, "insert_after": "custom_store_phone"},
         {"dt": "Sales Order", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},
         {"dt": "Sales Order", "fieldname": "custom_payment_method", "label": "付款方式", "fieldtype": "Select", "options": "\n先款\n货到付款（COD）\n赊账\n定金+尾款", "insert_after": "payment_terms_template"},
         {"dt": "Sales Order", "fieldname": "custom_deposit_amount", "label": "定金金额", "fieldtype": "Currency", "insert_after": "custom_payment_method", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
         {"dt": "Sales Order", "fieldname": "custom_balance_due_date", "label": "尾款到期日", "fieldtype": "Date", "insert_after": "custom_deposit_amount", "depends_on": "eval:doc.custom_payment_method=='定金+尾款'"},
         {"dt": "Sales Order", "fieldname": "custom_invoice_plan", "label": "开票安排", "fieldtype": "Small Text", "insert_after": "terms"},
+        {"dt": "Sales Order", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_invoice_plan"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_images", "label": "订单显示颜色图片", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "letter_head"},
         {"dt": "Sales Order", "fieldname": "custom_print_color_qr", "label": "订单显示色卡二维码", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "insert_after": "custom_print_color_images"},
         {"dt": "Sales Order", "fieldname": "custom_print_item_name", "label": "订单显示商品名称", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_color_qr"},
@@ -1004,10 +1117,14 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_color_code", "label": "订单显示颜色", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_merge_order_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
+        {"dt": "Sales Order", "fieldname": "custom_print_additional_notes", "label": "订单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
-        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "insert_after": "due_date"},
-        {"dt": "Sales Invoice", "fieldname": "custom_approver", "label": "审批人", "fieldtype": "Link", "options": "User", "hidden": 0, "read_only": 0, "insert_after": "due_date"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_custom_tab", "label": "提交前检查", "fieldtype": "Tab Break", "insert_after": "connections_tab"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "insert_after": "custom_sales_invoice_custom_tab"},
+        {"dt": "Sales Invoice", "fieldname": "custom_approver", "label": "审批人", "fieldtype": "Link", "options": "User", "hidden": 0, "read_only": 0, "insert_after": "custom_sales_invoice_approval_summary"},
         {"dt": "Sales Invoice", "fieldname": "custom_approval_date", "label": "审批日期", "fieldtype": "Date", "hidden": 0, "read_only": 0, "insert_after": "custom_approver"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_payment_terms_section", "label": "付款条件", "fieldtype": "Section Break", "insert_after": "due_date"},
+        {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_payment_terms_notice", "label": "付款条件（现金付款可享3%折扣）", "fieldtype": "HTML", "insert_after": "custom_sales_invoice_payment_terms_section"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_missing_summary", "label": "提交资料", "fieldtype": "HTML", "insert_after": "address_and_contact_tab"},
         {"dt": "Delivery Note", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "contact_info"},
         {"dt": "Delivery Note", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
@@ -1018,6 +1135,7 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_section", "label": "开票资料", "fieldtype": "Section Break", "insert_after": "custom_source_warehouse_address"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_billing_info", "label": "关联销售订单与开票状态", "fieldtype": "HTML", "insert_after": "custom_delivery_billing_section"},
         {"dt": "Delivery Note", "fieldname": "custom_invoice_plan", "label": "开票安排（可选）", "fieldtype": "Small Text", "insert_after": "per_billed"},
+        {"dt": "Delivery Note", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_invoice_plan"},
         {"dt": "Delivery Note", "fieldname": "custom_delivery_signoff_section", "label": "签收资料", "fieldtype": "Section Break", "insert_after": "custom_invoice_plan"},
         {"dt": "Delivery Note", "fieldname": "custom_box_count", "label": "箱数", "fieldtype": "Int", "insert_after": "custom_delivery_signoff_section", "description": "适用时填写；不适用留空"},
         {"dt": "Delivery Note", "fieldname": "custom_pallet_count", "label": "托盘数", "fieldtype": "Int", "insert_after": "custom_box_count", "description": "适用时填写；不适用留空"},
@@ -1035,9 +1153,13 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note", "fieldname": "custom_print_current_remaining", "label": "送货单显示本次/剩余", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_ordered_before"},
         {"dt": "Delivery Note", "fieldname": "custom_print_quantity", "label": "送货单显示数量列", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_current_remaining", "description": "独立控制 Guia de Remessa 商品明细中的数量列；不依赖本次/剩余开关"},
         {"dt": "Delivery Note", "fieldname": "custom_print_traceability", "label": "送货单显示追溯信息", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_quantity", "description": "显示 batch_no、serial_no、serial_and_batch_bundle；无数据时自动隐藏"},
+        {"dt": "Delivery Note", "fieldname": "custom_print_additional_notes", "label": "送货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_traceability"},
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
+        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "purpose"},
+        {"dt": "Pick List", "fieldname": "custom_print_additional_notes", "label": "拣货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_additional_notes"},
+        {"dt": "Pick List Item", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "read_only": 1, "in_list_view": 1, "insert_after": "description"},
     ]
     for field in fields:
         existing = frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]})
@@ -1047,14 +1169,26 @@ def add_wholesale_fields(commit=True):
             updates = {key: field[key] for key in ("insert_after", "label", "fetch_from", "read_only", "hidden") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
+        elif field["dt"] in {"Pick List", "Pick List Item"}:
+            updates = {key: field[key] for key in ("insert_after", "label", "read_only", "in_list_view") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] == "Sales Order" and field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:
             updates = {key: field[key] for key in ("label", "hidden", "read_only") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
-        elif field["dt"] == "Sales Invoice" and field["fieldname"] == "custom_sales_invoice_approval_summary":
-            frappe.db.set_value("Custom Field", existing, {"label": field["label"], "insert_after": field["insert_after"]})
-        elif field["dt"] == "Sales Invoice" and field["fieldname"] in {"custom_approver", "custom_approval_date"}:
-            frappe.db.set_value("Custom Field", existing, {"hidden": 0, "read_only": 0})
+        elif field["dt"] == "Sales Invoice" and field["fieldname"] in {
+            "custom_sales_invoice_custom_tab", "custom_sales_invoice_approval_summary",
+            "custom_approver", "custom_approval_date", "custom_sales_invoice_payment_terms_section",
+            "custom_sales_invoice_payment_terms_notice",
+        }:
+            updates = {key: field[key] for key in ("label", "insert_after", "hidden", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+
+    duplicate_notes = frappe.db.exists("Custom Field", {"dt": "Sales Order Item", "fieldname": "custom_additional_notes"})
+    if duplicate_notes:
+        frappe.delete_doc("Custom Field", duplicate_notes, force=True)
 
     for field_name, prop, value, prop_type in (
         ("address_and_contact_tab", "label", "送货与开票", "Data"),

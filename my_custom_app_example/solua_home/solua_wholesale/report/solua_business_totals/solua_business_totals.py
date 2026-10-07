@@ -20,6 +20,7 @@ def execute(filters=None):
             {"fieldname": "waiting_days", "label": "已交货天数", "fieldtype": "Int", "width": 110},
             {"fieldname": "invoice_plan", "label": "开票安排", "fieldtype": "Data", "width": 200},
             {"fieldname": "billing_state", "label": "开票状态", "fieldtype": "Data", "width": 110},
+            {"fieldname": "price_adjustment", "label": "价格调整", "fieldtype": "Currency", "options": "currency", "width": 130},
             {"fieldname": "action", "label": "开票", "fieldtype": "Data", "width": 150},
         ]
     message = f"{result['from_date']} ~ {result['to_date']}；仅统计已提交单据。"

@@ -29,7 +29,7 @@ setImmediate(async()=>{
  const cards=node('[data-role="cards"]').content;
  assert(!cards.includes('value">0'));assert.equal((cards.match(/value">—/g)||[]).length,5);
  assert(!node('[data-role="actions"]').content.includes("Stock Reconciliation"));
- assert(node('[data-role="pending"]').content.includes("待到货采购订单"));
+ assert(!node('[data-role="pending"]').content.includes("待到货采购订单"));
  const dataStatus=node('[data-role="data-status"]').content;
  assert(dataStatus.includes("商品资料")&&dataStatus.includes("无权限查看"));
  assert(dataStatus.includes("—")&&!dataStatus.includes("缺图片 0"));
@@ -71,12 +71,18 @@ setImmediate(async()=>{
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));root=roots.at(-1);
  const actions=node('[data-role="actions"]').content;
- for (const label of ["采购","新建采购订单","采购订单","采购收货","收货记录","采购发票","供应商","销售","新建销售订单","销售订单分析报表","物料销售明细","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
+ const reportLinks=node('[data-role="report-links"]').content;
+ for (const label of ["盈利能力分析","库存树报表","经营金额报表","送货汇总","物料销售明细"])
+  assert(reportLinks.includes(label),"missing wholesale report link: "+label);
+ assert(reportLinks.includes('data-report="Item-wise Sales History"'),"missing item-wise sales report link");
+ assert(!actions.includes('data-workspace="Buying"'));
+ assert(!actions.includes("新建采购订单"));
+ for (const label of ["销售","新建销售订单","销售订单分析报表","物料销售明细","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
   assert(actions.includes(label),"missing homepage action: "+label);
  assert(actions.includes('data-report="Item-wise Sales History"')&&actions.includes('"from_date":"2026-09-04"'),"item-wise sales history must default to the last calendar month");
  assert(actions.includes("Item Price")&&actions.includes("sales-invoice-approval"),"price list and invoice-submit check entry points are present");
  // Group titles are the entrance to the module workspace, so each block is a one-click jump.
- for (const workspace of ["Selling","Stock","Buying","Invoicing"])
+ for (const workspace of ["Selling","Stock","Invoicing"])
   assert(actions.includes('data-workspace="'+workspace+'"'),"missing workspace link: "+workspace);
  assert(actions.includes('class="solua-home-group-title solua-home-group-title-link"'));
  assert(actions.includes('data-doctype="Print Format" data-view="list"'));

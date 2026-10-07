@@ -5,28 +5,28 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		image: "FOTO", name: "Artigo / 商品", spu: "SPU", sku: "SKU / 货号", color_code: "Cor",
 		barcode: "EAN / 条码", description: "Descrição / 描述", ordered: "Qt. pedido / 已订购",
 		remaining: "Qt. restante / 剩余", qty: "Qt/数量", picked: "Qt separado / 已拣", uom: "Un.", rate: "Prc",
-		amount: "Valor / 金额", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
+		amount: "Valor / 金额", additional_notes: "补充说明", trace: "Rastreabilidade / 追溯", warehouse: "Armazém / 仓库", order: "S.O. / 订单",
 	};
 	const featureLabels = { payment_schedule: "付款计划", color_qr: "色卡二维码", footer: "页脚页码" };
 	const base = ["image", "name", "spu", "sku", "color_code", "barcode", "description"];
 	const columns = {
-		"Sales Order": ["qty", "uom", "rate", "amount"],
+		"Sales Order": ["additional_notes", "qty", "uom", "rate", "amount"],
 		"Sales Invoice": ["qty", "uom", "rate", "amount"],
 		"Delivery Note": ["ordered", "remaining", "qty", "uom", "rate", "amount", "trace"],
 		"Pick List": ["qty", "picked", "uom", "warehouse", "order"],
 	};
 	const defaults = {
-		"Sales Order": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
+		"Sales Order": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, barcode: 11, description: 16, additional_notes: 10, qty: 5, uom: 5, rate: 4, amount: 5 },
 		"Sales Invoice": { image: 7, name: 12, spu: 8, sku: 12, color_code: 8, barcode: 11, description: 16, qty: 5, uom: 5, rate: 4, amount: 5 },
 		"Delivery Note": { image: 6, name: 10, spu: 8, sku: 10, color_code: 6, barcode: 8, description: 11, ordered: 9, remaining: 9, qty: 8, uom: 5, rate: 5, amount: 6, trace: 5 },
 		"Pick List": { image: 8, name: 14, spu: 8, sku: 12, color_code: 7, barcode: 11, description: 16, qty: 7, picked: 7, uom: 5, warehouse: 8, order: 5 },
 	};
-	const defaultFeatures = { payment_schedule: false, color_qr: false, footer: true, legacy_warning: false, legacy_controls: false };
-	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true };
+	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, footer: true, legacy_warning: false, legacy_controls: false };
+	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true, custom_print_additional_notes: true };
 	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: true };
 	const config = {
 		doctype: types[0],
-		visible: Object.fromEntries(types.map(type => [type, Object.fromEntries([...base, ...columns[type]].map(key => [key, key !== "image"]))])),
+		visible: Object.fromEntries(types.map(type => [type, Object.fromEntries([...base, ...columns[type]].map(key => [key, key !== "image" && key !== "additional_notes"]))])),
 		widths: Object.fromEntries(types.map(type => [type, JSON.parse(JSON.stringify(defaults[type]))])),
 		settings: { ...defaultSettings, itemBordersByDoctype: Object.fromEntries(types.map(type => [type, true])) },
 		features: { ...defaultFeatures },
@@ -53,7 +53,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const call = (method, args = {}) => frappe.call({ method: `solua_home.api.a4_designer.${method}`, args }).then(r => r.message);
 	const status = text => root.find('[data-role="status"]').text(text);
 	const esc = value => frappe.utils.escape_html(String(value == null ? "" : value));
-	const rowValue = (row, key) => ({ name: row.item_name, sku: row.order_code || row.item_code, color_code: row.color_code }[key] ?? row[key]);
+	const rowValue = (row, key) => ({ name: row.item_name, sku: row.order_code || row.item_code, color_code: row.color_code, additional_notes: row.additional_notes || row.pos_additional_notes }[key] ?? row[key]);
 	const partyText = party => [party?.nuit, party?.store, party?.address, party?.contact, party?.phone].filter(Boolean).map(value => esc(String(value).replace(/<br\s*\/?>(\r?\n)?/gi, " "))).join("<br>");
 	const allowed = () => [...base, ...columns[config.doctype]];
 	const visibleCols = () => {
@@ -91,10 +91,10 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 		const currency = preview.currency ? ` ${esc(preview.currency)}` : "";
 		const warning = preview.docstatus === 0 ? '<div style="color:#a35c00;margin:3mm 0">RASCUNHO / 草稿 — Documento não oficial / 非正式凭证</div>' : (preview.docstatus === 2 ? '<div style="color:#a35c00;margin:3mm 0">CANCELADO / 已取消 — Documento não oficial / 非正式凭证</div>' : "");
 		const payment = `<div style="page-break-inside:avoid;margin-top:12px;border:1px solid #d5dce0;padding:2mm">Plano de pagamento / 付款安排: ${esc(preview.payment_method || "未维护")} · Depósito / 定金: ${esc(preview.deposit || 0)} · Vencimento do saldo / 尾款到期: ${esc(preview.balance_due_date || "—")}<br>Plano de faturação / 开票安排: ${esc(preview.invoice_plan || "未维护")}</div>`;
-		const schedule = config.features.payment_schedule && (preview.payment_schedule || []).length ? `<table><thead><tr><th>付款条件</th><th>到期日</th><th>金额</th></tr></thead><tbody>${preview.payment_schedule.map(row => `<tr><td>${esc(row.payment_term)}</td><td>${esc(row.due_date)}</td><td>${esc(row.payment_amount)}</td></tr>`).join("")}</tbody></table>` : "";
+		const schedule = config.features.payment_schedule && (preview.payment_schedule || []).length ? `<table><thead><tr><th>Condições de pagamento / 付款条件</th><th>Data de vencimento / 到期日</th><th>Valor / 金额</th></tr></thead><tbody>${preview.payment_schedule.map(row => `<tr><td>${esc(row.payment_term)}</td><td>${esc(row.due_date)}</td><td>${esc(row.payment_amount)}</td></tr>`).join("")}</tbody></table>` : "";
 		const qr = config.features.color_qr ? (preview.qr_items || []).map(row => `<div style="display:inline-block;margin-right:6mm"><img class="a4d-photo" src="${esc(row.image)}" alt="QR"><br>${esc(row.template_code)}</div>`).join("") : "";
 		const footer = config.features.footer ? `<div style="text-align:center;margin-top:8mm;color:#52606a">${esc(preview.name)} · Página 1 / 1</div>` : "";
-		const title = { "Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Venda / 销售单", "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单" }[config.doctype];
+		const title = { "Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Factura / 销售单", "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单" }[config.doctype];
 		const deliveryMeta = `<tr><td>N.º / 编号: ${esc(preview.name)}<br>Encomenda / 订单: ${esc((preview.order || {}).name || "—")}</td><td>Data / 日期: ${esc(preview.date)}<br>Saída / 出发: ${esc((preview.transport || {}).departure_time || "—")}<br>Armazém / 仓库: ${esc((preview.transport || {}).source_address || "—")}</td></tr>`;
 		const pickMeta = `<tr><td>N.º / 编号: ${esc(preview.name)}<br>Finalidade / 用途: ${esc(preview.purpose || "—")}</td><td>Origem / 来源: ${esc(preview.source || "—")}<br>Cliente / 客户: ${esc((preview.receiver || {}).name || "—")}</td></tr>`;
 		const orderMeta = `<tr><td>N.º / 编号: ${esc(preview.name)}<br>N.º encomenda cliente / 客户订单号: ${esc(preview.customer_order_no || "—")}</td><td>Data / 日期: ${esc(preview.date)}<br>Prazo de entrega / 交期: ${esc(preview.delivery_date || "—")}</td></tr>`;

@@ -43,6 +43,7 @@ frappe = types.ModuleType("frappe")
 frappe._ = lambda text: text
 frappe.PermissionError = PermissionError
 frappe.whitelist = lambda *args, **kwargs: (lambda function: function)
+frappe.concurrent_limit = lambda *args, **kwargs: (lambda function: function)
 frappe.parse_json = json.loads
 frappe.as_json = json.dumps
 frappe.get_doc = lambda doctype, name: docs[name]
@@ -61,7 +62,7 @@ frappe.utils.cint = lambda value: int(value or 0)
 frappe.utils.flt = lambda value: float(value or 0)
 frappe.utils.nowdate = lambda: "2026-09-30"
 frappe.utils.xlsxutils = types.ModuleType("frappe.utils.xlsxutils")
-frappe.utils.xlsxutils.make_xlsx = lambda table, sheet_name: io.BytesIO(
+frappe.utils.xlsxutils.make_xlsx = lambda table, sheet_name, **kwargs: io.BytesIO(
     (sheet_name + ":" + str(table)).encode("utf-8")
 )
 sys.modules["frappe"] = frappe
@@ -85,7 +86,7 @@ wholesale.get_item_color_info = lambda item_code: {}
 wholesale._get_pick_list_additional_notes = lambda row: ""
 wholesale.get_item_sales_display = lambda item_code, description: {"barcode": "", "description": description or ""}
 wholesale.get_item_spu = lambda item_code: ""
-wholesale.format_print_uom = lambda value: value
+wholesale.format_print_uom = lambda value, item_code=None: value
 solua_home = types.ModuleType("solua_home")
 solua_home.__path__ = []
 api = types.ModuleType("solua_home.api")

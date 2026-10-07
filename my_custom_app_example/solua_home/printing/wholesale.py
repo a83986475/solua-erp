@@ -122,11 +122,33 @@ def _item_master(item_code):
         return {}
     fields = ["variant_of", "description"]
     meta = frappe.get_meta("Item")
-    for field in ("custom_item_description_pt", "custom_label_barcode"):
+    for field in ("custom_item_description_pt", "custom_label_barcode", "image", "custom_swatch_image"):
         if meta.has_field(field):
             fields.append(field)
     data = frappe.db.get_value("Item", item_code, fields, as_dict=True) or {}
     return data if hasattr(data, "get") else {}
+
+
+def _absolute_print_image(value):
+    value = str(value or "").strip()
+    if not value or value.startswith(("http://", "https://", "data:")):
+        return value
+    get_url = getattr(getattr(frappe, "utils", None), "get_url", None)
+    return get_url(value) if callable(get_url) else value
+
+
+def _template_customer_display(source):
+    """Use only the template's image and description for merged customer rows."""
+    template_code = str(source.get("template_code") or "").strip()
+    if not template_code:
+        item = _item_master(source.get("item_code"))
+        template_code = str(item.get("variant_of") or source.get("item_code") or "").strip()
+    template = _item_master(template_code)
+    return {
+        "image": _absolute_print_image(template.get("custom_swatch_image") or template.get("image")),
+        "description": (_clean_item_text(template.get("custom_item_description_pt"))
+                        or _clean_item_text(template.get("description"))),
+    }
 
 
 def get_item_spu(item_code):
@@ -215,8 +237,8 @@ def _snapshot(doc):
     return data
 
 
-def get_company_print_info(doc):
-    frozen = _snapshot(doc)
+def get_company_print_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
     if frozen:
         company_info = dict(frozen.get("company") or {})
         company_info.setdefault("logo", _company_logo_url(company_info.get("name") or doc.get("company")))
@@ -237,31 +259,54 @@ def get_company_print_info(doc):
     }
 
 
-def get_customer_print_info(doc):
-    frozen = _snapshot(doc)
+def get_customer_print_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
     if frozen:
         return frozen["customer"]
-    # shipping_address is rendered HTML; shipping_address_name is the Link.
+    address_name = doc.get("shipping_address_name") or doc.get("customer_address") or ""
+    address = doc.get("shipping_address") or ""
+    if address_name:
+        latest = frappe.db.get_value(
+            "Address", address_name,
+            ["address_line1", "address_line2", "city", "state", "pincode", "country"],
+            as_dict=True,
+        ) or {}
+        if not isinstance(latest, dict):
+            latest = {}
+        address_parts = [latest.get(key) for key in ("address_line1", "address_line2")]
+        locality = " ".join(str(latest.get(key) or "").strip() for key in ("city", "state", "pincode", "country")).strip()
+        if locality:
+            address_parts.append(locality)
+        address = "<br>".join(str(value).strip() for value in address_parts if str(value or "").strip()) or address
+    contact_name = doc.get("contact_person") or ""
+    contact = frappe.db.get_value(
+        "Contact", contact_name, ["first_name", "last_name", "phone", "mobile_no", "email_id"], as_dict=True
+    ) if contact_name else None
+    contact = contact if isinstance(contact, dict) else {}
+    contact_display = " ".join(str(value or "").strip() for value in (contact.get("first_name"), contact.get("last_name")) if str(value or "").strip())
+    customer = frappe.db.get_value("Customer", doc.get("customer"), ["customer_name", "tax_id"], as_dict=True) or {}
+    if not isinstance(customer, dict):
+        customer = {}
     return {
-        "name": doc.get("customer_name") or doc.get("customer") or "",
-        "nuit": doc.get("tax_id") or "",
-        "address": doc.get("shipping_address") or "",
-        "address_name": doc.get("shipping_address_name") or "",
+        "name": customer.get("customer_name") or doc.get("customer_name") or doc.get("customer") or "",
+        "nuit": customer.get("tax_id") or doc.get("tax_id") or "",
+        "address": address,
+        "address_name": address_name,
         "store": doc.get("custom_store_name") or "",
-        "contact": doc.get("contact_display") or "",
-        "phone": doc.get("custom_store_phone") or doc.get("contact_mobile") or doc.get("contact_phone") or "",
+        "contact": contact_display or doc.get("contact_display") or "",
+        "phone": contact.get("mobile_no") or contact.get("phone") or doc.get("custom_store_phone") or doc.get("contact_mobile") or doc.get("contact_phone") or "",
     }
 
 
-def get_driver_phone(doc):
-    frozen = _snapshot(doc)
+def get_driver_phone(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
     if frozen:
         return frozen["transport"]["driver_phone"]
     return doc.get("custom_driver_phone") or _value("Driver", doc.get("driver"), "cell_number")
 
 
-def get_delivery_order_info(doc):
-    frozen = _snapshot(doc)
+def get_delivery_order_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
     if frozen:
         return frozen["order"]
     names = sorted({r.get("against_sales_order") for r in doc.get("items", []) if r.get("against_sales_order")})
@@ -311,7 +356,7 @@ def _merge_customer_print_items(items):
     merged = []
     positions = {}
     for source in items or []:
-        order_code = str(source.get("order_code") or source.get("item_code") or "").strip()
+        order_code = str(source.get("order_code") or "").strip()
         if not order_code:
             merged.append(dict(source))
             continue
@@ -320,17 +365,34 @@ def _merge_customer_print_items(items):
         if position is None:
             row = dict(source)
             row["order_code"] = order_code
-            row["item_name"] = source.get("template_name") or source.get("item_name")
+            row["customer_merged"] = False
             merged.append(row)
             positions[key] = len(merged) - 1
             continue
         target = merged[position]
+        if not target.get("customer_merged"):
+            target["item_name"] = target.get("template_name") or target.get("item_name")
+            target.update(_template_customer_display(target))
+            target["customer_merged"] = True
         for fieldname in ("qty", "amount", "ordered_qty", "delivered_before_qty", "remaining_qty"):
             value = source.get(fieldname)
             if value is None:
                 continue
             target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
     return merged
+
+
+def _refresh_customer_item_images(data):
+    """Refresh color-card images from the current Variant master for old snapshots."""
+    from solua_home.printing.color_card import get_item_color_info
+
+    for item in data.get("items") or []:
+        item_code = str(item.get("item_code") or "").strip()
+        if not item_code:
+            continue
+        image = (get_item_color_info(item_code) or {}).get("image") or ""
+        if image:
+            item["image"] = image
 
 
 def format_print_qty(value):
@@ -351,15 +413,17 @@ PRINT_UOM_LABELS = {
 }
 
 
-def format_print_uom(value):
+def format_print_uom(value, item_code=None):
     """Translate only the unit shown in print/export output; source data stays unchanged."""
     text = str(value or "").strip()
+    if text == "Nos" and str(item_code or "").strip().startswith("SH-PVC1.0"):
+        return "卷/Rolo"
     return PRINT_UOM_LABELS.get(text, text)
 
 
 def _format_print_uoms(data):
     for item in data.get("items") or []:
-        item["uom"] = format_print_uom(item.get("uom"))
+        item["uom"] = format_print_uom(item.get("uom"), item.get("item_code"))
     if data.get("total_uom"):
         data["total_uom"] = format_print_uom(data["total_uom"])
     return data
@@ -500,7 +564,11 @@ def _get_pick_list_additional_notes(row):
         return note
     sales_order_item = row.get("sales_order_item")
     if sales_order_item:
-        return frappe.db.get_value("Sales Order Item", sales_order_item, "additional_notes") or ""
+        fields = ["additional_notes"]
+        if frappe.get_meta("Sales Order Item").has_field("pos_additional_notes"):
+            fields.append("pos_additional_notes")
+        source = frappe.db.get_value("Sales Order Item", sales_order_item, fields, as_dict=True) or {}
+        return source.get("additional_notes") or source.get("pos_additional_notes") or ""
     return ""
 
 
@@ -524,7 +592,7 @@ def get_pick_list_print_data(doc):
     })
 
 
-def _collect(doc):
+def _collect(doc, use_snapshot=True):
     from solua_home.printing.color_card import get_item_color_info
 
     items = []
@@ -534,7 +602,7 @@ def _collect(doc):
         items.append({
             "item_code": row.item_code, "item_name": row.get("item_name") or row.item_code,
             "spu": get_item_spu(row.item_code),
-            "order_code": color.get("order_code") or row.item_code,
+            "order_code": color.get("order_code") or "",
             "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
             "barcode": sales_display["barcode"], "description": sales_display["description"],
             "additional_notes": row.get("additional_notes") or row.get("pos_additional_notes") or row.get("custom_additional_notes") or "",
@@ -550,11 +618,11 @@ def _collect(doc):
             "warehouse": row.get("warehouse") or "",
         })
     return {
-        "version": 1, "company": get_company_print_info(doc), "customer": get_customer_print_info(doc),
-        "order": get_delivery_order_info(doc), "items": items, "total_qty": _sum_qty(items, "qty"),
+		"version": 1, "company": get_company_print_info(doc, use_snapshot=use_snapshot), "customer": get_customer_print_info(doc, use_snapshot=use_snapshot),
+		"order": get_delivery_order_info(doc, use_snapshot=use_snapshot), "items": items, "total_qty": _sum_qty(items, "qty"),
         "transport": {
-            "driver_name": doc.get("driver_name") or _value("Driver", doc.get("driver"), "full_name"),
-            "vehicle_no": doc.get("vehicle_no") or "", "driver_phone": get_driver_phone(doc),
+			"driver_name": doc.get("driver_name") or _value("Driver", doc.get("driver"), "full_name"),
+			"vehicle_no": doc.get("vehicle_no") or "", "driver_phone": get_driver_phone(doc, use_snapshot=use_snapshot),
             "departure_time": str(doc.get("custom_departure_time") or ""),
             "source_address": doc.get("custom_source_warehouse_address") or "",
         },
@@ -695,10 +763,10 @@ def _recover_delivery_quantities(doc, data):
     )
 
 
-def get_wholesale_print_data(doc):
-    frozen = _snapshot(doc)
+def get_wholesale_print_data(doc, live=False):
+    frozen = None if live else _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
-    data = frozen or _collect(doc)
+    data = frozen or _collect(doc, use_snapshot=not live)
     if frozen and doc.doctype == "Sales Order":
         live_rows = doc.get("items") or []
         snapshot_rows = data.get("items") or []
@@ -720,9 +788,12 @@ def get_wholesale_print_data(doc):
             data = _collect(doc)
     _recover_sales_order_item_display(doc, data)
     _recover_item_spu_display(doc, data)
-    if doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note") and doc.get("custom_print_merge_order_code"):
+    customer_print = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
+    if customer_print:
+        _refresh_customer_item_images(data)
+    if customer_print and doc.get("custom_print_merge_order_code"):
         data["items"] = _merge_customer_print_items(data.get("items"))
-        data["customer_merged"] = True
+        data["customer_merged"] = any(item.get("customer_merged") for item in data.get("items") or [])
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(

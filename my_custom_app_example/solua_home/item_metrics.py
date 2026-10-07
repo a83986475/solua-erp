@@ -41,7 +41,7 @@ STOCK_VOUCHERS = (
 _CHUNK = 500
 
 _LABELS = {
-    "custom_rate_cost": _("成本价"),
+    "custom_rate_cost": _("定价参考成本"),
     "custom_rate_home": _("Home Store 价"),
     "custom_rate_wholesale": _("批发价"),
     "custom_rate_retail": _("建议零售价"),
@@ -74,7 +74,7 @@ def ensure_item_metric_fields():
         "fieldname": STOCK_FIELD,
         "label": _LABELS[STOCK_FIELD],
         "fieldtype": "Float",
-        "precision": "2",
+        "precision": "0",
         "read_only": 1,
         "no_copy": 1,
         "in_list_view": 1,
@@ -85,7 +85,7 @@ def ensure_item_metric_fields():
         "fieldname": VARIANT_STOCK_FIELD,
         "label": _LABELS[VARIANT_STOCK_FIELD],
         "fieldtype": "Float",
-        "precision": "2",
+        "precision": "0",
         "read_only": 1,
         "no_copy": 1,
         "in_list_view": 1,
@@ -95,12 +95,20 @@ def ensure_item_metric_fields():
     })
 
     created = []
+    changed = False
     for field in fields:
-        if frappe.db.exists("Custom Field", {"dt": "Item", "fieldname": field["fieldname"]}):
+        existing = frappe.db.get_value("Custom Field", {"dt": "Item", "fieldname": field["fieldname"]}, "name")
+        if existing:
+            custom_field = frappe.get_doc("Custom Field", existing)
+            if custom_field.fieldtype == "Float" and str(custom_field.precision) != "0":
+                custom_field.precision = "0"
+                custom_field.save(ignore_permissions=True)
+                changed = True
             continue
         frappe.get_doc({"doctype": "Custom Field", "dt": "Item", **field}).insert(ignore_permissions=True)
         created.append(field["fieldname"])
-    if created:
+        changed = True
+    if changed:
         frappe.clear_cache(doctype="Item")
     return created
 

@@ -10,6 +10,11 @@ const calls = [];
 const messages = [];
 const opened = [];
 const dialogs = [];
+const storage = new Map();
+const localStorage = {
+	getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+	setItem(key, value) { storage.set(key, String(value)); },
+};
 
 class Element {
 	constructor(tag) {
@@ -53,18 +58,22 @@ const export_options = {
 	columns: [
 		{ key: "idx", label: "序号", numeric: true },
 		{ key: "item_code", label: "货号", numeric: false },
+		{ key: "spu", label: "SPU", numeric: false },
+		{ key: "additional_notes", label: "补充说明", numeric: false },
 		{ key: "qty", label: "数量", numeric: true },
 		{ key: "amount", label: "金额", numeric: true },
 		{ key: "ordered_qty", label: "订购数量", numeric: true },
 	],
 	defaults: ["idx", "item_code", "qty", "amount"],
 	formats: [{ value: "xlsx", label: "Excel (.xlsx)" }, { value: "csv", label: "CSV (.csv)" }],
+	allow_merge_order_code: true,
 };
 
 const sandbox = {
-	window: { open: (url) => opened.push(url) },
+	window: { open: (url) => opened.push(url), localStorage },
 	document: { createElement: (tag) => new Element(tag) },
 	frappe: {
+		session: { user: "test@example.com" },
 		ui: {
 			Dialog: dialog_stub,
 			form: {
@@ -88,7 +97,7 @@ const sandbox = {
 	URLSearchParams,
 	console,
 };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../public/js/document_table_export.js"), "utf8"), sandbox);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../public/js/document_table_export_v20261005c.js"), "utf8"), sandbox);
 const tools = sandbox.window.solua_home_table_export;
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -98,7 +107,7 @@ function form(doctype, items, extra = {}) {
 	const grid = { wrapper: [new Element("div")], refreshes: 0, refresh() { this.refreshes += 1; } };
 	const frm = {
 		doctype,
-		doc: { name: "DOC-1", currency: "MZN", [field]: items },
+		doc: { name: "DOC-1", currency: "MZN", custom_print_merge_order_code: 1, [field]: items },
 		buttons: [],
 		fields_dict: { [field]: { grid } },
 		item_field: field,
@@ -158,15 +167,32 @@ const rows = [{ qty: 2.5, amount: 250 }, { qty: 1, amount: 300 }];
 	await flush();
 	assert.equal(calls.at(-1).method, "solua_home.api.export.get_export_options");
 	assert.equal(calls.at(-1).args.doctype, "Sales Order");
-	const dialog = dialogs.at(-1);
+	let dialog = dialogs.at(-1);
 	assert.equal(dialog.options.title, "导出表格 · DOC-1");
 	assert.equal(dialog.options.primary_action_label, "导出 Excel");
 	assert.equal(dialog.options.secondary_action_label, "导出 CSV");
 	assert(dialog.options.fields.some((field) => field.fieldname === "include_header" && field.default === 1));
+	assert(dialog.options.fields.some((field) => field.fieldname === "merge_order_code" && field.default === 0), "export merge switch is independent from print preference");
 	assert(dialog.options.fields.some((field) => field.fieldname === "col_item_code" && field.default === 1));
+	assert(dialog.options.fields.some((field) => field.fieldname === "col_spu" && field.default === 0));
+	assert(dialog.options.fields.some((field) => field.fieldname === "col_additional_notes" && field.default === 0));
 	assert.equal(dialog.values.col_ordered_qty, 0, "columns outside the defaults start unchecked");
 	assert.equal(tools.qty_total(order), 4);
 	assert.equal(tools.amount_total(order), 650);
+
+	// 关闭弹窗不保存，下次打开仍使用默认值
+	dialog.values.col_additional_notes = 1;
+	dialog.values.include_header = 0;
+	dialog.values.include_total = 0;
+	dialog.hide();
+	order.buttons[0].action();
+	await flush();
+	dialog = dialogs.at(-1);
+	assert.equal(storage.size, 0);
+	assert.equal(dialog.values.col_additional_notes, 0);
+	assert.equal(dialog.values.include_header, 1);
+	assert.equal(dialog.values.include_total, 1);
+	assert.equal(dialog.values.merge_order_code, 0);
 
 	// 导出 Excel
 	dialog.options.primary_action({ ...dialog.values });
@@ -179,21 +205,42 @@ const rows = [{ qty: 2.5, amount: 250 }, { qty: 1, amount: 300 }];
 	assert.equal(xlsx_url.searchParams.get("columns"), "idx,item_code,qty,amount");
 	assert.equal(xlsx_url.searchParams.get("include_header"), "1");
 	assert.equal(xlsx_url.searchParams.get("include_total"), "1");
+	assert.equal(xlsx_url.searchParams.get("merge_order_code"), "0");
+	assert.deepEqual(JSON.parse(storage.get("solua_home:document_table_export:v1:test%40example.com:Sales%20Order")), {
+		columns: ["idx", "item_code", "qty", "amount"],
+		include_header: true,
+		include_total: true,
+		merge_order_code: false,
+	});
 
 	// 导出 CSV：勾选变化要带到链接上；取消底部合计行也要生效
 	dialog.values.col_ordered_qty = 1;
+	dialog.values.col_additional_notes = 1;
 	dialog.values.include_total = 0;
+	dialog.values.merge_order_code = 1;
 	dialog.options.secondary_action();
 	assert.equal(opened.length, 2);
 	const csv_url = new URL(`http://localhost${opened[1]}`);
 	assert.equal(csv_url.searchParams.get("fmt"), "csv");
-	assert.equal(csv_url.searchParams.get("columns"), "idx,item_code,qty,amount,ordered_qty");
+	assert.equal(csv_url.searchParams.get("columns"), "idx,item_code,additional_notes,qty,amount,ordered_qty");
 	assert.equal(csv_url.searchParams.get("include_total"), "0");
 	assert.equal(csv_url.searchParams.get("include_header"), "1");
+	assert.equal(csv_url.searchParams.get("merge_order_code"), "1");
+
+	// 导出后再次打开：列和两个开关都恢复上次成功导出的选择
+	order.buttons[0].action();
+	await flush();
+	dialog = dialogs.at(-1);
+	assert.equal(dialog.values.col_additional_notes, 1);
+	assert.equal(dialog.values.col_ordered_qty, 1);
+	assert.equal(dialog.values.include_header, 1);
+	assert.equal(dialog.values.include_total, 0);
+	assert.equal(dialog.values.merge_order_code, 1);
 
 	// 一列都不选：提示而不是打开空白文件
 	dialog.values.col_idx = 0;
 	dialog.values.col_item_code = 0;
+	dialog.values.col_additional_notes = 0;
 	dialog.values.col_qty = 0;
 	dialog.values.col_amount = 0;
 	dialog.values.col_ordered_qty = 0;

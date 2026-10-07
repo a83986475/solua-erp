@@ -34,12 +34,20 @@ masters = {
     "NO-PRICE": Dict(name="NO-PRICE", item_name="No price", item_group="Curtains", has_variants=0, disabled=0, is_stock_item=1),
 }
 
+addresses = {
+    "Customer A-Default Store": Dict(name="Customer A-Default Store", address_title="默认门店", phone="999"),
+    "Customer A-Other Store": Dict(name="Customer A-Other Store", address_title="其他门店", phone="888"),
+}
+
 
 class DB:
     def get_value(self, doctype, name, fields, as_dict=False):
-        if doctype != "Item":
-            return None
-        return masters.get(name)
+        if doctype == "Item":
+            return masters.get(name)
+        return addresses.get(name)
+
+    def exists(self, doctype, filters):
+        return doctype == "Dynamic Link" and filters.get("link_name") == "Customer A"
 
 
 frappe.db = DB()
@@ -68,6 +76,18 @@ wholesale = types.ModuleType("solua_home.printing.wholesale")
 wholesale.get_item_sales_display = lambda _code, description="": {"barcode": "6901234567892", "description": "Portuguese description"}
 sys.modules["solua_home.printing.wholesale"] = wholesale
 
+erpnext_pkg = types.ModuleType("erpnext")
+erpnext_pkg.__path__ = []
+accounts_pkg = types.ModuleType("erpnext.accounts")
+accounts_pkg.__path__ = []
+party_api = types.ModuleType("erpnext.accounts.party")
+party_api.get_party_shipping_address = lambda _doctype, _name: "Customer A-Default Store"
+erpnext_pkg.accounts = accounts_pkg
+accounts_pkg.party = party_api
+sys.modules["erpnext"] = erpnext_pkg
+sys.modules["erpnext.accounts"] = accounts_pkg
+sys.modules["erpnext.accounts.party"] = party_api
+
 spec = importlib.util.spec_from_file_location("sales_candidate", ROOT / "api/sales.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -91,7 +111,11 @@ def native_details(item_code, context, qty=1, warehouse=None, price_list=None):
 
 module._native_sales_item_details = native_details
 module._display_price = lambda _code, _context, price_list, warehouse=None: 480 if price_list == "Wholesale Selling" else 430
-frappe.get_all = lambda doctype, **_kwargs: [masters["GOOD"]] if doctype == "Item" else []
+frappe.get_all = lambda doctype, **kwargs: (
+    [masters["GOOD"]] if doctype == "Item" else
+    [Dict(parent=name) for name in addresses] if doctype == "Dynamic Link" and kwargs.get("filters", {}).get("link_name") == "Customer A" else []
+)
+frappe.get_list = lambda doctype, **kwargs: list(addresses.values()) if doctype == "Address" else []
 
 home_api = types.ModuleType("solua_home.api.home")
 home_api.get_color_variants = lambda **_kwargs: {
@@ -107,9 +131,9 @@ parsed, parse_errors = module._parse_table_rows([
 ])
 assert parsed[0]["qty"] == 5 and len(parse_errors) == 1 and "正整数" in parse_errors[0]["error"]
 
-# Regress the uploaded workbook export itself, then the supported CSV variants.
-real_csv = Path(r"C:\Users\Yang\Desktop\Solua\home store sales order.csv").read_bytes()
-text, encoding = module._decode_csv_content(real_csv)
+# Reproduce a GBK workbook export without a private desktop file.
+csv_content = "货号,数量\r\nSH151060-01,10\r\nSH151060-02,10\r\n".encode("gb18030")
+text, encoding = module._decode_csv_content(csv_content)
 table, delimiter = module._parse_csv_text(text, encoding)
 parsed_csv, errors_csv = module._parse_table_rows(table)
 assert encoding == "GB18030/GBK" and delimiter == ","
@@ -150,6 +174,9 @@ assert row["qty"] == 5 and row["available_qty"] == 7 and row["custom_item_barcod
 assert row["wholesale_rate"] == 480 and row["standard_selling_rate"] == 430
 assert native_calls[0][1:5] == ("Solua Home, Lda", "Customer A", "Wholesale Selling 3", "2026-09-22")
 
+stock_result = module._resolve_sales_rows([{"item_code": "NO-PRICE", "qty": 1}], {"company": "Solua Home, Lda", "posting_date": "2026-09-22", "stock_entry": 1})
+assert stock_result["summary"] == {"valid": 1, "errors": 0}
+
 bad = module._resolve_sales_rows([
     {"item_code": "MISSING", "qty": 1}, {"item_code": "TEMPLATE", "qty": 1},
     {"item_code": "DISABLED", "qty": 1}, {"item_code": "NO-PRICE", "qty": 1},
@@ -160,9 +187,26 @@ assert any("当前销售价格表" in item["error"] for item in bad["errors"])
 
 paste = module.preview_sales_order_paste("货号\t数量\nGOOD\t2\nGOOD\t1", json.dumps(context))
 assert paste["summary"] == {"valid": 1, "errors": 0} and paste["rows"][0]["qty"] == 3
+stock_table, stock_parse_errors = module._parse_table_rows([["货号", "数量", "单位成本"], ["GOOD", "2", "12.50"]])
+assert not stock_parse_errors and stock_table[0]["rate"] == 12.5
+stock_preview = module.preview_sales_order_paste("货号\t数量\t成本\nGOOD\t2\t12.50", json.dumps({**context, "stock_entry": 1, "require_cost": 1}))
+assert stock_preview["summary"] == {"valid": 1, "errors": 0} and stock_preview["rows"][0]["rate"] == 12.5
+missing_stock_cost = module.preview_sales_order_paste("货号\t数量\nGOOD\t2", json.dumps({**context, "stock_entry": 1, "require_cost": 1}))
+assert missing_stock_cost["summary"] == {"valid": 0, "errors": 1} and "入库成本" in missing_stock_cost["errors"][0]["error"]
 search = module.search_sales_order_items(json.dumps(context), json.dumps({"warehouse": "Receiving - SH", "in_stock": 1}))
 assert len(search["items"]) == 1 and search["items"][0]["available_qty"] == 7
 color_rows = module.get_sales_order_color_variants("TPL-BAR", json.dumps(context))
 assert color_rows["has_template"] and [row["color_code"] for row in color_rows["variants"]] == ["01", "02"]
 assert color_rows["variants"][0]["rate"] == 100 and "当前销售价格表" in color_rows["variants"][1]["status"]
-print("PASS: upload aliases/merge, native pricing context, exception summary, live Bin available quantity")
+
+default_order = Dict(docstatus=0, customer="Customer A", shipping_address_name="", customer_address="", custom_store_name="", items=[])
+module.validate_sales_order(default_order)
+assert default_order.shipping_address_name == "Customer A-Default Store"
+assert default_order.customer_address == "Customer A-Default Store"
+assert default_order.custom_store_name == "默认门店"
+assert default_order.custom_store_phone == "999"
+assert default_order.custom_store_address == "Customer A-Default Store"
+manual_order = Dict(docstatus=0, customer="Customer A", shipping_address_name="Customer A-Other Store", custom_store_name="手工门店", items=[])
+module.validate_sales_order(manual_order)
+assert manual_order.custom_store_name == "手工门店"
+print("PASS: upload aliases/merge, native pricing context, store default fallback, exception summary, live Bin available quantity")

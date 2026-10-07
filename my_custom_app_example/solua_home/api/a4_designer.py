@@ -9,9 +9,10 @@ import frappe
 from frappe import _
 
 
+PRICE_DIFFERENCE_COLUMNS = ["price_item", "price_code", "price_qty", "price_uom", "price_old_rate", "price_new_rate", "price_unit_diff", "price_total_diff"]
 DOCTYPE_CONFIG = {
-    "Sales Order": ["additional_notes", "qty", "uom", "rate", "amount"],
-    "Sales Invoice": ["qty", "uom", "rate", "amount"],
+    "Sales Order": ["additional_notes", "qty", "uom", "rate", "amount"] + PRICE_DIFFERENCE_COLUMNS,
+    "Sales Invoice": ["qty", "uom", "rate", "amount"] + PRICE_DIFFERENCE_COLUMNS,
     "Delivery Note": ["ordered", "remaining", "qty", "uom", "rate", "amount", "trace"],
     "Pick List": ["qty", "picked", "uom", "warehouse", "order"],
 }
@@ -28,6 +29,10 @@ COLUMN_LABELS = {
     "qty": "Qt/数量", "picked": "Qt separado / 已拣", "uom": "Un.", "rate": "Prc",
     "amount": "Valor / 金额", "additional_notes": "补充说明", "trace": "Rastreabilidade / 追溯",
     "warehouse": "Armazém / 仓库", "order": "S.O. / 订单",
+    "price_item": "Produto / 商品", "price_code": "Código / 货号", "price_qty": "Qtd. / 数量",
+    "price_uom": "Unid. / 单位", "price_old_rate": "Preço ant. / 原单价",
+    "price_new_rate": "Preço novo / 新单价", "price_unit_diff": "Dif. unit. / 单位差价",
+    "price_total_diff": "Dif. total / 差价合计",
 }
 FORMAT_META = "<!--SOLUA_A4_DESIGNER:v1:{}-->"
 NAME_RE = re.compile(r"^[^/\\\x00-\x1f]{1,140}$")
@@ -41,6 +46,7 @@ FEATURE_DEFAULTS = {
 	"footer": True,
 	"legacy_warning": False,
 	"legacy_controls": False,
+	"price_difference": False,
 }
 CONTROL_DEFAULTS = {
 	"custom_print_color_images": True,
@@ -185,7 +191,7 @@ def _get_print_format(name, doctype):
 
 
 @frappe.whitelist()
-def get_preview(doctype, name, print_format=None):
+def get_preview(doctype, name, print_format=None, live=0):
 	_allowed_doctype(doctype)
 	doc = frappe.get_doc(doctype, name)
 	if not frappe.has_permission(doc=doc, ptype="read"):
@@ -206,7 +212,7 @@ def get_preview(doctype, name, print_format=None):
 			"html": rendered,
 		}
 	from solua_home.printing.a4_designer import get_a4_print_data
-	source = get_a4_print_data(doc)
+	source = get_a4_print_data(doc, live=bool(frappe.utils.cint(live)))
 	data = []
 	qr_items = []
 	seen_qr = set()
@@ -236,6 +242,7 @@ def get_preview(doctype, name, print_format=None):
 				qr_items.append({"template_code": template_code, "image": qr})
 	return {
 		"mode": "designer", "doctype": doctype, "name": doc.name, "title": doc.get("customer_name") or doc.get("customer") or doc.name,
+		"data_source": "live" if frappe.utils.cint(live) else "snapshot",
 		"date": str(doc.get("posting_date") or doc.get("transaction_date") or doc.get("posting_date")),
 		"currency": doc.get("currency") or "", "total": doc.get("grand_total") or "",
 		"total_qty": source.get("total_qty") or sum(row.get("qty") or 0 for row in data),
@@ -248,6 +255,7 @@ def get_preview(doctype, name, print_format=None):
 		"deposit": source.get("deposit") or 0, "balance_due_date": source.get("balance_due_date") or "",
 		"invoice_plan": source.get("invoice_plan") or "",
 		"cash_discount": source.get("cash_discount") or {"enabled": False},
+		"price_difference": source.get("price_difference") or {},
 		"additional_notes": doc.get("custom_additional_notes") or "",
 		"show_additional_notes": doc.get("custom_print_additional_notes") if doc.get("custom_print_additional_notes") is not None else 1,
 		"payment_schedule": [{"payment_term": row.get("payment_term") or "", "due_date": row.get("due_date") or "", "payment_amount": row.get("payment_amount") or 0} for row in doc.get("payment_schedule") or []],
@@ -278,7 +286,7 @@ def _validate_config(config):
 	if any(key in visible and not isinstance(visible[key], bool) for key in allowed):
 		frappe.throw(_("Invalid column toggle"))
 	clean_visible = {
-		key: visible.get(key, key not in ("image", "color_code") and not (doctype == "Delivery Note" and key == "qty"))
+		key: visible.get(key, key not in ("image", "color_code") and not key.startswith("price_") and not (doctype == "Delivery Note" and key == "qty"))
 		for key in allowed
 	}
 	clean_widths = {}
@@ -342,6 +350,9 @@ def _template(config):
 	doctype = config["doctype"]
 	features = config.get("features") or {}
 	legacy_controls = bool(features.get("legacy_controls"))
+	price_difference = bool(features.get("price_difference"))
+	if price_difference and doctype not in ("Sales Order", "Sales Invoice"):
+		frappe.throw(_("差价明细只支持销售订单和销售发票"))
 	keys = [key for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype] if config["visible"].get(key)]
 	if doctype == "Delivery Note" and not any(key in keys for key in ("ordered", "remaining")) and "qty" not in keys:
 		keys.append("qty")
@@ -374,12 +385,22 @@ def _template(config):
         "trace": '<td>{{ (item.batch_no or item.serial_no or item.serial_and_batch_bundle or "—") | e }}</td>',
         "additional_notes": '<td>{{ (item.additional_notes or "—") | e }}</td>',
 		"warehouse": '<td>{{ item.warehouse | e }}</td>', "order": '<td>{{ item.sales_order | e }}</td>',
+		"price_item": '<td>{{ (item.item_name or "—") | e }}</td>',
+		"price_code": '<td>{{ (item.item_code or "—") | e }}</td>',
+		"price_qty": '<td class="num">{{ format_print_qty(item.qty) }}</td>',
+		"price_uom": '<td>{{ (item.uom or "—") | e }}</td>',
+		"price_old_rate": '<td class="num">{{ format_print_money(item.old_rate) }}</td>',
+		"price_new_rate": '<td class="num">{{ format_print_money(item.new_rate) }}</td>',
+		"price_unit_diff": '<td class="num">{{ format_print_money(item.unit_difference) }}</td>',
+		"price_total_diff": '<td class="num">{{ format_print_money(item.difference_amount) }}</td>',
 	}
 	cells = "".join(conditional(key, cell_map[key]) for key in keys)
 	provider = "get_a4_print_data(doc)"
-	items = 'p["items"]'
+	items = 'p.get("price_difference", {}).get("rows", [])' if price_difference else 'p["items"]'
 	title = {"Sales Order": "Confirmação de Encomenda / 订单确认单", "Sales Invoice": "Factura / 销售单",
 	         "Delivery Note": "Guia de Remessa / 送货单", "Pick List": "Lista de Separação / 拣货单"}[doctype]
+	if price_difference:
+		title = "Detalhe da diferença de preço / 差价明细"
 	settings = config["settings"]
 	item_border = "1px solid #aeb8be" if settings.get("itemBordersByDoctype", {}).get(doctype, settings.get("itemBorders", False)) else "0"
 	css = (f'@page{{size:A4;margin:0}} .print-format{{width:210mm;min-height:297mm;padding:{settings["pageMargin"]}mm;box-sizing:border-box;color:#25313a;font-size:{settings["fontSize"]}pt;overflow-wrap:anywhere}}'
@@ -421,7 +442,17 @@ def _template(config):
 			"{% for item in p['items'] %}{% if item.template_code and item.template_code not in seen %}{% set unused = seen.append(item.template_code) %}"
 			'{% set qr = get_color_card_qr_img(item.template_code) %}{% if qr %}<div><img src="{{ qr | e }}"><br>{{ item.template_code | e }}</div>{% endif %}{% endif %}{% endfor %}</div>{% endif %}')
 	footer = '<div id="footer-html" class="visible-pdf"><div class="text-center">{{ doc.name | e }} · <span class="page"></span> / <span class="topage"></span></div></div>' if features.get("footer") else ""
-	if doctype == "Delivery Note":
+	if price_difference:
+		meta_rows = "<tr><td>Documento / 单据: {{ doc.name | e }}<br>Documento original / 原单据: {{ (p.get('price_difference') or {}).get('original_document') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or doc.get('transaction_date') }}<br>Tipo / 类型: {{ (p.get('price_difference') or {}).get('document_type') or '—' | e }}</td></tr>"
+		table_title = "Detalhe da diferença de preço / 差价明细"
+		closing = ('<div class="totals">'
+			'<div>旧订单金额 / Valor da encomenda: {{ format_print_money((p.get("price_difference") or {}).get("old_total")) }}</div>'
+			'<div>新价格合计 / Total com preço novo: {{ format_print_money((p.get("price_difference") or {}).get("new_total")) }}</div>'
+			'<div class="total">价格差价 / Diferença de preço: {{ format_print_money((p.get("price_difference") or {}).get("difference_total")) }}</div>'
+			'{% if (p.get("price_difference") or {}).get("difference_discount") %}<div>差价现金折扣 / Desconto sobre a diferença: -{{ format_print_money((p.get("price_difference") or {}).get("difference_discount")) }}</div>{% endif %}'
+			'{% if (p.get("price_difference") or {}).get("refund_amount") is not none %}<div class="total">实际退款 / Reembolso efetuado: {{ format_print_money((p.get("price_difference") or {}).get("refund_amount")) }}</div>{% endif %}'
+			'</div>')
+	elif doctype == "Delivery Note":
 		meta_rows = "<tr><td>N.º / 编号: {{ doc.name | e }}<br>Encomenda / 订单: {{ (p.get('order') or {}).get('name') or '—' | e }}</td><td>Data / 日期: {{ doc.get('posting_date') or '—' }}<br>Saída / 出发: {{ (p.get('transport') or {}).get('departure_time') or '—' | e }}<br>Armazém / 仓库: {{ (p.get('transport') or {}).get('source_address') or '—' | e }}</td></tr>"
 		table_title = "{{ doc.name | e }} · 本次送货 / Entrega"
 		closing = '<div class="block">Transporte / 运输: {{ (p.get("transport") or {}).get("driver_name") or "—" | e }} · {{ (p.get("transport") or {}).get("driver_phone") or "—" | e }}<br>Plano de faturação / 开票安排: {{ p.get("invoice_plan") or "未维护" | e }}</div><div class="sign">Diferenças / 退货备注: ______________________________________<br>Cliente recebeu / 客户签收: ____________________<br>Motorista / 司机签字: ____________________</div>'
@@ -449,9 +480,9 @@ def _template(config):
 	        + "{% if doc.docstatus != 1 %}<div class=\"warning\">{{ 'RASCUNHO / 草稿' if doc.docstatus == 0 else 'CANCELADO / 已取消' }} — Documento não oficial / 非正式凭证</div>{% endif %}" + warning
 	        + "<table class=\"parties\"><tr><td><b>{{ company.name | e }}</b><br>NUIT: {{ company.nuit | e }}<br>{{ company.address }}<br>Tel: {{ company.phone | e }}</td><td><b>Cliente / 客户: {{ customer.name | e }}</b><br>NUIT: {{ customer.nuit or 'Não informado / 未提供' | e }}<br>Loja / 门店: {{ customer.store | e }}<br>{{ customer.address }}<br>{{ customer.contact }} · {{ customer.phone | e }}</td></tr>" + meta_rows + "</table>"
 	        + f'<table class="items"><colgroup>{cols}</colgroup><thead><tr><th colspan="{len(keys)}">{table_title}</th></tr><tr>{headers}</tr></thead><tbody>{{% for item in {items} %}}<tr>{cells}</tr>{{% endfor %}}</tbody></table>'
-	        + '<div class="qty-total">Total Qty / 总数量: {{ format_print_qty(p.get("total_qty") or 0) }}</div>'
-	        + (("<div class=\"totals\"><div class=\"total\">发票总额 / Invoice total: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" + cash + "</div>") if doctype == "Sales Invoice" else order_total)
-	        + closing + qr + footer)
+	        + ('' if price_difference else '<div class="qty-total">Total Qty / 总数量: {{ format_print_qty(p.get("total_qty") or 0) }}</div>')
+	        + (closing if price_difference else (("<div class=\"totals\"><div class=\"total\">发票总额 / Invoice total: {{ format_print_money(doc.grand_total, currency=doc.currency) }} {{ doc.currency }}</div>" + cash + "</div>") if doctype == "Sales Invoice" else order_total))
+	        + ("" if price_difference else closing) + qr + footer)
 
 
 def _legacy_import_config(print_format):
@@ -465,7 +496,7 @@ def _legacy_import_config(print_format):
 	config = {
 		"version": 2,
 		"doctype": doctype,
-		"visible": {key: key != "additional_notes" for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype]},
+		"visible": {key: key != "additional_notes" and not key.startswith("price_") for key in BASE_COLUMNS + DOCTYPE_CONFIG[doctype]},
 		"widths": {
 			"image": 7, "name": 12, "spu": 8, "sku": 12, "color_code": 8, "additional_notes": 10,
 			"barcode": 11, "description": 23, "qty": 5, "uom": 5, "rate": 4, "amount": 5,

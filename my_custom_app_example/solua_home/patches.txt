@@ -1,2 +1,5 @@
+[pre_model_sync]
+
 [post_model_sync]
 solua_home.patches.v20261004_profitability_analysis
+solua_home.patches.v20261005_item_wise_sales_history

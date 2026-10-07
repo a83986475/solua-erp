@@ -1,5 +1,6 @@
 """Run with Python; isolated fixtures never connect to a site or write business data."""
 import importlib.util
+import io
 import sys
 import types
 from pathlib import Path
@@ -14,6 +15,9 @@ opened_doctypes = []
 class Doc(dict):
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+
+    def set(self, key, value):
+        self[key] = value
 
 
 def fail(message, exc=None):
@@ -51,6 +55,7 @@ frappe._ = lambda text: text
 frappe.throw = fail
 frappe.PermissionError = PermissionError
 frappe.whitelist = lambda *args, **kwargs: (lambda function: function)
+frappe.concurrent_limit = lambda *args, **kwargs: (lambda function: function)
 frappe.scrub = lambda value: value.lower().replace(" ", "_")
 frappe.get_doc = get_doc
 frappe.has_permission = lambda doctype, ptype="read", doc=None: doctype not in frappe.__blocked
@@ -76,11 +81,17 @@ sys.modules["frappe.desk.utils"] = desk_utils
 xlsxutils = types.ModuleType("frappe.utils.xlsxutils")
 
 
-def build_xlsx_response(data, filename, styles=None):
-    xlsx_calls.append({"data": data, "filename": filename})
+def make_xlsx(data, filename, column_widths=None, styles=None):
+    xlsx_calls.append({
+        "data": data,
+        "filename": filename,
+        "column_widths": column_widths,
+        "styles": styles,
+    })
+    return io.BytesIO(b"xlsx")
 
 
-xlsxutils.build_xlsx_response = build_xlsx_response
+xlsxutils.make_xlsx = make_xlsx
 sys.modules["frappe.utils.xlsxutils"] = xlsxutils
 
 # --- stubs for the two printing helpers the export reuses -------------------
@@ -92,7 +103,10 @@ def get_wholesale_print_data(doc):
 
 
 wholesale.get_wholesale_print_data = get_wholesale_print_data
+wholesale.format_print_uom = lambda value, item_code=None: ("卷/Rolo" if str(value or "").strip() == "Nos" and str(item_code or "").startswith("SH-PVC1.0") else {"条": "条/pc", "根": "根/pc", "卷": "卷/Rolo", "箱": "箱/CTN", "箱/Caixa": "箱/CTN"}.get(str(value or "").strip(), str(value or "").strip()))
 wholesale.get_item_sales_display = lambda code, description="": {"barcode": f"BC-{code}", "description": f"desc {code}"}
+wholesale.get_item_spu = lambda code: {"A-01": "SPU-A", "B-02": "SPU-B"}.get(code, "")
+wholesale._get_pick_list_additional_notes = lambda item: item.get("custom_additional_notes") or item.get("additional_notes") or ""
 sys.modules["solua_home.printing.wholesale"] = wholesale
 
 color = types.ModuleType("solua_home.printing.color_card")
@@ -115,11 +129,11 @@ def wholesale_doc(doctype, items, **extra):
 
 def print_items():
     return [
-        {"item_code": "A-01", "item_name": "Curtain A", "order_code": "ORD-A", "color_code": "01", "color": "Red",
-         "barcode": "BC1", "description": "Red curtain", "qty": 2.5, "uom": "条", "rate": 100, "amount": 250,
+        {"item_code": "A-01", "item_name": "Curtain A", "spu": "SPU-A", "order_code": "ORD-A", "color_code": "01", "color": "Red",
+         "barcode": "BC1", "description": "Red curtain", "additional_notes": "A notes", "qty": 2.5, "uom": "条", "rate": 100, "amount": 250,
          "warehouse": "W1", "ordered_qty": 10, "delivered_before_qty": 3, "remaining_qty": 5},
-        {"item_code": "B-02", "item_name": "Curtain B", "order_code": "ORD-B", "color_code": "02", "color": "Blue",
-         "barcode": "BC2", "description": "Blue curtain", "qty": 1, "uom": "条", "rate": 300, "amount": 300,
+        {"item_code": "B-02", "item_name": "Curtain B", "spu": "SPU-B", "order_code": "ORD-B", "color_code": "02", "color": "Blue",
+         "barcode": "BC2", "description": "Blue curtain", "additional_notes": "", "qty": 1, "uom": "条", "rate": 300, "amount": 300,
          "warehouse": "W1", "ordered_qty": 4, "delivered_before_qty": 4, "remaining_qty": 0},
     ]
 
@@ -137,8 +151,8 @@ def index_of(header, label):
 
 # ---------------------------------------------------------------- 列定义
 assert module.EXPORT_DOCTYPES == ("Sales Order", "Sales Invoice", "Delivery Note", "Pick List")
-assert module.DOCTYPE_COLUMNS["Pick List"] == ("idx", "item_code", "item_name", "color_code", "color", "barcode",
-                                              "description", "qty", "picked_qty", "uom", "warehouse")
+assert module.DOCTYPE_COLUMNS["Pick List"] == ("idx", "item_code", "item_name", "spu", "color_code", "color", "barcode",
+                                              "description", "additional_notes", "qty", "picked_qty", "uom", "warehouse")
 assert "ordered_qty" in module.DOCTYPE_COLUMNS["Delivery Note"]
 assert "ordered_qty" not in module.DOCTYPE_COLUMNS["Sales Order"]
 for key in module.DOCTYPE_COLUMNS["Sales Order"]:
@@ -147,9 +161,16 @@ for key in module.DOCTYPE_COLUMNS["Sales Order"]:
 options = module.get_export_options("Sales Order")
 assert [column["key"] for column in options["columns"]] == list(module.DOCTYPE_COLUMNS["Sales Order"])
 assert "amount" in options["defaults"] and "qty" in options["defaults"]
+assert "additional_notes" in [column["key"] for column in options["columns"]]
+assert "additional_notes" not in options["defaults"]
+assert "spu" in [column["key"] for column in options["columns"]]
+assert "spu" not in options["defaults"]
 assert [entry["value"] for entry in options["formats"]] == ["xlsx", "csv"]
+assert options["allow_merge_order_code"] is True
 for doctype in ("Sales Invoice", "Delivery Note", "Pick List"):
     assert module.get_export_options(doctype)["columns"], doctype
+assert module.get_export_options("Pick List")["allow_merge_order_code"] is False
+assert module.get_export_options("Pick List")["defaults"] == ["idx", "item_code", "item_name", "qty", "uom", "additional_notes"]
 
 try:
     module.get_export_options("Item")
@@ -181,6 +202,7 @@ header = table[6]
 assert header == [module.LABELS[key] for key in module.DOCTYPE_COLUMNS["Delivery Note"]], header
 first = table[7]
 assert first[index_of(header, "货号")] == "A-01"
+assert first[index_of(header, "SPU")] == "SPU-A"
 assert first[index_of(header, "数量")] == 2.5, "quantity must stay a number for Excel"
 assert first[index_of(header, "金额")] == 250
 assert first[index_of(header, "订购数量")] == 10
@@ -208,9 +230,32 @@ assert len(module.build_table(doc, None, 1, 0)) == 6 + 1 + 2, "header + column l
 empty = wholesale_doc("Sales Order", [])
 assert module.build_table(empty, "item_code,qty", 0, 1) == [["货号", "数量"], ["合计", 0]]
 
+# 销售发票启用客户合并货号时，导出“货号”必须与 PDF 使用模板货号；关闭时保留变体货号。
+merged_invoice = wholesale_doc(
+    "Sales Invoice",
+    [{"item_code": "STYLE-RED", "order_code": "STYLE", "qty": 2, "rate": 100, "amount": 200}],
+    custom_print_merge_order_code=1,
+)
+assert module.build_table(merged_invoice, "item_code,order_code", 0, 0) == [
+    ["货号", "订货货号"],
+    ["STYLE", "STYLE"],
+], module.build_table(merged_invoice, "item_code,order_code", 0, 0)
+unmerged_invoice = wholesale_doc(
+    "Sales Invoice",
+    [{"item_code": "STYLE-RED", "order_code": "STYLE", "qty": 2, "rate": 100, "amount": 200}],
+    custom_print_merge_order_code="0",
+)
+assert module.build_table(unmerged_invoice, "item_code,order_code", 0, 0) == [
+    ["货号", "订货货号"],
+    ["STYLE-RED", "STYLE"],
+]
+module.export_document_table("Sales Invoice", "DOC-1", "item_code", "csv", 0, 0, 1)
+assert pdf_calls[-1]["content"].decode("utf-8").endswith("STYLE\r\n"), pdf_calls[-1]["content"]
+assert unmerged_invoice["custom_print_merge_order_code"] == "0", "per-export merge must not mutate the document"
+
 # CSV 带 BOM、CRLF，且中文表头可读
 frappe.__docs["Delivery Note"] = doc
-module.export_document_table("Delivery Note", "DOC-1", "item_code,qty,description", "csv", 1, 1)
+module.export_document_table("Delivery Note", "DOC-1", "item_code,qty,description,additional_notes", "csv", 1, 1)
 csv_call = pdf_calls[-1]
 assert csv_call["extension"] == "csv"
 assert csv_call["filename"].startswith("delivery-note-DOC-1-2026-09-23"), csv_call["filename"]
@@ -221,20 +266,26 @@ lines = text.split("\r\n")
 assert lines[0] == "\ufeff单据类型,Delivery Note", lines[0]
 assert lines[1] == "单号,DOC-1" and lines[3] == "客户,Customer 1", lines[:4]
 assert "" in lines, "the blank spacer row survives the export"
-assert "货号,描述,数量" in lines, lines
-assert "A-01,Red curtain,2.5" in text
-assert lines[-2] == "合计,,3.5", text[-40:]
+assert "货号,描述,补充说明,数量" in lines, lines
+assert "A-01,Red curtain,A notes,2.5" in text
+assert lines[-2] == "合计,,,3.5", text[-40:]
 
 # Excel 拿到的是一模一样的行
 module.export_document_table("Delivery Note", "DOC-1", "item_code,qty", "xlsx", 0, 1)
 xlsx_call = xlsx_calls[-1]
 assert xlsx_call["data"] == [["货号", "数量"], ["A-01", 2.5], ["B-02", 1], ["合计", 3.5]], xlsx_call["data"]
 assert xlsx_call["filename"].startswith("delivery-note-DOC-1-")
+assert xlsx_call["column_widths"] == [10, 10], xlsx_call["column_widths"]
+assert "text_wrap" not in xlsx_call["styles"]["styles"][1]
+assert xlsx_call["data"][1][1] == 2.5, "Excel formatting must preserve the underlying quantity"
+assert xlsx_call["styles"]["styles"][2]["num_format"] == "0"
+assert not xlsx_call["styles"].get("column_styles"), "column styles would reset explicit widths"
+assert xlsx_call["styles"]["cell_styles"][(1, 1)] == [2], "only quantity cells use integer display"
 
 # 拣货单：没有价格，靠 color/print helper 拼行
 # 拣货单的行在 locations 子表（Pick List Item），不是 items
 pick = Doc(doctype="Pick List", name="PL-1", docstatus=0, status="Open", creation="2026-09-19 08:00:00",
-           locations=[Doc(item_code="A-01", item_name="", qty=3, picked_qty=2, uom="条", warehouse="W2"),
+           locations=[Doc(item_code="A-01", item_name="", qty=3, picked_qty=2, uom="条", warehouse="W2", custom_additional_notes="拣货备注"),
                       Doc(item_code="B-02", item_name="Curtain B", description="row desc", qty=1.5, picked_qty=1.5,
                           uom="条", warehouse="W2")])
 frappe.__docs["Pick List"] = pick
@@ -243,8 +294,8 @@ table = module.build_table(pick, None, 1, 1)
 assert [row[0] for row in table[:4]] == ["单据类型", "单号", "日期", "状态"], "Pick List has no customer row"
 assert table[4] == []
 header = table[5]
-assert header == ["序号", "货号", "商品名称", "色号", "颜色", "条码", "描述", "数量", "已拣数量", "单位", "仓库"], header
-assert table[6] == [1, "A-01", "A-01", "01", "Red", "BC-A-01", "desc A-01", 3, 2, "条", "W2"], table[6]
+assert header == ["序号", "货号", "商品名称", "SPU", "色号", "颜色", "条码", "描述", "补充说明", "数量", "已拣数量", "单位", "仓库"], header
+assert table[6] == [1, "A-01", "A-01", "SPU-A", "01", "Red", "BC-A-01", "desc A-01", "拣货备注", 3, 2, "条/pc", "W2"], table[6]
 assert table[7][index_of(header, "描述")] == "desc B-02", "row description falls back to the item master"
 assert table[-1][index_of(header, "数量")] == 4.5 and table[-1][index_of(header, "已拣数量")] == 3.5
 assert "金额" not in header

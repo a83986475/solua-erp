@@ -30,5 +30,5 @@ config/
 *.orig
 
 # Server-local artifacts (do not track)
-solua_home
+/solua_home
 api/*.bak*

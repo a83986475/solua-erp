@@ -32,37 +32,3 @@ class CustomSalesInvoice(SalesInvoice):
         for payment in self.get("payments") or []:
             payment.amount = -abs(flt(payment.amount))
         return super().verify_payment_amount_is_negative()
-
-    def on_submit(self):
-        """提交时执行（重写父类方法）"""
-        # 调用父类的 on_submit
-        super().on_submit()
-
-        # 提交后的自定义逻辑
-        self.custom_after_submit()
-
-    def on_cancel(self):
-        """取消时执行（重写父类方法）"""
-        super().on_cancel()
-        self.custom_after_cancel()
-
-    def custom_after_submit(self):
-        """提交后的自定义操作"""
-        # 更新客户信息
-        if self.customer:
-            frappe.db.set_value(
-                "Customer",
-                self.customer,
-                "custom_last_transaction_date",
-                frappe.utils.nowdate(),
-            )
-
-        # 记录日志
-        frappe.log_error(
-            f"发票 {self.name} 已提交，金额: {self.grand_total}",
-            "自定义发票日志",
-        )
-
-    def custom_after_cancel(self):
-        """取消后的自定义操作"""
-        frappe.msgprint(_("发票 {0} 已取消，已执行自定义清理逻辑").format(self.name))

@@ -43,6 +43,10 @@ def db_get_value(dt, name, field, **kwargs):
         return "COMPANY-NUIT"
     if dt == "Contact" and name == "CONTACT-A":
         return "STORE-A"
+    if dt == "Driver" and isinstance(field, list):
+        return Doc(full_name="唯一司机", cell_number="123")
+    if dt == "Address" and field == "phone":
+        return "999"
     if dt == "Item" and kwargs.get("as_dict"):
         return Doc(variant_of="", description="<p>Standard description</p>", custom_item_description_pt="Cortina <b>vermelha</b>")
     if dt == "Item" and field == "variant_of":
@@ -61,7 +65,8 @@ def db_set_value(dt, name, fields):
 frappe.db = types.SimpleNamespace(get_value=db_get_value, set_value=db_set_value)
 frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
-frappe.get_all = lambda dt, *a, **k: [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else []
+unique_delivery_defaults = {}
+frappe.get_all = lambda dt, *a, **k: unique_delivery_defaults.get(dt, [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else [])
 frappe.get_list = lambda *a, **k: []
 def fmt_money(value, currency, precision=2):
     return f"{value or 0:.{precision}f} {currency}"
@@ -101,10 +106,12 @@ legacy_snapshot = json.loads(so.custom_wholesale_snapshot)
 for legacy_item in legacy_snapshot["items"]:
     legacy_item["barcode"] = ""
     legacy_item["description"] = ""
+    legacy_item["image"] = "/template.png"
 legacy_so.custom_wholesale_snapshot = json.dumps(legacy_snapshot)
 legacy_display = module.get_wholesale_print_data(legacy_so)["items"][0]
 assert legacy_display["barcode"] == "6901234567892"
 assert legacy_display["description"] == "Cortina vermelha"
+assert legacy_display["image"] == "/red.png"
 assert json.loads(legacy_so.custom_wholesale_snapshot)["items"][0]["barcode"] == ""
 
 # A submitted Sales Order may change quantity after its print snapshot exists.
@@ -165,14 +172,36 @@ assert returned_snapshot["qty"]==-2 and returned_snapshot["remaining_qty"] is No
 # 表格底部的总数量：空快照/缺行/字符串数字都不能破坏打印
 assert module.get_print_total_qty({"items": [{"qty": 2}, {"qty": None}, {"qty": 0.5}]}) == 2.5
 
+saved_item_master = module._item_master
+module._item_master = lambda code: {
+    "STYLE": {"variant_of": "", "image": "/template.png", "description": "Template description",
+               "custom_item_description_pt": "Template description"},
+    "STYLE-1": {"variant_of": "STYLE", "image": "/red.png", "description": "Red description",
+                 "custom_item_description_pt": "Red description"},
+    "STYLE-2": {"variant_of": "STYLE", "image": "/blue.png", "description": "Blue description",
+                 "custom_item_description_pt": "Blue description"},
+    "STYLE-3": {"variant_of": "STYLE", "image": "/green.png", "description": "Green description",
+                 "custom_item_description_pt": "Green description"},
+}.get(code, {})
 merged_customer_rows = module._merge_customer_print_items([
-    {"item_code": "STYLE-1", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 10, "rate": 100, "amount": 1000, "uom": "根"},
-    {"item_code": "STYLE-2", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 5, "rate": 100, "amount": 500, "uom": "根"},
-    {"item_code": "STYLE-3", "order_code": "STYLE", "template_name": "Curtain rod", "qty": 2, "rate": 120, "amount": 240, "uom": "根"},
+    {"item_code": "STYLE-1", "order_code": "STYLE", "template_code": "STYLE", "template_name": "Curtain rod", "image": "/red.png", "description": "Red description", "qty": 10, "rate": 100, "amount": 1000, "uom": "根"},
+    {"item_code": "STYLE-2", "order_code": "STYLE", "template_code": "STYLE", "template_name": "Curtain rod", "image": "/blue.png", "description": "Blue description", "qty": 5, "rate": 100, "amount": 500, "uom": "根"},
+    {"item_code": "STYLE-3", "order_code": "STYLE", "template_code": "STYLE", "template_name": "Curtain rod", "image": "/green.png", "description": "Green description", "qty": 2, "rate": 120, "amount": 240, "uom": "根"},
 ])
+module._item_master = saved_item_master
 assert len(merged_customer_rows) == 2
 assert merged_customer_rows[0]["qty"] == 15 and merged_customer_rows[0]["amount"] == 1500
+assert merged_customer_rows[0]["image"] == "/template.png"
+assert merged_customer_rows[0]["description"] == "Template description"
+assert merged_customer_rows[0]["customer_merged"] is True
 assert merged_customer_rows[1]["qty"] == 2 and merged_customer_rows[1]["amount"] == 240
+assert merged_customer_rows[1]["image"] == "/green.png"
+assert merged_customer_rows[1]["customer_merged"] is False
+unmerged_customer_rows = module._merge_customer_print_items([
+    {"item_code": "STYLE-1", "order_code": "", "template_code": "STYLE", "template_name": "Curtain rod",
+     "image": "/red.png", "description": "Red description", "qty": 1, "rate": 100, "amount": 100, "uom": "根"},
+])
+assert len(unmerged_customer_rows) == 1 and unmerged_customer_rows[0]["image"] == "/red.png"
 assert module.get_print_total_qty({"items": [{"qty": "3"}, {}]}) == 3
 assert module.get_print_total_qty({"items": []}) == 0 and module.get_print_total_qty(None) == 0
 
@@ -180,12 +209,14 @@ assert module.get_print_total_qty({"items": []}) == 0 and module.get_print_total
 pick = Doc(doctype="Pick List", name="PL-CHECK-1", docstatus=1, company="Solua Home, Lda", purpose="Delivery",
            customer="C", customer_name="Customer", status="Completed", creation="2026-09-23 09:15:00",
            locations=[Doc(item_code="RED", item_name="Curtain", qty=2, picked_qty=2, uom="条",
-                          warehouse="W1", sales_order="SO-1", description="<p>row desc</p>"),
+                          warehouse="W1", sales_order="SO-1", description="<p>row desc</p>", custom_additional_notes="员工备注"),
                       Doc(item_code="BLUE", item_name="", qty=1.5, picked_qty=0, uom="条",
                           warehouse="W1", sales_order="", description="")])
+saved_get_item_spu = module.get_item_spu
+module.get_item_spu = lambda code: "SPU-RED" if code == "RED" else ""
 pick_data = module.get_pick_list_print_data(pick)
 assert pick_data["total_qty"] == 3.5 and pick_data["total_picked"] == 2, pick_data
-assert pick_data["total_uom"] == "\u6761"  # 所有行单位一致时合计带单位
+assert pick_data["total_uom"] == "\u6761/pc"  # 所有行单位一致时合计带单位
 # 单位不一致（混合拣货）时不给合计标单位，不假装成某一个单位
 mixed_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-MIX", docstatus=1,
                                                 locations=[Doc(item_code="RED", qty=2, uom="\u6761"),
@@ -194,19 +225,26 @@ assert mixed_pick["total_uom"] == "" and mixed_pick["total_qty"] == 3
 assert pick_data["customer"] == "Customer" and pick_data["purpose"] == "Delivery"
 assert pick_data["items"][0]["barcode"] == "6901234567892" and pick_data["items"][0]["color_code"] == "01"
 assert pick_data["items"][0]["description"] == "Cortina vermelha"
+assert pick_data["items"][0]["additional_notes"] == "员工备注"
 assert pick_data["items"][0]["sales_order"] == "SO-1" and pick_data["items"][1]["item_name"] == "BLUE"
 # 数量后面要带单位；货号维护了整箱换算的再补一行折箱数（1 箱 = 2 条 → 2 条 = 1 箱）
-assert pick_data["items"][0]["pack_uom"] == "1 箱/Caixa" and pick_data["items"][1]["pack_uom"] == ""
+assert pick_data["items"][0]["pack_uom"] == "1 箱/CTN" and pick_data["items"][1]["pack_uom"] == ""
 assert module.get_item_pack_factor("RED") == 2.0
 assert module.get_item_pack_factor("GREY") == 12.0  # 变体自身没有换算，回退到模板
 assert module.get_item_pack_factor("NOPE") == 0.0 and module.get_item_pack_factor("") == 0.0
 assert module.get_pick_list_row_pack("箱/Caixa", 1, 2, 2, "RED") == ""  # 行本来就是箱，不再重复提示
-assert module.get_pick_list_row_pack("条", 3, 2, 6, "RED") == "3 箱/Caixa"
+assert module.get_pick_list_row_pack("条", 3, 2, 6, "RED") == "3 箱/CTN"
 assert module.get_pick_list_row_pack("条", None, None, None, "RED") == ""
 empty_pick = module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-2", docstatus=1, locations=[]))
 assert empty_pick["items"] == [] and empty_pick["total_qty"] == 0 and empty_pick["total_picked"] == 0
 assert module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-3", docstatus=1))["total_qty"] == 0
 assert module.format_print_qty(5.6) == "6"
+assert [module.format_print_uom(value) for value in ("条", "根", "卷", "箱", "箱/Caixa")] == [
+    "条/pc", "根/pc", "卷/Rolo", "箱/CTN", "箱/CTN"
+]
+assert module.format_print_uom("Nos", "SH-PVC1.0-102") == "卷/Rolo"
+assert module.format_print_uom("Nos", "OTHER-ITEM") == "Nos"
+assert module.format_print_uom("个") == "个"
 assert module.format_print_money(430.49, currency="MZN") == "430 MZN"
 # 打印模板会显式传 precision；不接受该参数会让整张格式渲染失败（模板第 6 行 TypeError）。
 assert module.format_print_money(430.49, currency="MZN", precision=0) == "430 MZN"
@@ -342,13 +380,14 @@ assert pick_fmt["raw_printing"] == 0 and not pick_fmt["raw_commands"]
 rendered_pick = env.from_string(pick_fmt["html"]).render(doc=pick)
 assert "Pick List / 拣货单" in rendered_pick and "{%" not in rendered_pick
 assert 'class="solua-global-logo"' in rendered_pick and 'src="888"' in rendered_pick
-for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
+for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "补充说明 / Observações", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick
-# 合计必须带单位：行改以箱为主位后，裸数字会被读成箱（两行都是「条」→ total_uom=条）
-assert "<b>4 \u6761</b>" in rendered_pick and "<b>2 \u6761</b>" in rendered_pick
+# 合计必须带单位：行改以箱为主位后，裸数字会被读成箱（两行都是「条」→ total_uom=条/pc）
+assert "<b>4 \u6761/pc</b>" in rendered_pick and "<b>2 \u6761/pc</b>" in rendered_pick
 assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
-assert "(= 1 \u7bb1/Caixa)" in rendered_pick  # 颜色版：有整箱换算的行补一行折箱数
+assert "员工备注" in rendered_pick
+assert "(= 1 \u7bb1/CTN)" in rendered_pick  # 颜色版：有整箱换算的行补一行折箱数
 assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=2))
@@ -361,19 +400,22 @@ rendered_simple = env.from_string(simple_fmt["html"]).render(doc=pick)
 assert "{%" not in rendered_simple and "Pick List / 拣货单（简版）" in rendered_simple
 assert 'class="solua-global-logo"' in rendered_simple and 'src="888"' in rendered_simple
 assert "Cliente / 客户: Customer" in rendered_simple
-for header in ("SPU", "SKU / 货号", "Quantidade / 数量"):
+for header in ("SPU", "SKU / 货号", "补充说明 / Observações", "Quantidade / 数量"):
     assert header in rendered_simple, header
 for dropped in ("Foto / 图片", "Código de barras", "Código de cor", "Armazém / 仓库", "Separado / 已拣", "Preço"):
     assert dropped not in rendered_simple, dropped
 assert "Separado por / 拣货人" in rendered_simple and "Motorista / 司机" in rendered_simple
-assert rendered_simple.count("<th") == 8  # 2 个 <thead> + 4 个商品列 + 2 个确认列
-assert "Total Qty / 总数量" in rendered_simple and "<b>4 \u6761</b>" in rendered_simple
+assert rendered_simple.count("<th") == 9  # 2 个 <thead> + 5 个商品列 + 2 个确认列
+assert "Total Qty / 总数量" in rendered_simple and "<b>4 \u6761/pc</b>" in rendered_simple
+assert "SPU-RED" in rendered_simple
+assert "员工备注" in rendered_simple
 # 数量列：有整箱换算的行把「箱」放主位（拣货按箱数），本位数量退到括号里；没换算的行仍是「数量 单位」
-assert "<b>1 \u7bb1/Caixa</b>" in rendered_simple, rendered_simple
-assert "(= 2 \u6761)" in rendered_simple  # 主位是箱，本位单位数量只在括号里出现一次
-assert rendered_simple.count(">2 \u6761<") == 1, rendered_simple
+assert "<b>1 \u7bb1/CTN</b>" in rendered_simple, rendered_simple
+assert "(= 2 \u6761/pc)" in rendered_simple  # 主位是箱，本位单位数量只在括号里出现一次
+assert rendered_simple.count(">2 \u6761/pc<") == 1, rendered_simple
 assert "非正式凭证" not in rendered_simple
 assert "非正式凭证" in env.from_string(simple_fmt["html"]).render(doc=Doc(pick, docstatus=0))
+module.get_item_spu = saved_get_item_spu
 # 生产上 doc.creation 是 datetime（不是字符串），直接切片会抛 PrintFormatError；两张拣货单都必须先转字符串
 from datetime import datetime as _datetime
 real_dated_pick = Doc(pick, creation=_datetime(2026, 9, 23, 9, 15))
@@ -451,6 +493,30 @@ assert set_value_calls and set_value_calls[0][:2] == ("Sales Order", "SO-1")
 assert order.custom_store_name == "A" and order.custom_store_phone == "222"
 assert order.custom_invoice_plan == "订单 CHECK-1 在签收后次日开票"
 set_value_calls.clear()
+auto_store_note = fixture("Delivery Note")
+auto_store_note.custom_store_name = ""
+order.custom_store_name = ""
+stock.validate_delivery_note(auto_store_note)
+assert auto_store_note.custom_store_name == "STORE-A"
+order.custom_store_name = "A"
+unique_delivery_defaults.update({"Vehicle": [Doc(name="唯一车辆")], "Driver": [Doc(name="唯一司机")]})
+default_note = fixture("Delivery Note")
+default_note.items = [Doc(default_note["items"][0], against_sales_order="", so_detail="")]
+default_note.custom_store_phone = ""
+default_note.vehicle_no = ""
+default_note.driver = ""
+default_note.driver_name = ""
+default_note.custom_driver_phone = ""
+stock.validate_delivery_note(default_note)
+assert default_note.custom_store_phone == "999"
+assert default_note.vehicle_no == "唯一车辆" and default_note.driver == "唯一司机"
+assert default_note.driver_name == "唯一司机" and default_note.custom_driver_phone == "123"
+unique_delivery_defaults["Vehicle"] = [Doc(name="车辆1"), Doc(name="车辆2")]
+manual_default_note = fixture("Delivery Note")
+manual_default_note.items = [Doc(manual_default_note["items"][0], against_sales_order="", so_detail="")]
+manual_default_note.vehicle_no = "手工车辆"
+stock.validate_delivery_note(manual_default_note)
+assert manual_default_note.vehicle_no == "手工车辆"
 compat_queries = []
 def compatibility_sql(query, args, **kwargs):
     compat_queries.append((query, args))
@@ -558,6 +624,7 @@ print("PASS: two colours/two trips; repeated SO rows; prior signed return; nativ
 from datetime import datetime
 utils.nowdate=lambda:"2026-09-15"
 utils.now_datetime=lambda:datetime(2026,9,15,12)
+utils.date_diff=lambda end,start:(datetime.fromisoformat(str(end)).date()-datetime.fromisoformat(str(start)).date()).days
 frappe.utils=utils
 frappe.session=types.SimpleNamespace(user="manager")
 frappe.whitelist=lambda:lambda fn:fn
@@ -617,6 +684,7 @@ frappe.get_all=listing
 home_spec=importlib.util.spec_from_file_location("home_candidate",ROOT/"api/home.py")
 home=importlib.util.module_from_spec(home_spec);home_spec.loader.exec_module(home)
 result=home.get_dashboard_data()
+assert all(row.overdue_days == 1 for row in result["overdue"]["items"])
 assert result["warehouse"]=="W1"  # Stock Settings beats the user default.
 assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W2")=="W2"  # Explicit accessible warehouse wins.
 assert home._resolve_warehouse(Doc(name="Solua Home, Lda"),"W-GROUP")=="W2"  # Group requests fall back safely.
@@ -661,7 +729,7 @@ assert home.get_color_variants(barcode="SHARED")["state"]=="no_permission"
 print("PASS: nonempty SI/POS merge and return 325; FX outstanding 45; warehouse role/Guest/parent Item/company/warehouse/hidden Bin isolation; item-data drill-down names the items behind each count and skips templates")
 
 # Cashier homepage mode: POS Profile membership (never a desk role) decides it.
-tables["POS Profile User"]=[Doc(name="PPU",parent="收银方式1 - SH",user="pos1@solua.one",parenttype="POS Profile",pos_role=None)]
+tables["POS Profile User"]=[Doc(name="PPU",parent="收银方式1 - SH",user="cashier@example.com",parenttype="POS Profile",pos_role=None)]
 tables["POS Profile"]=[Doc(name="收银方式1 - SH",disabled=0)]
 profile_disabled=0
 saved_get_value=frappe.db.get_value
@@ -675,7 +743,7 @@ def fake_get_value(dt,name,field=None,**kwargs):
         return getattr(row,field,None)
     return saved_get_value(dt,name,field)
 frappe.db.get_value=fake_get_value
-frappe.session.user="pos1@solua.one"
+frappe.session.user="cashier@example.com"
 role.clear();role.add("POS Cashier")
 assert home._pos_cashier_profile()=="收银方式1 - SH"
 cashier=home.get_dashboard_data()
@@ -701,7 +769,7 @@ tables["POS Profile User"][0].pos_role=None
 profile_disabled=1  # a disabled profile no longer identifies a cashier
 assert home._pos_cashier_profile() is None
 profile_disabled=0
-frappe.session.user="another@solua.one"  # not on any profile
+frappe.session.user="another@example.com"  # not on any profile
 assert home._pos_cashier_profile() is None
 frappe.session.user="manager"
 frappe.db.get_value=saved_get_value

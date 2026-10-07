@@ -207,9 +207,127 @@ def on_invoice_cancelled(doc, method=None):
     frappe.msgprint(_("发票 {0} 已取消").format(doc.name))
 
 
+@frappe.whitelist()
+def get_customer_store_options(customer):
+	"""Return linked addresses with display data for Sales Order suggestions."""
+	customer = str(customer or "").strip()
+	if not customer or frappe.session.user == "Guest" or not frappe.db.exists("Customer", customer):
+		return []
+	customer_doc = frappe.get_doc("Customer", customer)
+	if not frappe.has_permission("Customer", "read", doc=customer_doc):
+		return []
+	address_names = frappe.get_all(
+		"Dynamic Link",
+		filters={
+			"parenttype": "Address",
+			"parentfield": "links",
+			"link_doctype": "Customer",
+			"link_name": customer,
+		},
+		pluck="parent",
+		limit_page_length=50,
+	)
+	if not address_names:
+		return []
+	return [
+		{
+			"name": row.name,
+			"title": row.address_title or row.name,
+			"phone": row.phone or "",
+		}
+		for row in frappe.get_list(
+			"Address",
+			filters={"name": ["in", address_names]},
+			fields=["name", "address_title", "phone"],
+			order_by="name asc",
+			limit_page_length=50,
+		)
+	]
+
+
+def _get_customer_address(customer, value):
+	"""Resolve an Address name/title only when it belongs to the Customer."""
+	customer = str(customer or "").strip()
+	value = str(value or "").strip()
+	if not customer or not value:
+		return None
+	address_names = frappe.get_all(
+		"Dynamic Link",
+		filters={
+			"parenttype": "Address",
+			"parentfield": "links",
+			"link_doctype": "Customer",
+			"link_name": customer,
+		},
+		pluck="parent",
+		limit_page_length=50,
+	)
+	if not address_names:
+		return None
+	rows = frappe.get_list(
+		"Address",
+		filters={"name": ["in", address_names]},
+		fields=["name", "address_title", "phone"],
+		order_by="name asc",
+		limit_page_length=50,
+	)
+	for row in rows:
+		if row.name == value:
+			return row
+	for row in rows:
+		if (row.address_title or "").strip() == value:
+			return row
+	return None
+
+
+def _sync_sales_order_store(doc):
+	"""Keep the store summary and canonical address fields aligned for drafts."""
+	if doc.get("docstatus") != 0 or not doc.get("customer"):
+		return
+
+	selected = _get_customer_address(doc.customer, doc.get("custom_store_name"))
+	address_name = selected.name if selected else (doc.get("shipping_address_name") or doc.get("customer_address"))
+	address = selected or _get_customer_address(doc.customer, address_name)
+	if not address:
+		return
+
+	old_source = doc.get("custom_store_address")
+	was_empty = not doc.get("custom_store_name")
+	legacy_auto = doc.get("custom_store_name") == address.name
+	auto_source_changed = bool(old_source) and old_source != address.name
+	if selected:
+		# A recognized suggestion is the explicit store/address selection.
+		doc.shipping_address_name = address.name
+		doc.customer_address = address.name
+		doc.custom_store_address = address.name
+		doc.custom_store_name = address.address_title or address.name
+		if not doc.get("custom_store_phone") or old_source == address.name:
+			doc.custom_store_phone = address.phone or ""
+		return
+
+	# Migrate the old behavior, which stored Address.name in the summary field.
+	if not doc.get("custom_store_name") or legacy_auto or old_source == address.name or auto_source_changed:
+		if not doc.get("customer_address") or doc.get("customer_address") == old_source:
+			doc.customer_address = address.name
+		doc.custom_store_name = address.address_title or address.name
+		doc.custom_store_address = address.name
+	if (was_empty or legacy_auto or old_source == address.name or auto_source_changed) and not doc.get("custom_store_phone"):
+		doc.custom_store_phone = address.phone or ""
+
+
 def validate_sales_order(doc, method=None):
     """销售订单保存时验证"""
     validate_transaction_quantities(doc)
+
+    # 原生客户事件会带出唯一默认收货地址；API/其他入口没有前端事件时，
+    # 这里补同一规则。已确认的手工门店文本不覆盖正式地址。
+    if doc.get("docstatus") == 0 and doc.get("customer") and not doc.get("shipping_address_name"):
+        from erpnext.accounts.party import get_party_shipping_address
+
+        default_address = get_party_shipping_address("Customer", doc.customer)
+        if default_address:
+            doc.shipping_address_name = default_address
+    _sync_sales_order_store(doc)
 
     # Keep the row field readable in the form while the print snapshot uses
     # the same live resolver. Never copy item_code into the barcode field.
@@ -252,6 +370,9 @@ _UPLOAD_COLUMN_ALIASES = {
     "qty": "qty", "quantity": "qty", "salesqty": "qty", "orderedqty": "qty",
     "数量": "qty", "数量条": "qty", "订购数量": "qty", "订单数量": "qty", "销售数量": "qty", "件数": "qty",
     "warehouse": "warehouse", "仓库": "warehouse", "库位": "warehouse",
+    "rate": "rate", "basicrate": "rate", "cost": "rate", "costprice": "rate",
+    "unitcost": "rate", "unitprice": "rate", "valuationrate": "rate",
+    "成本": "rate", "成本价": "rate", "单位成本": "rate", "入库成本": "rate", "入库单价": "rate", "最终单位成本": "rate",
 }
 
 
@@ -279,6 +400,18 @@ def _positive_integer(value):
         return None
 
 
+def _positive_rate(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = Decimal(str(value).strip().replace(",", ""))
+        if not number.is_finite() or number <= 0:
+            return None
+        return float(number)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
 def _merge_input_rows(rows):
     merged = {}
     errors = []
@@ -288,15 +421,24 @@ def _merge_input_rows(rows):
         item_code = str(row.get("item_code") or row.get("sku") or "").strip()
         qty = _positive_integer(row.get("qty") or row.get("quantity"))
         warehouse = str(row.get("warehouse") or "").strip()
+        raw_rate = row.get("rate")
+        rate_present = raw_rate is not None and str(raw_rate).strip() != ""
+        rate = _positive_rate(raw_rate) if rate_present else None
         if not item_code:
             errors.append({"row": row_number, "item_code": "", "error": "缺少货号/SKU"})
             continue
         if qty is None:
             errors.append({"row": row_number, "item_code": item_code, "error": "数量必须为正整数"})
             continue
+        if rate_present and rate is None:
+            errors.append({"row": row_number, "item_code": item_code, "error": "成本必须为正数"})
         key = (item_code, warehouse)
         if key not in merged:
-            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "source_rows": []}
+            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "rate": rate, "source_rows": []}
+        elif rate is not None and merged[key].get("rate") is not None and abs(merged[key]["rate"] - rate) > 0.0000001:
+            errors.append({"row": row_number, "item_code": item_code, "error": "相同货号和仓库的成本不一致"})
+        elif rate is not None and merged[key].get("rate") is None:
+            merged[key]["rate"] = rate
         merged[key]["qty"] += qty
         merged[key]["source_rows"].append(row_number)
     return list(merged.values()), errors
@@ -316,11 +458,12 @@ def _parse_table_rows(table):
             return [], [{"row": 1, "item_code": "", "error": f"缺少列：{'、'.join(missing)}；实际表头：{actual}。支持：货号/SKU、数量"}]
         code_index, qty_index = header["item_code"], header["qty"]
         warehouse_index = header.get("warehouse")
+        rate_index = header.get("rate")
         data_rows = rows[1:]
         start_row = 2
     elif len(rows[0]) >= 2 and _positive_integer(rows[0][1]) is not None:
         # Also accept a headerless two-column export: SKU in column A, qty in B.
-        code_index, qty_index, warehouse_index = 0, 1, None
+        code_index, qty_index, warehouse_index, rate_index = 0, 1, None, None
         data_rows = rows
         start_row = 1
     else:
@@ -333,6 +476,7 @@ def _parse_table_rows(table):
             "item_code": row[code_index] if code_index < len(row) else "",
             "qty": row[qty_index] if qty_index < len(row) else "",
             "warehouse": row[warehouse_index] if warehouse_index is not None and warehouse_index < len(row) else "",
+            "rate": row[rate_index] if rate_index is not None and rate_index < len(row) else "",
             "_row": row_number,
         })
     merged, errors = _merge_input_rows(parsed)
@@ -429,6 +573,8 @@ def _sales_context(context):
     context.conversion_rate = context.get("conversion_rate") or 1
     context.plc_conversion_rate = context.get("plc_conversion_rate") or 1
     context.ignore_pricing_rule = cint(context.get("ignore_pricing_rule") or 0)
+    context.stock_entry = cint(context.get("stock_entry") or 0)
+    context.require_cost = cint(context.get("require_cost") or 0)
     return context
 
 
@@ -484,9 +630,18 @@ def _resolve_sales_item(input_row, context, strict=True):
         errors.append(str(exc)[:240] or "ERPNext 商品详情读取失败")
 
     warehouse = context_warehouse or details.get("warehouse") or ""
+    input_rate = flt(input_row.get("rate") or 0)
     rate = flt(details.get("rate") or details.get("price_list_rate"))
     price_list_rate = flt(details.get("price_list_rate") or rate)
-    if rate <= 0 and price_list_rate <= 0:
+    uom = details.get("uom") or details.get("stock_uom") or ""
+    stock_uom = details.get("stock_uom") or ""
+    conversion_factor = flt(details.get("conversion_factor") or 1)
+    if cint(context.get("stock_entry")):
+        rate = input_rate
+        price_list_rate = input_rate
+        if cint(context.get("require_cost")) and input_rate <= 0:
+            errors.append("入库成本必须为正数")
+    if rate <= 0 and price_list_rate <= 0 and not cint(context.get("stock_entry")):
         errors.append("当前销售价格表没有有效价格")
     if cint(master.get("is_stock_item")) and not warehouse:
         errors.append("没有默认仓库或订单仓库")
@@ -516,10 +671,10 @@ def _resolve_sales_item(input_row, context, strict=True):
         "item_name": details.get("item_name") or master.get("item_name") or item_code,
         "description": display.get("description") or details.get("description") or "",
         "qty": input_row.get("qty", 1),
-        "uom": details.get("uom") or details.get("stock_uom") or "",
-        "stock_uom": details.get("stock_uom") or "",
-        "conversion_factor": flt(details.get("conversion_factor") or 1),
-        "stock_qty": flt(details.get("stock_qty") or input_row.get("qty", 1) * flt(details.get("conversion_factor") or 1)),
+        "uom": uom,
+        "stock_uom": stock_uom,
+        "conversion_factor": conversion_factor,
+        "stock_qty": flt(details.get("stock_qty") or input_row.get("qty", 1) * conversion_factor),
         "rate": rate,
         "price_list_rate": price_list_rate,
         "warehouse": warehouse,
@@ -534,8 +689,10 @@ def _resolve_sales_item(input_row, context, strict=True):
         "projected_qty": projected_qty,
         "reserved_qty": reserved_qty,
         "available_qty": available_qty,
-        "wholesale_rate": _display_price(item_code, context, "Wholesale Selling", warehouse),
-        "standard_selling_rate": _display_price(item_code, context, "Standard Selling", warehouse),
+        "available_sales_qty": flt(available_qty / conversion_factor) if conversion_factor else available_qty,
+        "pack_size": conversion_factor if conversion_factor > 1 and uom != stock_uom else 0,
+        "wholesale_rate": 0 if cint(context.get("stock_entry")) else _display_price(item_code, context, "Wholesale Selling", warehouse),
+        "standard_selling_rate": 0 if cint(context.get("stock_entry")) else _display_price(item_code, context, "Standard Selling", warehouse),
         "errors": errors,
     }
     if errors and strict:
@@ -618,7 +775,7 @@ def get_sales_order_color_variants(barcode, context=None):
                 row["name"] = variant.get("name") or variant.get("item_code")
                 row["color_code"] = variant.get("color_code") or row.get("color_code") or ""
                 row["color"] = variant.get("color") or row.get("color") or ""
-                row["image"] = variant.get("image") or row.get("image") or ""
+                row["image"] = row.get("image") or variant.get("image") or ""
                 row["status"] = "；".join(error["error"] for error in row_errors) if row_errors else ""
                 rows.append(row)
             errors.extend(row_errors)
@@ -749,20 +906,23 @@ def check_price_above_cost(item_code, price):
 
     price = float(price)
 
-    # 获取成本价（valuation_rate）
-    # 优先从 Bin 表取加权平均成本，其次从 Item 取
-    cost = frappe.db.sql("""
-        SELECT SUM(b.valuation_rate * b.actual_qty) / NULLIF(SUM(b.actual_qty), 0)
-        FROM tabBin b
-        WHERE b.item_code = %(item_code)s AND b.actual_qty > 0
-    """, {"item_code": item_code}, as_dict=True)
+    from solua_home.receipt_cost_sync import current_reference_rate
 
-    if cost and cost[0] and cost[0][list(cost[0].keys())[0]]:
-        cost_val = float(cost[0][list(cost[0].keys())[0]])
+    stock_uom = frappe.db.get_value("Item", item_code, "stock_uom")
+    reference_rate = current_reference_rate(item_code, stock_uom)
+    if reference_rate:
+        cost_val = float(reference_rate)
     else:
-        # Bin 无库存或无成本，从 Item.valuation_rate 取
-        cost_val = frappe.db.get_value("Item", item_code, "valuation_rate") or 0
-        cost_val = float(cost_val)
+        # 老商品尚无有效 Standard Buying 参考价时，保留原有库存估值防线。
+        cost = frappe.db.sql("""
+            SELECT SUM(b.valuation_rate * b.actual_qty) / NULLIF(SUM(b.actual_qty), 0)
+            FROM tabBin b
+            WHERE b.item_code = %(item_code)s AND b.actual_qty > 0
+        """, {"item_code": item_code}, as_dict=True)
+        if cost and cost[0] and cost[0][list(cost[0].keys())[0]]:
+            cost_val = float(cost[0][list(cost[0].keys())[0]])
+        else:
+            cost_val = float(frappe.db.get_value("Item", item_code, "valuation_rate") or 0)
 
     if cost_val <= 0:
         # 未设成本价，不拦截（允许正常销售）

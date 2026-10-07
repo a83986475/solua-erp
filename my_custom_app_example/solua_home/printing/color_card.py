@@ -6,7 +6,7 @@ from io import BytesIO
 
 import frappe
 
-from solua_home.api.color_card import get_item_cor, get_public_color_card_url
+from solua_home.api.color_card import get_item_color_image, get_item_cor, get_public_color_card_url
 
 
 def _absolute_image(image):
@@ -35,11 +35,11 @@ def get_item_color_info(item_code):
     template = frappe.get_doc("Item", template_code) if template_code else item
     return {
         "item_code": item.item_code,
-        "order_code": item.get("custom_order_code") or template.get("custom_order_code") or item.item_code,
+        "order_code": item.get("custom_order_code") or template.get("custom_order_code") or "",
         "color_code": get_item_cor(item.name, item),
         "color_name": attrs.get("Cor") or item.get("custom_pos_short_name") or "",
         "display_name": item.get("custom_chinese_name") or item.item_name,
-        "image": _absolute_image(item.get("custom_swatch_image") or item.get("image")),
+        "image": _absolute_image(get_item_color_image(item)),
         "template_code": template.item_code,
         "template_name": template.get("custom_chinese_name") or template.item_name,
         "card_url": get_public_color_card_url(template.item_code),

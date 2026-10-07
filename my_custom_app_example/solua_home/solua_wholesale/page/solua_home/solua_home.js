@@ -148,15 +148,21 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		}
 		render_desk_panels(data);
 		root.find('[data-role="report-links"]').html([
-			[__("库存树报表"), "Template Stock Tree"], [__("经营金额报表"), "Solua Business Totals"], [__("送货汇总"), "Solua Delivery Summary"]
-		].filter(([, report]) => report === "Template Stock Tree" ? permissions.read_bin : report === "Solua Delivery Summary" ? permissions.read_delivery_note : permissions.read_sales_invoice).map(([label, report]) => `<button type="button" class="btn btn-default btn-sm" data-report="${text(report)}" data-report-filters="${text(JSON.stringify({company: data.company, ...(report === "Template Stock Tree" ? {warehouse: data.warehouse} : {})}))}">${text(label)}</button>`).join(""));
+			[__("盈利能力分析"), "Profitability Analysis"], [__("库存树报表"), "Template Stock Tree"], [__("经营金额报表"), "Solua Business Totals"], [__("送货汇总"), "Solua Delivery Summary"], [__("物料销售明细"), "Item-wise Sales History"]
+		].filter(([, report]) => report === "Template Stock Tree" ? permissions.read_bin : report === "Solua Delivery Summary" ? permissions.read_delivery_note : report === "Item-wise Sales History" ? permissions.read_sales_order : permissions.read_sales_invoice).map(([label, report]) => {
+			const today = data.query_time?.slice(0, 10);
+			const dates = ["Profitability Analysis", "Item-wise Sales History"].includes(report) && today ? {from_date: frappe.datetime.add_months(today, -1), to_date: today} : {};
+			const filters = {company: data.company, ...dates, ...(report === "Template Stock Tree" ? {warehouse: data.warehouse} : {})};
+			return `<button type="button" class="btn btn-default btn-sm" data-report="${text(report)}" data-report-filters="${text(JSON.stringify(filters))}">${text(label)}</button>`;
+		}).join(""));
 		root.find('[data-role="report-links"]').append(`<button type="button" class="btn btn-default btn-sm" data-sidebar-open="1">${__("打开批发侧栏")}</button>`);
 		root.find('[data-role="quick-actions"]').html([
+			view_action(__("销售订单"), "Sales Order", permissions.read_sales_order),
+			view_action(__("交货单"), "Delivery Note", permissions.read_delivery_note),
+			view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
 			new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
 			report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 			utility_action(__("按订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
-			permissions.read_delivery_note && permissions.read_sales_invoice ? `<button class="btn btn-default btn-sm" data-scroll="billing">${__("待开票客户")}</button>` : "",
-			new_action(__("新建收款单"), "Payment Entry", permissions.new_payment_entry),
 			permissions.read_item ? `<button class="btn btn-default btn-sm" data-focus-search="1">${__("查库存")}</button>` : ""
 		].filter(Boolean).join(""));
 		root.find('[data-role="actions"]').html(desk_actions(permissions, stock_entry_types));
@@ -222,8 +228,6 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			pending.length ? pending.map((row) => `<button class="solua-home-list-row" data-doctype="Sales Order" data-name="${text(row.name)}"><span>${text(row.name)} · ${text(row.delivery_date || "")}</span><span>${text(row.customer)} · ${row.remaining_by_uom?.map(q => `${text(q.qty)} ${text(q.uom)}`).join("、") || "—"} ${__("待交付")}</span></button>`).join("") : `<div class="text-muted">${data.orders_pending?.state === "no_data" ? __("暂无待交付订单") : text(state_label(data.orders_pending?.state))}</div>`,
 			`<div class="solua-home-pending-title">${__("逾期应收")}：${data.overdue_count ?? "—"} ${data.overdue_counts?.["Sales Invoice"] ? `<button class="btn btn-link btn-xs solua-home-list-row" data-doctype="Sales Invoice" data-filters='${text(JSON.stringify({company: data.company, docstatus: 1, outstanding_amount: [">", 0], due_date: ["<", data.query_time?.slice(0, 10)], ...(data.overdue_sales_invoice_exclude_topups ? {custom_is_topup: 0} : {})}))}'>${__("销售发票")} ${data.overdue_counts["Sales Invoice"]}</button>` : ""} ${data.overdue_counts?.["POS Invoice"] ? `<button class="btn btn-link btn-xs solua-home-list-row" data-doctype="POS Invoice" data-filters='${text(JSON.stringify({company: data.company, docstatus: 1, consolidated_invoice: ["is", "not set"], outstanding_amount: [">", 0], due_date: ["<", data.query_time?.slice(0, 10)]}))}'>POS ${data.overdue_counts["POS Invoice"]}</button>` : ""}</div>`,
 			(data.overdue?.items || []).length ? data.overdue.items.map((row) => `<button class="solua-home-list-row" data-doctype="${text(row.doctype || "Sales Invoice")}" data-name="${text(row.name)}"><span>${text(row.name)} · ${text(row.due_date)} · ${text(row.overdue_days)} ${__("天逾期")}</span><span>${text(row.customer)} · ${text(money(row.base_outstanding_amount, data.currency))}</span></button>`).join("") : `<div class="text-muted">${data.overdue?.state === "no_data" ? __("暂无逾期应收") : text(state_label(data.overdue?.state))}</div>`,
-			`<div class="solua-home-pending-title">${__("待到货采购订单")}：${data.pending_purchase?.count ?? "—"} ${data.pending_purchase?.state !== "no_permission" ? `<button class="btn btn-link btn-xs solua-home-list-row" data-doctype="Purchase Order" data-filters='${text(JSON.stringify({company: data.company, docstatus: 1, per_received: ["<", 100], status: ["not in", ["Closed", "Completed", "Cancelled"]]}))}'>${__("查看全部")}</button>` : ""}</div>`,
-			(data.pending_purchase?.items || []).map((row) => `<button class="solua-home-list-row" data-doctype="Purchase Order" data-name="${text(row.name)}"><span>${text(row.name)} · ${text(row.transaction_date)}</span><span>${text(row.supplier)} · ${text(row.status)}</span></button>`).join("") || `<div class="text-muted">${data.pending_purchase?.state === "no_permission" ? text(state_label(data.pending_purchase.state)) : __("暂无待到货采购订单")}</div>`,
 			`<div class="solua-home-pending-title">${__("库存预警")} · ${text(data.warehouse)} · ${data.low_stock?.count ?? "—"} ${data.low_stock?.item_codes?.length ? `<button class="btn btn-link btn-xs solua-home-list-row" data-doctype="Item" data-filters="${text(JSON.stringify({name: ["in", data.low_stock.item_codes]}))}">${__("查看全部")}</button>` : ""}</div>`,
 			data.low_stock?.state === "incomplete" ? `<div class="text-muted">${text(state_label(data.low_stock.state))}</div>` : "",
 			(data.low_stock?.items || []).map((row) => `<button class="solua-home-list-row" data-doctype="Item" data-name="${text(row.name)}"><span>${text(row.item_name)}</span><span>${text(row.actual_qty)} / ${text(row.reorder_level)} ${text(row.stock_uom)}</span></button>`).join("") || `<div class="text-muted">${data.low_stock?.state === "unconfigured" ? __("未配置库存预警阈值") : data.low_stock?.state === "no_data" ? __("暂无库存预警") : text(state_label(data.low_stock?.state))}</div>`,
@@ -293,6 +297,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				report_action(__("送货汇总报表"), "Solua Delivery Summary", permissions.read_delivery_note),
 				view_action(__("拣货单"), "Pick List", permissions.read_pick_list),
 				view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
+			report_action(__("盈利能力分析"), "Profitability Analysis", permissions.read_sales_invoice),
 				report_action(__("销售发票明细报表"), "Sales Register", permissions.read_sales_invoice),
 				filtered_action(__("待完成发票草稿"), "Sales Invoice", permissions.read_sales_invoice, {docstatus: 0}),
 				filtered_action(__("销售退货"), "Sales Invoice", permissions.read_sales_invoice, {is_return: 1}),
@@ -317,14 +322,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				view_action(__("盘点单"), "Stock Reconciliation", permissions.read_stock_reconciliation),
 				view_action(__("仓库与库位"), "Warehouse", permissions.read_warehouse),
 			], Boolean(permissions.read_item || permissions.new_item || permissions.new_stock_entry || permissions.read_stock_entry || permissions.read_stock_reconciliation || permissions.read_warehouse)),
-			action_group(__("采购"), { workspace: "Buying", fallback: "Purchase Order" }, [
-				new_action(__("新建采购订单"), "Purchase Order", permissions.new_purchase_order),
-				view_action(__("采购订单"), "Purchase Order", permissions.read_purchase_order),
-				new_action(__("采购收货"), "Purchase Receipt", permissions.new_purchase_receipt),
-				view_action(__("收货记录"), "Purchase Receipt", permissions.read_purchase_receipt),
-				view_action(__("采购发票"), "Purchase Invoice", permissions.read_purchase_invoice),
-				view_action(__("供应商"), "Supplier", permissions.read_supplier),
-			], Boolean(permissions.read_purchase_order || permissions.new_purchase_order || permissions.new_purchase_receipt || permissions.read_purchase_receipt || permissions.read_purchase_invoice || permissions.read_supplier)),
+
 			action_group(__("财务"), { workspace: "Invoicing", fallback: "Sales Invoice" }, [
 				report_action(__("经营金额报表"), "Solua Business Totals", permissions.read_sales_invoice),
 				report_action(__("应收账款报表"), "Accounts Receivable", permissions.read_sales_invoice, {report_date: dashboard_data?.query_time?.slice(0, 10)}),
@@ -332,7 +330,6 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				filtered_action(__("未收款发票"), "Sales Invoice", permissions.read_sales_invoice, {docstatus: 1, outstanding_amount: [">", 0]}),
 				view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
 				utility_action(__("销售发票提交检查"), "sales_invoice_approval", permissions.read_sales_invoice),
-				view_action(__("采购发票"), "Purchase Invoice", permissions.read_purchase_invoice),
 				new_action(__("新建收款单"), "Payment Entry", permissions.new_payment_entry),
 				view_action(__("收付款单"), "Payment Entry", permissions.read_payment_entry),
 			], Boolean(permissions.read_sales_invoice || permissions.read_purchase_invoice || permissions.read_payment_entry || permissions.new_payment_entry)),
@@ -439,7 +436,9 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			root.find('[data-role="results"]').html(rows.length ? `<div class="text-muted">${__("库存仓库：{0}", [text(response.message.warehouse || "—")])}${stock_tree_link}</div>` + rows.map((row) => {
 				const color = row.color || "";
 				const color_code = row.color_code && row.color_code !== color ? ` · ${__("色号")} ${text(row.color_code)}` : "";
-				const stock = row.stock_state === "ok" ? `${__("实际")} ${text(row.actual_qty)} / ${__("预留")} ${text(row.reserved_qty)} / ${__("可用")} ${text(row.available_qty)} ${text(row.stock_uom)}` : row.stock_state === "no_data" ? text(__("当前仓库没有库存记录")) : text(__("无权限查看库存"));
+				const display_qty = (field) => row[`display_${field}_qty`] ?? row[`${field}_qty`] ?? row[field];
+				const display_uom = row.display_uom || row.stock_uom;
+				const stock = row.stock_state === "ok" ? `${__("实际")} ${text(display_qty("actual"))} / ${__("预留")} ${text(display_qty("reserved"))} / ${__("可用")} ${text(display_qty("available"))} ${text(display_uom)}` : row.stock_state === "no_data" ? text(__("当前仓库没有库存记录")) : text(__("无权限查看库存"));
 				return `<button class="solua-home-list-row" data-doctype="Item" data-name="${text(row.name)}"><span>${text(row.item_code || row.name)}${row.item_code !== row.name ? ` · ${text(row.name)}` : ""}</span><span>${row.has_variants ? `${text(row.template_name || row.item_name)} · ${text(__("模板，按颜色查看库存"))}` : `${text(row.template_name || row.item_name)}${color ? ` · ${text(color)}` : ""}${color_code} · ${stock}`}</span></button>`;
 			}).join("") : `<div class="text-muted">${text(state_label(response.message?.state), __("未找到"))}</div>`);
 		}).catch(() => root.find('[data-role="results"]').html(`<div class="text-muted">${__("查询失败，请刷新后重试")}</div>`));

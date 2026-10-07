@@ -68,6 +68,7 @@ assert.deepStrictEqual(
 );
 
 const priceHook = stock.slice(stock.indexOf("def auto_create_item_price"));
-assert(priceHook.includes('price_list = "Wholesale Selling"'));
+assert(priceHook.includes('("Standard Buying", flt(doc.get("valuation_rate")))'));
+assert(priceHook.includes('("Wholesale Selling", wholesale_rate)'));
 assert(!priceHook.includes('"price_list": "Standard Selling"'));
 console.log("item quick entry and wholesale price checks passed");

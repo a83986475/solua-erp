@@ -1,0 +1,18 @@
+{
+ "doctype": "Report",
+ "name": "Item-wise Sales History",
+ "report_name": "Item-wise Sales History",
+ "module": "Solua Wholesale",
+ "ref_doctype": "Sales Order",
+ "report_type": "Script Report",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "add_total_row": 1,
+ "roles": [
+  {"role": "Sales User"},
+  {"role": "Sales Manager"},
+  {"role": "Stock User"},
+  {"role": "Stock Manager"},
+  {"role": "System Manager"}
+ ]
+}

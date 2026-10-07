@@ -97,8 +97,41 @@ def get_item_cor(item_code, item=None):
     return str(item.get("custom_color_code") or "").strip()
 
 
+def get_item_color_image(item):
+    """优先返回变体自己的色卡附件，避免使用被继承的模板主图。"""
+    custom_image = item.get("custom_swatch_image") or ""
+    if custom_image:
+        return custom_image
+
+    item_code = str(item.get("item_code") or item.get("name") or "").strip()
+    if item.get("variant_of") and item_code:
+        item_image = item.get("image") or ""
+        template_image = frappe.db.get_value("Item", item.get("variant_of"), "image") or ""
+        if item_image and item_image != template_image:
+            return item_image
+        image_extensions = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif")
+        for file_row in frappe.get_all(
+            "File",
+            filters={
+                "attached_to_doctype": "Item",
+                "attached_to_name": item.get("name") or item_code,
+                "is_private": 0,
+            },
+            fields=["file_url", "file_name"],
+            order_by="creation asc",
+            limit_page_length=50,
+        ):
+            file_name = str(file_row.get("file_name") or file_row.get("file_url") or "")
+            if item_code.casefold() in file_name.casefold() and file_name.lower().split("?")[0].endswith(image_extensions):
+                return file_row.get("file_url") or ""
+
+        return template_image or item_image
+
+    return item.get("image") or ""
+
+
 def _public_variant(item, template_order_code=""):
-    image = item.get("custom_swatch_image") or item.get("image") or ""
+    image = get_item_color_image(item)
     return {
         "item_code": item.item_code,
         "order_code": item.get("custom_order_code") or template_order_code or item.item_code,

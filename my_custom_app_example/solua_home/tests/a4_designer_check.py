@@ -94,6 +94,19 @@ delivery_template = api._template(api._validate_config(delivery))
 assert "<th>Qt/数量</th>" in delivery_template and "item.qty" in delivery_template
 assert delivery_template.count("<th>Qt/数量</th>") == 1
 
+price = config_for("Sales Invoice")
+for key in api.BASE_COLUMNS + api.DOCTYPE_CONFIG["Sales Invoice"]:
+	price["visible"][key] = key in api.PRICE_DIFFERENCE_COLUMNS
+price["widths"] = {key: 100 / len(api.PRICE_DIFFERENCE_COLUMNS) if key in api.PRICE_DIFFERENCE_COLUMNS else 1 for key in price["widths"]}
+price["features"] = {"price_difference": True}
+price_template = api._template(api._validate_config(price))
+Environment().parse(price_template)
+assert 'p.get("price_difference", {}).get("rows", [])' in price_template
+assert "item.old_rate" in price_template and "item.difference_amount" in price_template
+assert "旧订单金额 / Valor da encomenda" in price_template
+assert "新价格合计 / Total com preço novo" in price_template
+assert "差价现金折扣 / Desconto sobre a diferença" in price_template
+
 try:
 	bad = config_for("Sales Order")
 	bad["doctype"] = "Quotation"
@@ -112,8 +125,9 @@ except ValueError:
 
 source = (BASE / "printing" / "a4_designer.py").read_text(encoding="utf-8")
 assert '"custom_spu_code"' in source and '"variant_of"' in source
-page = (BASE / "public" / "js" / "a4_print_designer.js").read_text(encoding="utf-8")
+page = (BASE / "public" / "js" / "a4_print_designer_title_notes_v5.js").read_text(encoding="utf-8")
 assert 'a4d-mock' in page and '"Delivery Note"' in page and '"Pick List"' in page
+assert 'price_difference' in page and 'price_old_rate' in page and '旧订单金额' in page
 assert 'legacy-preview' in page and 'import-format' in page and 'sandbox' in page and 'color_code' in page
 assert 'cor: "COR"' not in page and '"color_code", "cor"' not in page
 assert 'itemBorders' in page and 'Company Logo' in page
@@ -121,7 +135,10 @@ assert "tbody tr td{break-inside:avoid;page-break-inside:avoid}" in page
 assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
 
 hooks = (BASE / "hooks.py").read_text(encoding="utf-8")
-assert '"a4-print-designer": "public/js/a4_print_designer_logo_scale.js"' in hooks
+assert '"a4-print-designer": "public/js/a4_print_designer_title_notes_v6.js"' in hooks
+live_page = (BASE / "public" / "js" / "a4_print_designer_title_notes_v6.js").read_text(encoding="utf-8")
+assert 'load-live-preview' in live_page and 'live: 1' in live_page and 'live: 0' in live_page
+assert 'print_data_refresh_v20261005.js' in hooks
 
 known_legacy_html = """{{ get_solua_print_css() }}{% set p = get_wholesale_print_data(doc) %}
 <table class="items">{% if doc.get('custom_print_item_name') %}{% endif %}
@@ -247,8 +264,8 @@ provider = importlib.import_module("solua_home.printing.a4_designer")
 wholesale = importlib.import_module("solua_home.printing.wholesale")
 
 snapshot_company = {"name": "Solua Home, Lda", "nuit": "400", "address": "Av", "phone": "21"}
-wholesale.get_wholesale_print_data = lambda doc: {"company": dict(snapshot_company), "items": [{"item_code": "SH1"}]}
-wholesale.get_company_print_info = lambda doc: {**snapshot_company, "logo": "http://erp.solua.one/private/files/LOGO.png"}
+wholesale.get_wholesale_print_data = lambda doc, live=False: {"company": dict(snapshot_company), "items": [{"item_code": "SH1"}]}
+wholesale.get_company_print_info = lambda doc, use_snapshot=True: {**snapshot_company, "logo": "http://erp.solua.one/private/files/LOGO.png"}
 fake.db.get_value = lambda *args, **kwargs: {"custom_spu_code": "SPU-1", "variant_of": "", "image": "/files/x.png"}
 
 loaded = provider.get_a4_print_data(types.SimpleNamespace(doctype="Sales Order"))
@@ -257,14 +274,14 @@ assert loaded["company"]["name"] == "Solua Home, Lda" and loaded["company"]["nui
 assert loaded["items"][0]["spu"] == "SPU-1" and loaded["items"][0]["image"] == "/files/x.png"
 
 # 没有 logo 配置时不能凭空造一个，也不能把 company 整个丢掉
-wholesale.get_company_print_info = lambda doc: dict(snapshot_company)
+wholesale.get_company_print_info = lambda doc, use_snapshot=True: dict(snapshot_company)
 fake.db.get_value = lambda doctype, name, fieldname, **kwargs: ""
 loaded = provider.get_a4_print_data(types.SimpleNamespace(doctype="Sales Order", get=lambda key, default=None: None))
 assert loaded["company"]["name"] == "Solua Home, Lda" and loaded["company"].get("logo") in (None, "")
 
 # 拣货单同样走 get_company_print_info（没有快照）
 wholesale.get_pick_list_print_data = lambda doc: {"company": "ignored", "items": [], "total_qty": 0}
-wholesale.get_company_print_info = lambda doc: {"name": "Solua Home, Lda", "logo": "http://erp.solua.one/private/files/LOGO.png"}
+wholesale.get_company_print_info = lambda doc, use_snapshot=True: {"name": "Solua Home, Lda", "logo": "http://erp.solua.one/private/files/LOGO.png"}
 assert provider.get_a4_print_data(types.SimpleNamespace(doctype="Pick List"))["company"]["logo"].endswith("LOGO.png")
 
 print("A4 designer checks passed: supported doctypes, SPU source, delivery Qt fallback, Jinja structure, empty images, currency, validation, permissions, duplicate names, snapshot company logo")

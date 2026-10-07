@@ -56,8 +56,8 @@ frappe.ui.form.on("Item", {
 							<td>${esc(code)}</td>
 							<td>${esc(color)}</td>
 							<td>${esc(name)}</td>
-							<td class="text-right">${esc(variant.actual_qty)}</td>
-							<td>${esc(variant.stock_uom || "")}</td>
+							<td class="text-right">${esc(variant.display_actual_qty ?? variant.actual_qty)}</td>
+							<td>${esc(variant.display_uom || variant.stock_uom || "")}</td>
 						</tr>`;
 					});
 					table.html(`<div style="overflow:auto">
@@ -69,7 +69,7 @@ frappe.ui.form.on("Item", {
 							<tbody>${rows || `<tr><td colspan="5" class="text-muted">${__("暂无已启用变体")}</td></tr>`}</tbody>
 							<tfoot><tr class="font-weight-bold">
 								<td colspan="3">${esc(data.template_code)} ${__("整款合计")}</td>
-								<td class="text-right">${esc(data.total_stock)}</td><td></td>
+						<td class="text-right">${esc(data.display_total_stock ?? data.total_stock)}</td><td>${esc(data.display_uom || "")}</td>
 							</tr></tfoot>
 						</table>
 					</div>`);

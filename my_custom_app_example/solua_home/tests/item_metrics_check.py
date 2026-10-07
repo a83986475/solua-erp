@@ -90,12 +90,16 @@ class CustomField(dict):
 def get_doc(arg, *args, **kwargs):
     if isinstance(arg, dict):
         return CustomField(arg)
+    if arg == "Custom Field" and args:
+        return EXISTING_CUSTOM_FIELDS[args[0]]
     raise AssertionError("unexpected get_doc: %r" % (arg,))
 
 
 EXISTING_FIELDS = set()
+EXISTING_CUSTOM_FIELDS = {}
 frappe.db = types.SimpleNamespace(
     has_column=lambda dt, field: HAS_COLUMN[dt],
+    get_value=lambda dt, filters, field: filters["fieldname"] if dt == "Custom Field" and (filters["dt"], filters["fieldname"]) in EXISTING_FIELDS else None,
     exists=lambda dt, filters: (dt == "Custom Field" and (filters["dt"], filters["fieldname"]) in EXISTING_FIELDS)
     or (dt == "Custom Field" and False),
     sql=sql,
@@ -195,6 +199,9 @@ assert all(field[3] == 1 and field[4] == 1 for field in CREATED), "columns must 
 assert CREATED[0][5] == "standard_rate", CREATED[0]
 assert CREATED[4][5] == "custom_rate_retail" and CREATED[5][5] == metrics.STOCK_FIELD, CREATED
 EXISTING_FIELDS.update(("Item", name) for name in created)
+for name in created:
+    EXISTING_CUSTOM_FIELDS[name] = CustomField({"dt": "Item", "fieldname": name,
+        "fieldtype": "Currency" if name in metrics.PRICE_FIELDS else "Float", "precision": "0"})
 CREATE = list(CREATED)
 assert metrics.ensure_item_metric_fields() == [] and CREATED == CREATE, "rerun must not duplicate fields"
 

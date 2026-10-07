@@ -131,6 +131,7 @@ Remarks,备注
 Request for Quotation,询价单
 Required,需求数量
 Reserved,预留数量
+Return,退货
 Routing,工艺路线
 SLA,服务级别协议
 SPU Code,SPU编码
@@ -185,6 +186,9 @@ custom_renewal_date,续约日期
 custom_risk_level,风险级别
 {0} is not a template item,{0} 不是模板物料
 Please specify a template item,请指定模板物料
+Transaction Reference,交易参考信息
+Payment Reference No,付款参考号
+Payment Reference Date,付款参考日期
 
 Action,操作
 Are you sure you want to delete the page?,确定要删除这个页面吗？
@@ -226,3 +230,4 @@ Select Print Format,选择打印格式
 Set as Default,设为默认
 Table (A),表格 (A)
 Try the new Print Designer,试试新的打印设计器
+Template Stock Tree,库存树报表

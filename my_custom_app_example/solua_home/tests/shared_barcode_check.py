@@ -96,6 +96,12 @@ variant = make_color_variant()
 stock.validate_item(variant)
 assert variant.custom_label_barcode == "6901234567890"
 
+# An explicit variant barcode overrides the template label barcode.
+variant = make_color_variant()
+variant.barcodes = [{"barcode": "2000000000022"}]
+stock.validate_item(variant)
+assert variant.custom_label_barcode == "2000000000022"
+
 # Missing or multiple distinct template barcodes preserve the old value and warn.
 for rows, expected_reason in (([], "没有非空 Item Barcode"), ([{"barcode": "A"}, {"barcode": "B"}], "有多个不同 Item Barcode")):
     barcode_rows = rows

@@ -29,7 +29,7 @@ def _can_create(doctype):
 
 
 def _list(doctype, filters=None, fields=None, *, limit=0, order_by=None, or_filters=None):
-    if doctype in {"Item Barcode", "Item Variant Attribute", "Item Reorder"}:
+    if doctype in {"Item Barcode", "Item Variant Attribute", "Item Reorder", "UOM Conversion Detail"}:
         # These child tables have no independent role permissions. Restrict every
         # query to Item parents visible to this user, then read only those rows.
         parents = [row.name for row in _list("Item", fields=["name"], limit=0)]
@@ -493,7 +493,8 @@ def get_billing_queue(company=None):
     if not _can_read("Sales Invoice"):
         return {"state": "no_permission", "customers": [], "count": None}
     from solua_home.api.unbilled import get_rows
-    rows = get_rows(company_doc.name, "2000-01-01", nowdate())
+    rows = [row for row in get_rows(company_doc.name, "2000-01-01", nowdate())
+            if row.get("billing_state") != "价格调整"]
     customers = {}
     for row in rows:
         key = row["customer"]
@@ -517,6 +518,39 @@ def _search_fields():
     return [field for field in ["name", "item_code", "item_name", "custom_order_code", "custom_spu_code", "custom_label_barcode"] if _has_field("Item", field)]
 
 
+def _sales_display_units(items):
+    """Return each visible item's sales display UOM and stock conversion factor."""
+    names = list(items)
+    if not names:
+        return {}
+    rows = _list(
+        "UOM Conversion Detail",
+        {"parent": ["in", names]},
+        ["parent", "uom", "conversion_factor"],
+        limit=0,
+    )
+    factors = {
+        (row.parent, row.uom): flt(row.conversion_factor)
+        for row in rows
+        if flt(row.conversion_factor) > 0
+    }
+    result = {}
+    for item in items.values():
+        sales_uom = item.get("sales_uom") or ""
+        factor = factors.get((item.name, sales_uom)) if sales_uom else None
+        if not factor and item.get("variant_of") and sales_uom:
+            factor = factors.get((item.variant_of, sales_uom))
+        if sales_uom and factor and sales_uom != item.stock_uom:
+            result[item.name] = (sales_uom, factor)
+        else:
+            result[item.name] = (item.stock_uom, 1)
+    return result
+
+
+def _display_qty(value, factor):
+    return None if value is None else flt(value) / factor
+
+
 @frappe.whitelist()
 @frappe.read_only()
 def search_items(query=None, warehouse=None, company=None):
@@ -526,7 +560,7 @@ def search_items(query=None, warehouse=None, company=None):
         return {"state": "no_data", "items": []}
     if not _can_read("Item"):
         return {"state": "no_permission", "items": []}
-    fields = ["name", "item_code", "item_name", "variant_of", "has_variants", "stock_uom"]
+    fields = ["name", "item_code", "item_name", "variant_of", "has_variants", "stock_uom", "sales_uom"]
     fields.extend(field for field in ["custom_order_code", "custom_spu_code", "custom_pos_short_name"] if _has_field("Item", field))
     searchable = _search_fields()
     items = _list("Item", {"disabled": 0}, fields, limit=20,
@@ -559,6 +593,7 @@ def search_items(query=None, warehouse=None, company=None):
                      ["item_code", "actual_qty", "reserved_qty"], limit=0)
         stock = {row.item_code: {"actual_qty": flt(row.actual_qty), "reserved_qty": flt(row.reserved_qty)} for row in bins}
         stock_state = "ok"
+    display_units = _sales_display_units(items_by_name)
     return {"state": "ok", "warehouse": resolved_warehouse, "stock_state": stock_state, "items": [{
         "name": row.name, "item_code": row.item_code, "item_name": row.item_name,
         "variant_of": row.variant_of, "color": colors.get(row.name),
@@ -567,11 +602,18 @@ def search_items(query=None, warehouse=None, company=None):
         # Native Cor is current; custom_color_code is legacy-only compatibility.
         "color_code": colors.get(row.name) or row.get("custom_color_code") or "", "pos_short_name": row.get("custom_pos_short_name") or "",
         "stock_uom": row.stock_uom,
+        "display_uom": display_units.get(row.name, (row.stock_uom, 1))[0],
         "has_variants": int(row.get("has_variants") or 0),
         "stock_state": "no_permission" if stock_state == "no_permission" else ("ok" if row.name in stock else "no_data"),
         "actual_qty": stock.get(row.name, {}).get("actual_qty"),
         "reserved_qty": stock.get(row.name, {}).get("reserved_qty"),
         "available_qty": (stock[row.name]["actual_qty"] - stock[row.name]["reserved_qty"]) if stock_state == "ok" and row.name in stock else None,
+        "display_actual_qty": _display_qty(stock.get(row.name, {}).get("actual_qty"), display_units.get(row.name, (row.stock_uom, 1))[1]),
+        "display_reserved_qty": _display_qty(stock.get(row.name, {}).get("reserved_qty"), display_units.get(row.name, (row.stock_uom, 1))[1]),
+        "display_available_qty": _display_qty(
+            (stock[row.name]["actual_qty"] - stock[row.name]["reserved_qty"]) if stock_state == "ok" and row.name in stock else None,
+            display_units.get(row.name, (row.stock_uom, 1))[1],
+        ),
     } for row in items_by_name.values()]}
 
 
