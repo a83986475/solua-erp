@@ -100,7 +100,12 @@ def _wholesale_rows(doc):
 def _pick_list_rows(doc):
     """拣货单的行在 locations 子表（Pick List Item）里，不是 items。"""
     from solua_home.printing.color_card import get_item_color_info
-    from solua_home.printing.wholesale import get_item_sales_display, get_item_spu, _get_pick_list_additional_notes
+    from solua_home.printing.wholesale import (
+        _get_pick_list_additional_notes,
+        format_print_uom,
+        get_item_sales_display,
+        get_item_spu,
+    )
 
     rows = []
     entries = doc.get("locations") or doc.get("items") or []
@@ -119,7 +124,7 @@ def _pick_list_rows(doc):
             "additional_notes": _get_pick_list_additional_notes(item),
             "qty": flt(item.get("qty")),
             "picked_qty": flt(item.get("picked_qty")),
-            "uom": item.get("uom") or "",
+            "uom": format_print_uom(item.get("uom") or "", item.item_code),
             "warehouse": item.get("warehouse") or "",
         })
     return rows
@@ -163,6 +168,10 @@ def _cell(value, key):
     if key in NUMERIC_COLUMNS:
         number = flt(value)
         return int(number) if float(number).is_integer() else round(number, 6)
+    if key == "uom":
+        from solua_home.printing.wholesale import format_print_uom
+
+        return format_print_uom(value)
     return str(value)
 
 
@@ -198,7 +207,7 @@ def _send_csv(table, filename):
     from frappe.desk.utils import provide_binary_file
 
     buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\r\n")
+    writer = csv.writer(buffer, lineterminator="\n")
     for row in table:
         writer.writerow(["" if cell is None else cell for cell in row])
     # BOM 让 Excel 正确识别中文；内容为 UTF-8
@@ -206,39 +215,87 @@ def _send_csv(table, filename):
 
 
 def _send_xlsx(table, filename):
-    from frappe.utils.xlsxutils import build_xlsx_response
+    from frappe.desk.utils import provide_binary_file
 
-    build_xlsx_response([[("" if cell is None else cell) for cell in row] for row in table], filename)
+    provide_binary_file(filename, "xlsx", _xlsx_bytes(table, filename))
+
+
+def _xlsx_text_width(value):
+    """Approximate Excel display width, counting CJK characters as two units."""
+    text = "" if value is None else str(value)
+    return max(
+        (sum(2 if ord(char) >= 0x2E80 else 1 for char in line) for line in text.splitlines()),
+        default=0,
+    )
+
+
+def _xlsx_column_widths(table):
+    column_count = max((len(row) for row in table), default=0)
+    # ponytail: bound content-based sizing so long notes wrap instead of creating unusably wide sheets.
+    return [
+        min(
+            max(max((_xlsx_text_width(row[index]) for row in table if index < len(row)), default=0) + 2, 10),
+            80,
+        )
+        for index in range(column_count)
+    ]
+
+
+def _xlsx_styles(column_count, row_count, quantity_columns=()):
+    quantity_columns = set(quantity_columns)
+    cell_styles = {
+        (row_index, column_index): [2 if column_index in quantity_columns else 1]
+        for row_index in range(1, row_count)
+        for column_index in range(column_count)
+    }
+    return {
+        "styles": [
+            {"bold": True, "valign": "vcenter"},
+            {"valign": "vcenter"},
+            {"valign": "vcenter", "num_format": "0"},
+        ],
+        # Frappe applies column styles after widths and resets the width to its default.
+        # Cell styles preserve both the explicit width and the quantity number format.
+        "cell_styles": cell_styles,
+        "row_styles": {0: [0]},
+    }
 
 
 @frappe.whitelist()
 def get_export_options(doctype):
     """列选择面板的数据：可用列、默认勾选、可下载格式。"""
     _require_doctype(doctype)
+    defaults = (
+        ["idx", "item_code", "item_name", "qty", "uom", "additional_notes"]
+        if doctype == "Pick List"
+        else [
+            key for key in DOCTYPE_COLUMNS[doctype]
+            if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty", "additional_notes", "spu")
+        ]
+    )
     return {
         "columns": [
             {"key": key, "label": _(LABELS[key]), "numeric": key in NUMERIC_COLUMNS}
             for key in DOCTYPE_COLUMNS[doctype]
         ],
-        "defaults": (
-            ["idx", "item_code", "item_name", "qty", "uom", "additional_notes"]
-            if doctype == "Pick List"
-            else [
-                key for key in DOCTYPE_COLUMNS[doctype]
-                if key not in ("ordered_qty", "delivered_before_qty", "remaining_qty", "picked_qty", "additional_notes", "spu")
-            ]
-        ),
+        "defaults": defaults,
         "formats": [
             {"value": "xlsx", "label": _("Excel (.xlsx)")},
             {"value": "csv", "label": _("CSV (.csv)")},
         ],
+        "allow_merge_order_code": doctype in ("Sales Order", "Sales Invoice", "Delivery Note"),
     }
 
 
 @frappe.whitelist()
-def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1):
+def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1, merge_order_code=0):
     """下载单据明细表格：fmt=xlsx（默认）或 csv。"""
     doc = get_export_document(doctype, name)
+    if cint(merge_order_code) and doctype in ("Sales Order", "Sales Invoice", "Delivery Note"):
+        from copy import copy
+
+        doc = copy(doc)
+        doc.set("custom_print_merge_order_code", 1)
     table = build_table(doc, columns, include_header, include_total)
     filename = "-".join([frappe.scrub(doctype).replace("_", "-"), doc.name, nowdate()])
     if str(fmt or "").lower() == "csv":
@@ -251,6 +308,103 @@ def export_document_table(doctype, name, columns=None, fmt="xlsx", include_heade
 def _safe_sales_order_filename(value):
     value = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", str(value or "")).strip(" .")
     return value[:100] or "未命名"
+
+
+PDF_EXPORT_CONFIG = {
+    "Sales Order": ("transaction_date", "客户确认单"),
+    "Delivery Note": ("posting_date", "交货单"),
+    "Pick List": ("creation", "拣货单"),
+}
+
+
+def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None):
+    """Render one PDF, optionally forcing the customer-facing merge for this export only."""
+    from copy import copy
+    from frappe.utils.pdf import get_pdf
+
+    doctype = doctype or doc.doctype
+    print_doc = doc
+    if merge_customer and doctype in ("Sales Order", "Delivery Note"):
+        print_doc = copy(doc)
+        if isinstance(print_doc, dict):
+            print_doc["custom_print_merge_order_code"] = 1
+        else:
+            print_doc.set("custom_print_merge_order_code", 1)
+    html = frappe.get_print(
+        doctype,
+        doc.name,
+        print_format=print_format,
+        as_pdf=False,
+        doc=print_doc,
+    )
+    return get_pdf(html, {"page-size": "A4", **SOLUA_PDF_MARGINS})
+
+
+def _document_date(doc, date_field):
+    return str(
+        doc.get(date_field)
+        or doc.get("posting_date")
+        or doc.get("transaction_date")
+        or doc.get("creation")
+        or nowdate()
+    )[:10].replace("-", "")
+
+
+def _linked_document_names(child_doctype, fieldname, sales_order_name):
+    """Return unique parent names from the standard child-table links."""
+    names = frappe.get_all(
+        child_doctype,
+        filters={fieldname: sales_order_name},
+        pluck="parent",
+        limit_page_length=0,
+    )
+    return list(dict.fromkeys(name for name in names if name))
+
+
+def _customer_import_table(doc, merge_customer=True):
+    """Build the small five-column workbook used for customer system import."""
+    from solua_home.printing.wholesale import _merge_customer_print_items, get_wholesale_print_data
+
+    items = (get_wholesale_print_data(doc) or {}).get("items") or []
+    if merge_customer:
+        items = _merge_customer_print_items(items)
+    rows = [["货号", "条码", "数量", "价格", "总额"]]
+    for item in items:
+        rows.append([
+            item.get("order_code") or item.get("item_code") or "",
+            item.get("barcode") or "",
+            _cell(item.get("qty"), "qty"),
+            _cell(item.get("rate"), "rate"),
+            _cell(item.get("amount"), "amount"),
+        ])
+    return rows
+
+
+def _xlsx_bytes(table, sheet_name, quantity_columns=None):
+    from frappe.utils.xlsxutils import make_xlsx
+
+    normalized = [["" if cell is None else cell for cell in row] for row in table]
+    if quantity_columns is None:
+        quantity_labels = {_(LABELS[key]) for key in ("qty", "picked_qty", "ordered_qty", "delivered_before_qty", "remaining_qty")}
+        quantity_columns = next(
+            ([index for index, value in enumerate(row) if value in quantity_labels] for row in normalized if any(value in quantity_labels for value in row)),
+            [],
+        )
+    workbook = make_xlsx(
+        normalized,
+        sheet_name,
+        column_widths=_xlsx_column_widths(normalized),
+        styles=_xlsx_styles(max((len(row) for row in normalized), default=0), len(normalized), quantity_columns),
+    )
+    return workbook.getvalue() if hasattr(workbook, "getvalue") else workbook
+
+
+def _write_unique(output, used_names, filename, content):
+    if filename in used_names:
+        stem, suffix = filename.rsplit(".", 1)
+        filename = f"{stem}_{len(used_names) + 1}.{suffix}"
+    used_names.add(filename)
+    output.writestr(filename, content)
 
 
 def _with_solua_bulk_pdf_margins(doctype, print_format, options):
@@ -270,6 +424,47 @@ def _with_solua_bulk_pdf_margins(doctype, print_format, options):
     for key, value in SOLUA_PDF_MARGINS.items():
         parsed.setdefault(key, value)
     return frappe.as_json(parsed)
+
+
+def _solua_pdf_options(doctype, print_format):
+    """Return the same A4 options for the single-document PDF endpoint."""
+    if doctype not in SOLUA_BULK_PDF_DOCTYPES:
+        return {}
+    if not print_format:
+        print_format = frappe.get_meta(doctype).default_print_format
+    if not print_format or frappe.db.get_value("Print Format", print_format, "module") != "Solua Wholesale":
+        return {}
+    return {"page-size": "A4", **SOLUA_PDF_MARGINS}
+
+
+@frappe.whitelist(allow_guest=True)
+@frappe.concurrent_limit()
+def download_pdf(
+    doctype, name, format=None, doc=None, no_letterhead=0, language=None, letterhead=None, pdf_generator=None
+):
+    """Keep the detail/preview PDF button on the same A4 margin path as batch PDF."""
+    from frappe.translate import print_language
+    from frappe.utils.print_format import validate_print_permission
+
+    if pdf_generator is None:
+        pdf_generator = "wkhtmltopdf"
+    doc = doc or frappe.get_doc(doctype, name)
+    validate_print_permission(doc)
+    with print_language(language):
+        pdf_file = frappe.get_print(
+            doctype,
+            name,
+            format,
+            doc=doc,
+            as_pdf=True,
+            letterhead=letterhead,
+            no_letterhead=no_letterhead,
+            pdf_generator=pdf_generator,
+            pdf_options=_solua_pdf_options(doctype, format),
+        )
+    frappe.local.response.filename = f"{name}.pdf"
+    frappe.local.response.filecontent = pdf_file
+    frappe.local.response.type = "pdf"
 
 
 @frappe.whitelist()
@@ -306,17 +501,9 @@ def download_multi_pdf_async(
     )
 
 
-PDF_EXPORT_CONFIG = {
-    "Sales Order": ("transaction_date", "客户确认单"),
-    "Delivery Note": ("posting_date", "交货单"),
-    "Pick List": ("creation", "拣货单"),
-}
-
-
 @frappe.whitelist()
 def download_document_pdfs(doctype, names):
     """分别生成销售订单、交货单或拣货单 PDF，并以 ZIP 作为本地批量下载容器。"""
-    from frappe.utils.pdf import get_pdf
     from solua_home.api.a4_designer import _active_print_format
 
     _require_doctype(doctype)
@@ -336,12 +523,13 @@ def download_document_pdfs(doctype, names):
     with ZipFile(archive, "w", ZIP_DEFLATED) as output:
         for name in names:
             doc = get_export_document(doctype, name)
-            html = frappe.get_print(doctype, doc.name, print_format=print_format, as_pdf=False)
-            pdf = get_pdf(html, {
-                "page-size": "A4",
-                **SOLUA_PDF_MARGINS,
-            })
-            date = str(doc.get(date_field) or doc.get("posting_date") or doc.get("transaction_date") or doc.get("creation") or nowdate())[:10].replace("-", "")
+            pdf = _render_document_pdf(
+                doc,
+                print_format,
+                merge_customer=doctype in ("Sales Order", "Delivery Note"),
+                doctype=doctype,
+            )
+            date = _document_date(doc, date_field)
             customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
             filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_{document_label}.pdf"
             if filename in used_names:
@@ -350,6 +538,110 @@ def download_document_pdfs(doctype, names):
             output.writestr(filename, pdf)
 
     frappe.local.response.filename = f"{document_label}_{nowdate().replace('-', '')}.zip"
+    frappe.local.response.filecontent = archive.getvalue()
+    frappe.local.response.type = "download"
+
+
+@frappe.whitelist()
+def download_sales_order_customer_pdf(name):
+    """Download one customer-facing Sales Order PDF, without a ZIP wrapper."""
+    from solua_home.api.a4_designer import _active_print_format
+
+    doc = get_export_document("Sales Order", name)
+    print_format = _active_print_format("Sales Order")
+    if not print_format:
+        frappe.throw(_("销售订单没有可用的打印格式"))
+    pdf = _render_document_pdf(doc, print_format, merge_customer=True)
+    customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
+    filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户订单.pdf"
+    frappe.local.response.filename = filename
+    frappe.local.response.filecontent = pdf
+    frappe.local.response.type = "pdf"
+
+
+@frappe.whitelist()
+def download_sales_order_customer_xlsx(name):
+    """Download one compact customer-facing Sales Order spreadsheet."""
+    doc = get_export_document("Sales Order", name)
+    customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
+    filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户表格"
+    _send_xlsx(_customer_import_table(doc, merge_customer=True), filename)
+
+
+@frappe.whitelist()
+def download_sales_order_package(names, merge_customer=1):
+    """Download one folder per Sales Order with all customer and warehouse files."""
+    from solua_home.api.a4_designer import _active_print_format
+
+    names = frappe.parse_json(names) if isinstance(names, str) else names
+    if not isinstance(names, (list, tuple)) or not names:
+        frappe.throw(_("请至少选择一个销售订单"))
+    merge_customer = bool(cint(merge_customer))
+    print_formats = {
+        doctype: _active_print_format(doctype)
+        for doctype in ("Sales Order", "Delivery Note", "Pick List")
+    }
+    for doctype, print_format in print_formats.items():
+        if not print_format:
+            frappe.throw(_("{0}没有可用的打印格式").format(doctype))
+
+    archive = io.BytesIO()
+    used_names = set()
+    with ZipFile(archive, "w", ZIP_DEFLATED) as output:
+        for name in names:
+            sales_order = get_export_document("Sales Order", name)
+            folder = _safe_sales_order_filename(
+                f"{sales_order.name}_{sales_order.get('customer_name') or sales_order.get('customer')}"
+            )
+            _write_unique(
+                output,
+                used_names,
+                f"{folder}/01_销售订单_{_safe_sales_order_filename(sales_order.name)}.pdf",
+                _render_document_pdf(sales_order, print_formats["Sales Order"], merge_customer=True),
+            )
+            customer_suffix = "合并" if merge_customer else "不合并"
+            _write_unique(
+                output,
+                used_names,
+                f"{folder}/02_客户导入表_{customer_suffix}.xlsx",
+                _xlsx_bytes(_customer_import_table(sales_order, merge_customer), "客户导入", quantity_columns=(2,)),
+            )
+
+            delivery_names = _linked_document_names("Delivery Note Item", "against_sales_order", sales_order.name)
+            for index, delivery_name in enumerate(delivery_names, start=1):
+                delivery = get_export_document("Delivery Note", delivery_name)
+                if not cint(delivery.docstatus):
+                    continue
+                _write_unique(
+                    output,
+                    used_names,
+                    f"{folder}/03_交货单_{index}_{_safe_sales_order_filename(delivery.name)}.pdf",
+                    _render_document_pdf(delivery, print_formats["Delivery Note"], merge_customer=True),
+                )
+
+            pick_names = _linked_document_names("Pick List Item", "sales_order", sales_order.name)
+            for index, pick_name in enumerate(pick_names, start=1):
+                pick_list = get_export_document("Pick List", pick_name)
+                _write_unique(
+                    output,
+                    used_names,
+                    f"{folder}/04_拣货单_{index}_{_safe_sales_order_filename(pick_list.name)}.pdf",
+                    _render_document_pdf(pick_list, print_formats["Pick List"]),
+                )
+                _write_unique(
+                    output,
+                    used_names,
+                    f"{folder}/05_员工拣货表_{index}_{_safe_sales_order_filename(pick_list.name)}.xlsx",
+                    _xlsx_bytes(
+                        build_table(
+                            pick_list,
+                            ["item_code", "item_name", "qty", "additional_notes"],
+                        ),
+                        "员工拣货",
+                    ),
+                )
+
+    frappe.local.response.filename = f"订单资料包_{nowdate().replace('-', '')}.zip"
     frappe.local.response.filecontent = archive.getvalue()
     frappe.local.response.type = "download"
 

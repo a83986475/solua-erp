@@ -52,8 +52,11 @@ def copy_sales_order_pick_notes(doc, method=None):
         order_item = row.get("sales_order_item")
         source = order_item_cache.get(order_item) if order_item else None
         if order_item and source is None:
+            source_fields = ["parent", "additional_notes"]
+            if frappe.get_meta("Sales Order Item").has_field("pos_additional_notes"):
+                source_fields.append("pos_additional_notes")
             source = frappe.db.get_value(
-                "Sales Order Item", order_item, ["parent", "additional_notes"], as_dict=True
+                "Sales Order Item", order_item, source_fields, as_dict=True
             ) or {}
             order_item_cache[order_item] = source
 
@@ -61,7 +64,7 @@ def copy_sales_order_pick_notes(doc, method=None):
         if sales_order and sales_order not in order_names:
             order_names.append(sales_order)
         if has_line_notes and not row.get("custom_additional_notes"):
-            note = source.get("additional_notes") if source else ""
+            note = (source.get("additional_notes") or source.get("pos_additional_notes")) if source else ""
             if note:
                 row.custom_additional_notes = note
 
@@ -244,10 +247,20 @@ def validate_item(doc, method=None):
     if doc.item_name and re.search(r'[<>"\']', doc.item_name):
         frappe.throw(_("物料名称不能包含特殊字符（< > \" \'）"))
 
-    # 颜色变体共用模板原包装条码；模板自身的 Item Barcode 子表不复制到变体。
+    # 颜色变体优先使用自己的条码；没有独立条码时才继承模板条码。
     attributes = doc.get("attributes") or []
     has_color_attribute = any(row.get("attribute") == "Cor" for row in attributes)
     if doc.variant_of and has_color_attribute:
+        own_barcodes = []
+        for row in doc.get("barcodes") or []:
+            value = str(row.get("barcode") or "").strip()
+            if value and value not in own_barcodes:
+                own_barcodes.append(value)
+
+        if len(own_barcodes) == 1:
+            doc.custom_label_barcode = own_barcodes[0]
+            return
+
         template_barcodes = frappe.get_all(
             "Item Barcode",
             filters={"parent": doc.variant_of},
@@ -303,6 +316,37 @@ def validate_delivery_note(doc, method=None):
                 value = frappe.db.get_value("Sales Order", order_name, fieldname)
                 if value:
                     setattr(doc, fieldname, value)
+
+    # 只在筛选结果唯一时补齐默认运输资料；多条结果交给用户选择。
+    if doc.get("docstatus") == 0:
+        if not doc.get("custom_store_phone"):
+            phone = doc.get("contact_mobile") or doc.get("contact_phone")
+            if not phone:
+                address_name = doc.get("shipping_address_name") or doc.get("customer_address")
+                if address_name:
+                    phone = frappe.db.get_value("Address", address_name, "phone")
+            if phone:
+                doc.custom_store_phone = phone
+
+        if not doc.get("vehicle_no") and doc.get("company"):
+            vehicles = frappe.get_all("Vehicle", filters={"company": doc.company}, fields=["name"], limit_page_length=2)
+            if len(vehicles) == 1:
+                doc.vehicle_no = vehicles[0].get("name")
+
+        if not doc.get("driver"):
+            driver_filters = {"status": "Active"}
+            if doc.get("transporter"):
+                driver_filters["transporter"] = doc.transporter
+            drivers = frappe.get_all("Driver", filters=driver_filters, fields=["name"], limit_page_length=2)
+            if len(drivers) == 1:
+                doc.driver = drivers[0].get("name")
+
+        if doc.get("driver"):
+            driver = frappe.db.get_value("Driver", doc.driver, ["full_name", "cell_number"], as_dict=True) or {}
+            if not doc.get("driver_name") and driver.get("full_name"):
+                doc.driver_name = driver.full_name
+            if not doc.get("custom_driver_phone") and driver.get("cell_number"):
+                doc.custom_driver_phone = driver.cell_number
 
     # 原生地址选择器会自动带出唯一默认地址；多个门店时，用户先选地址。
     # 用已选地址记录名补齐门店名称，保留用户已经手工填写的值。
@@ -412,35 +456,30 @@ def prepare_delivery_snapshot(doc, method=None):
 
 
 def auto_create_item_price(doc, method=None):
-    """Create the entered selling rate in the first-level wholesale price list."""
-    price_list = "Wholesale Selling"
-    rate = flt(doc.get("standard_rate"))
-    if not rate and doc.get("variant_of"):
-        rate = flt(frappe.db.get_value("Item", doc.variant_of, "standard_rate"))
-    if rate <= 0:
-        return
+    """Mirror quick-entry cost/selling rates into the configured price lists."""
+    wholesale_rate = flt(doc.get("standard_rate"))
+    if not wholesale_rate and doc.get("variant_of"):
+        wholesale_rate = flt(frappe.db.get_value("Item", doc.variant_of, "standard_rate"))
 
-    # 检查是否已有 Item Price
-    existing = frappe.db.get_value("Item Price",
-        {"item_code": doc.name, "price_list": price_list, "selling": 1},
-        "name"
-    )
-    if existing:
-        return  # 已存在，不重复创建
-
-    # 获取默认货币
-    currency = frappe.db.get_value("Price List", price_list, "currency") or frappe.defaults.get_user_default("currency") or "MZN"
-
-    # 创建 Item Price
-    try:
-        price_doc = frappe.get_doc({
-            "doctype": "Item Price",
-            "item_code": doc.name,
-            "price_list": price_list,
-            "price_list_rate": rate,
-            "selling": 1,
-            "currency": currency,
-        })
-        price_doc.insert(ignore_permissions=True)
-    except Exception as e:
-        frappe.log_error(f"Item Price 自动创建失败 [{doc.name}]: {e}", "solua_home.auto_price")
+    prices = [("Standard Buying", flt(doc.get("valuation_rate")))]
+    prices.append(("Wholesale Selling", wholesale_rate))
+    for price_list, rate in prices:
+        if rate <= 0 or frappe.db.get_value(
+            "Item Price", {"item_code": doc.name, "price_list": price_list}, "name"
+        ):
+            continue
+        currency = (
+            frappe.db.get_value("Price List", price_list, "currency")
+            or frappe.defaults.get_user_default("currency")
+            or "MZN"
+        )
+        try:
+            frappe.get_doc({
+                "doctype": "Item Price",
+                "item_code": doc.name,
+                "price_list": price_list,
+                "price_list_rate": rate,
+                "currency": currency,
+            }).insert(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(f"Item Price 自动创建失败 [{doc.name} / {price_list}]: {e}", "solua_home.auto_price")

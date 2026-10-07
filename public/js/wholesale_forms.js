@@ -7,6 +7,7 @@
 	const sales_order_paste_api = "solua_home.api.sales.preview_sales_order_paste";
 	const sales_order_rows_api = "solua_home.api.sales.preview_sales_order_rows";
 	const sales_order_search_api = "solua_home.api.sales.search_sales_order_items";
+	const sales_order_store_options_api = "solua_home.api.sales.get_customer_store_options";
 	const active_print_format_api = "solua_home.api.a4_designer.get_active_format";
 	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa", "Pick List": "拣货单（简版）" };
 
@@ -170,6 +171,58 @@
 				open_sales_order_preview(frm, response.message || {}, __("粘贴内容预览"));
 			},
 		});
+		dialog.show();
+	}
+
+	function open_sales_order_quantity_update(frm) {
+		const data = (frm.doc.items || []).filter((row) => row.item_code).map((row) => ({
+			name: row.name,
+			item_code: row.item_code,
+			item_name: row.item_name,
+			warehouse: row.warehouse || "",
+			current_qty: Number(row.qty || 0),
+			__checked: 0,
+		}));
+		if (!data.length) return frappe.msgprint(__("订单中没有可修改的商品明细"));
+		const dialog = new frappe.ui.Dialog({
+			title: __("批量修改数量"),
+			size: "extra-large",
+			fields: [
+				{ fieldname: "new_qty", label: __("统一新数量"), fieldtype: "Int", reqd: 1, min: 1, description: __("选中的商品明细都会改成这个数量") },
+				{ fieldtype: "Button", fieldname: "select_all", label: __("全选物料") },
+				{ fieldtype: "Button", fieldname: "clear_selection", label: __("取消全选") },
+				{ fieldtype: "Table", fieldname: "items", label: __("商品明细"), cannot_add_rows: true, cannot_delete_rows: true, in_place_edit: false, data,
+					fields: [
+						{ fieldname: "item_code", label: __("货号"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+						{ fieldname: "item_name", label: __("商品"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+						{ fieldname: "warehouse", label: __("仓库"), fieldtype: "Data", read_only: 1, in_list_view: 1 },
+						{ fieldname: "current_qty", label: __("当前数量"), fieldtype: "Int", read_only: 1, in_list_view: 1 },
+					],
+				},
+			],
+			primary_action_label: __("修改选中数量"),
+			primary_action: async () => {
+				const qty = Number(dialog.get_value("new_qty"));
+				const selected = dialog.fields_dict.items.grid.get_selected_children();
+				if (!is_positive_integer(qty)) return frappe.msgprint(__("统一新数量必须为正整数"));
+				if (!selected.length) return frappe.msgprint(__("请至少选择一项商品明细"));
+				for (const source of selected) {
+					const target = (frm.doc.items || []).find((row) => row.name === source.name);
+					if (target) await Promise.resolve(frappe.model.set_value(target.doctype, target.name, "qty", qty));
+				}
+				frm.dirty();
+				frm.refresh_field("items");
+				frm.trigger?.("calculate_taxes_and_totals");
+				frappe.show_alert({ message: __("已修改 {0} 行数量，请保存订单", [selected.length]), indicator: "green" });
+				dialog.hide();
+			},
+		});
+		const set_selection = (value) => {
+			set_table_selection(dialog.fields_dict.items.df.data, value);
+			dialog.fields_dict.items.grid.refresh();
+		};
+		dialog.fields_dict.select_all.$input?.on("click", () => set_selection(true));
+		dialog.fields_dict.clear_selection.$input?.on("click", () => set_selection(false));
 		dialog.show();
 	}
 
@@ -575,16 +628,150 @@
 		frm.fields_dict?.items?.grid?.update_docfield_property("delivery_date", "reqd", 0);
 	}
 
-	function fill_store_name_from_address(frm) {
+	function store_option_for_value(frm, value) {
+		const wanted = String(value || "").trim();
+		return (frm.__solua_store_options || []).find((row) => String(row.name || "").trim() === wanted
+			|| String(row.title || "").trim() === wanted);
+	}
+
+	function set_sales_order_value(frm, fieldname, value) {
+		if (frm.doc[fieldname] === value) return Promise.resolve(value);
+		return frm.set_value?.(fieldname, value);
+	}
+
+	async function sync_store_from_address(frm, force = false) {
+		const doc = frm.doc;
+		if (doc.docstatus !== 0 || !frappe.db?.get_value || frm.__solua_store_syncing) return;
+		const address_name = doc.shipping_address_name || doc.customer_address;
+		if (!address_name) return;
+		if (frm.__solua_store_address_lookup === address_name && !force) return;
+		frm.__solua_store_address_lookup = address_name;
+		try {
+			const result = await frappe.db.get_value("Address", address_name, ["address_title", "phone"]);
+			if (frm.doc.docstatus !== 0 || (frm.doc.shipping_address_name || frm.doc.customer_address) !== address_name) return;
+			const details = result?.message?.value || result?.message || {};
+			const title = String(details.address_title || address_name);
+			const phone = details.phone == null ? "" : String(details.phone);
+			const source = String(frm.doc.custom_store_address || "");
+			const legacy_auto = String(frm.doc.custom_store_name || "") === address_name;
+			const auto_source_changed = Boolean(source) && source !== address_name;
+			const automatic = force || !frm.doc.custom_store_name || source === address_name || auto_source_changed || legacy_auto;
+			if (!automatic) return;
+			frm.__solua_store_syncing = true;
+			await set_sales_order_value(frm, "custom_store_name", title);
+			if (!frm.__solua_store_phone_manual || force || source === address_name || auto_source_changed || legacy_auto) {
+				await set_sales_order_value(frm, "custom_store_phone", phone);
+			}
+			await set_sales_order_value(frm, "custom_store_address", address_name);
+		} finally {
+			frm.__solua_store_syncing = false;
+		}
+	}
+
+	async function apply_store_option(frm, option) {
+		if (!option || frm.doc.docstatus !== 0 || frm.__solua_store_syncing) return;
+		frm.__solua_store_syncing = true;
+		frm.__solua_store_phone_manual = false;
+		try {
+			await set_sales_order_value(frm, "shipping_address_name", option.name);
+			await set_sales_order_value(frm, "customer_address", option.name);
+			await set_sales_order_value(frm, "custom_store_address", option.name);
+			await set_sales_order_value(frm, "custom_store_name", option.title || option.name);
+			await set_sales_order_value(frm, "custom_store_phone", option.phone || "");
+		} finally {
+			frm.__solua_store_syncing = false;
+		}
+	}
+
+	function fill_delivery_store_name_from_address(frm) {
 		const doc = frm.doc;
 		if (doc.docstatus !== 0 || doc.custom_store_name) return;
 		const address_name = doc.shipping_address_name || doc.customer_address;
 		if (address_name) frm.set_value?.("custom_store_name", address_name);
 	}
 
+	function refresh_store_name_suggestions(frm) {
+		const doc = frm.doc;
+		const input = frm.fields_dict?.custom_store_name?.$input?.[0]
+			|| frm.fields_dict?.custom_store_name?.$input?.get?.(0)
+			|| frm.fields_dict?.custom_store_name?.$input;
+		if (!input || typeof document === "undefined" || !frappe.call) return;
+		const customer = String(doc.customer || "");
+		if (doc.docstatus !== 0 || !customer || !frappe.db?.get_list) {
+			input.removeAttribute?.("list");
+			frm.__solua_store_suggestion_customer = "";
+			frm.__solua_store_suggestion_input = input;
+			return;
+		}
+		if (frm.__solua_store_suggestion_customer === customer && frm.__solua_store_suggestion_input === input) return;
+		const list_id = `solua-store-options-${String(frm.doc.name || "new").replace(/[^a-z0-9_-]/gi, "_")}`;
+		let datalist = document.getElementById(list_id);
+		if (!datalist) {
+			datalist = document.createElement("datalist");
+			datalist.id = list_id;
+			document.body?.appendChild?.(datalist);
+		}
+		input.setAttribute?.("list", list_id);
+		datalist.replaceChildren?.();
+		frm.__solua_store_suggestion_customer = customer;
+		frm.__solua_store_suggestion_input = input;
+		frm.__solua_store_options = [];
+		frappe.call({ method: sales_order_store_options_api, args: { customer } }).then((response) => {
+			if (frm.doc.docstatus !== 0 || String(frm.doc.customer || "") !== customer || frm.__solua_store_suggestion_input !== input) return;
+			const options = (response?.message || []).map((row) => typeof row === "string" ? { name: row, title: row, phone: "" } : row).filter((row) => row?.name);
+			frm.__solua_store_options = options;
+			for (const option_data of options) {
+				const option = document.createElement("option");
+				option.value = option_data.name;
+				option.label = option_data.title || option_data.name;
+				datalist.appendChild(option);
+			}
+		}).catch(() => {});
+	}
+
+	function fill_unique_delivery_link(frm, fieldname, doctype, filters) {
+		const doc = frm.doc;
+		if (doc.docstatus !== 0 || doc[fieldname] || !frappe.db?.get_list) return;
+		frm.__solua_delivery_default_queries ||= {};
+		const key = `${doctype}:${JSON.stringify(filters)}`;
+		if (frm.__solua_delivery_default_queries[fieldname] === key) return;
+		frm.__solua_delivery_default_queries[fieldname] = key;
+		frappe.db.get_list(doctype, { filters, fields: ["name"], limit_page_length: 2 }).then((rows) => {
+			if (frm.doc.docstatus === 0 && !frm.doc[fieldname] && rows?.length === 1) {
+				frm.set_value?.(fieldname, rows[0].name);
+			}
+		}).catch(() => {});
+	}
+
+	function fill_delivery_defaults(frm) {
+		const doc = frm.doc;
+		if (doc.docstatus !== 0) return;
+		fill_delivery_store_name_from_address(frm);
+		if (!doc.custom_store_phone) {
+			const contact_phone = doc.contact_mobile || doc.contact_phone;
+			if (contact_phone) {
+				frm.set_value?.("custom_store_phone", contact_phone);
+			} else if ((doc.shipping_address_name || doc.customer_address) && frappe.db?.get_value) {
+				const address_name = doc.shipping_address_name || doc.customer_address;
+				frappe.db.get_value("Address", address_name, "phone").then((result) => {
+					if (frm.doc.docstatus === 0 && !frm.doc.custom_store_phone && frm.doc.shipping_address_name === address_name) {
+						let phone = result?.message;
+						for (let depth = 0; depth < 3 && phone && typeof phone === "object"; depth += 1) {
+							phone = phone.phone ?? phone.value ?? "";
+						}
+						if (typeof phone !== "string" && typeof phone !== "number") phone = "";
+						if (phone) frm.set_value?.("custom_store_phone", phone);
+					}
+				}).catch(() => {});
+			}
+		}
+		if (doc.company) fill_unique_delivery_link(frm, "vehicle_no", "Vehicle", { company: doc.company });
+		fill_unique_delivery_link(frm, "driver", "Driver", { status: "Active", ...(doc.transporter ? { transporter: doc.transporter } : {}) });
+	}
+
 	function refresh_delivery_summary(frm) {
 		const doc = frm.doc;
-		fill_store_name_from_address(frm);
+		fill_delivery_defaults(frm);
 		if (doc.company && frm.__delivery_company_lookup !== doc.company) {
 			frm.__delivery_company_lookup = doc.company;
 			frappe.db.get_value("Company", doc.company, "tax_id").then((result) => {
@@ -658,6 +845,7 @@
 		},
 		refresh(frm) {
 			if (doctype === "Sales Order") make_sales_order_delivery_date_optional(frm);
+			if (doctype === "Sales Order") { refresh_store_name_suggestions(frm); sync_store_from_address(frm); }
 			if (doctype === "Delivery Note") refresh_delivery_summary(frm);
 			if (doctype === "Sales Order" && frm.doc.docstatus === 0) {
 				frm.add_custom_button(__("按款式条码选颜色"), () => open_color_picker(frm, "sales_order"), __("工具"));
@@ -665,11 +853,40 @@
 				frm.add_custom_button(__("批量添加物料"), () => open_sales_order_bulk_picker(frm), __("工具"));
 				frm.add_custom_button(__("粘贴货号 + 数量"), () => open_sales_order_paste(frm), __("工具"));
 				frm.add_custom_button(__("刷新库存"), () => refresh_sales_order_stock(frm), __("工具"));
+				frm.add_custom_button(__("批量修改数量"), () => open_sales_order_quantity_update(frm), __("工具"));
 			}
 			const label = __(doctype === "Sales Order" ? "客户订单确认单" : (doctype === "Delivery Note" ? "Guia de Remessa" : "拣货单（简版）"));
 			if (!frm.is_new()) frm.add_custom_button(label, () => print_wholesale(frm), __("打印"));
 		},
 	}));
+	frappe.ui.form.on("Sales Order", {
+		customer(frm) {
+			if (frm.__solua_store_syncing) return;
+			if (frm.doc.custom_store_address) {
+				frm.set_value?.("custom_store_address", "");
+				frm.set_value?.("custom_store_name", "");
+				frm.set_value?.("custom_store_phone", "");
+				frm.__solua_store_phone_manual = false;
+			}
+			frm.__solua_store_address_lookup = "";
+			refresh_store_name_suggestions(frm);
+			sync_store_from_address(frm);
+		},
+		customer_address(frm) { sync_store_from_address(frm); refresh_store_name_suggestions(frm); },
+		shipping_address_name(frm) { sync_store_from_address(frm); refresh_store_name_suggestions(frm); },
+		custom_store_name(frm) {
+			if (frm.__solua_store_syncing) return;
+			const option = store_option_for_value(frm, frm.doc.custom_store_name);
+			if (option) return apply_store_option(frm, option);
+			if (frm.doc.custom_store_address) {
+				frm.set_value?.("custom_store_address", "");
+				if (!frm.__solua_store_phone_manual) frm.set_value?.("custom_store_phone", "");
+			}
+		},
+		custom_store_phone(frm) {
+			if (!frm.__solua_store_syncing) frm.__solua_store_phone_manual = true;
+		},
+	});
 	frappe.ui.form.on("Delivery Note", {
 		driver(frm) {
 			const driver = frm.doc.driver;
@@ -690,6 +907,9 @@
 		driver_name: refresh_delivery_summary,
 		custom_driver_phone: refresh_delivery_summary,
 		customer_address: refresh_delivery_summary,
+		transporter: refresh_delivery_summary,
+		contact_mobile: refresh_delivery_summary,
+		contact_phone: refresh_delivery_summary,
 		items_add: refresh_delivery_summary,
 	});
 

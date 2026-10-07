@@ -6,6 +6,27 @@ const invoice_summary_link = (doctype, name) => {
 	const route = doctype.toLowerCase().replaceAll(" ", "-");
 	return `<a href="/app/${route}/${encodeURIComponent(name)}">${invoice_summary_escape(name)}</a>`;
 };
+const SALES_INVOICE_CASH_TERM = "PRONTO PAGAMENTO";
+
+function render_sales_invoice_payment_terms_notice(frm) {
+	const wrapper = frm.fields_dict?.custom_sales_invoice_payment_terms_notice?.$wrapper;
+	if (!wrapper) return;
+	const payment_term = String(frm.doc.payment_terms_template || "").trim();
+	const payment_term_link = `<button type="button" class="btn btn-link btn-xs p-0 solua-payment-terms-link" data-field="payment_terms_template">${payment_term ? "点击修改付款条件" : "点击选择付款条件"}</button>`;
+	const content = payment_term === SALES_INVOICE_CASH_TERM
+		? `<div class="alert mb-0" style="background:#f5f1e9;border-left:4px solid #d8c49b;"><b>付款条件：${invoice_summary_escape(payment_term)}</b><br><span class="text-muted">现金付款可享 3% 折扣</span><br>${payment_term_link}</div>`
+		: payment_term
+			? `<div class="alert alert-info mb-0"><b>付款条件：${invoice_summary_escape(payment_term)}</b><br>${payment_term_link}</div>`
+			: `<div class="alert alert-warning mb-0"><b>尚未选择付款条件</b><br><span class="text-muted">请到“条款”页选择付款条件；现金付款折扣仅适用于 PRONTO PAGAMENTO。</span><br>${payment_term_link}</div>`;
+	const input = wrapper.find(".control-input");
+	wrapper.find(".control-label").hide();
+	(input.length ? input : wrapper).html(content);
+	wrapper.off("click", ".solua-payment-terms-link").on("click", ".solua-payment-terms-link", (event) => {
+		const field = event.currentTarget.dataset.field;
+		frm.scroll_to_field?.(field);
+		frm.fields_dict?.[field]?.$input?.focus?.();
+	});
+}
 const invoice_summary_field = (fieldname, label) =>
 	`<button type="button" class="btn btn-link btn-xs p-0 solua-invoice-approval-field" data-field="${invoice_summary_escape(fieldname)}">${invoice_summary_escape(label)}</button>`;
 const invoice_max_discount = (doc) => {
@@ -85,6 +106,7 @@ async function refresh_sales_invoice_approval_summary(frm) {
 
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
+		render_sales_invoice_payment_terms_notice(frm);
 		refresh_sales_invoice_approval_summary(frm);
 		if (frm.is_new() || frm.__solua_wholesale_print_button) return;
 		frm.__solua_wholesale_print_button = true;
@@ -166,5 +188,8 @@ frappe.ui.form.on("Sales Invoice", {
 			});
 			dialog.show();
 		}, __("打印"));
+	},
+	payment_terms_template(frm) {
+		render_sales_invoice_payment_terms_notice(frm);
 	},
 });

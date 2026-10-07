@@ -13,10 +13,6 @@ def validate_purchase_order(doc, method=None):
     """采购订单保存时验证"""
     validate_transaction_quantities(doc)
 
-    # 示例：采购金额上限控制
-    if doc.grand_total > 50000:
-        frappe.throw(_("采购金额超过 50,000，需要上级审批"))
-
     # 示例：检查供应商状态
     supplier_status = frappe.db.get_value("Supplier", doc.supplier, "custom_status")
     if supplier_status == "已停用":

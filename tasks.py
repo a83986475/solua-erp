@@ -8,6 +8,10 @@ from frappe import _
 from frappe.utils import nowdate, add_days, flt
 
 
+def _log_info(message, title):
+    frappe.logger("solua_home").info("%s: %s", title, message)
+
+
 def daily_tasks():
     """每日执行的任务"""
     check_overdue_invoices()
@@ -15,19 +19,19 @@ def daily_tasks():
     # 库存列兜底：历史单据补记/重算后镜像值可能落后，每天对齐一次
     from solua_home.item_metrics import refresh_all_items
     refresh_all_items()
-    frappe.log_error("每日任务执行完毕", "solua_home 定时任务")
+    _log_info("每日任务执行完毕", "solua_home 定时任务")
 
 
 def weekly_tasks():
     """每周执行的任务"""
     generate_weekly_report()
-    frappe.log_error("每周任务执行完毕", "solua_home 定时任务")
+    _log_info("每周任务执行完毕", "solua_home 定时任务")
 
 
 def custom_cron_task():
     """自定义 cron 表达式触发的任务（每天凌晨2点）"""
     cleanup_old_logs()
-    frappe.log_error("凌晨清理任务执行完毕", "solua_home 定时任务")
+    _log_info("凌晨清理任务执行完毕", "solua_home 定时任务")
 
 
 # ==================== 具体任务实现 ====================
@@ -48,7 +52,7 @@ def check_overdue_invoices():
 
     for inv in overdue_invoices:
         # 记录超期发票
-        frappe.log_error(
+        _log_info(
             f"发票 {inv.name} 已逾期 {inv.overdue_days} 天，"
             f"未结金额: {inv.outstanding_amount}",
             "逾期发票提醒",
@@ -80,7 +84,7 @@ def check_low_stock_items():
     """, as_dict=True)
 
     for item in low_stock_items:
-        frappe.log_error(
+        _log_info(
             f"物料 {item.item_code} ({item.item_name}) "
             f"当前库存: {item.current_qty}, "
             f"最低库存: {item.custom_min_stock_level}",
@@ -101,7 +105,7 @@ def generate_weekly_report():
             AND si.docstatus = 1
     """, week_start, as_dict=True)
 
-    frappe.log_error(
+    _log_info(
         f"本周销售汇总: {data[0].invoice_count} 张发票, "
         f"总金额: {data[0].total_sales}",
         "周报",

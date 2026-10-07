@@ -22,7 +22,7 @@ def get_template_variants(template_item):
     fields = [
         "item_code", "item_name", "custom_chinese_name",
         "custom_spec_summary", "custom_pos_short_name",
-        "image", "custom_swatch_image", "stock_uom", "disabled",
+        "image", "custom_swatch_image", "stock_uom", "sales_uom", "disabled",
         "item_group", "brand",
     ]
     for fieldname in ["custom_order_code"]:
@@ -86,6 +86,28 @@ def get_template_stock_summary(template_item, warehouse=None):
         frappe.throw(_("{0} is not a template item").format(template_item))
 
     variants = get_template_variants(template_item)
+    conversion_rows = frappe.get_all(
+        "UOM Conversion Detail",
+        filters={"parenttype": "Item", "parent": ["in", [template_item] + [v.item_code for v in variants]]},
+        fields=["parent", "uom", "conversion_factor"],
+        limit_page_length=0,
+    ) if variants else []
+    conversion_factors = {
+        (row.parent, row.uom): float(row.conversion_factor or 0)
+        for row in conversion_rows
+        if float(row.conversion_factor or 0) > 0
+    }
+    for variant in variants:
+        sales_uom = variant.get("sales_uom") or ""
+        factor = conversion_factors.get((variant.item_code, sales_uom)) if sales_uom else None
+        if not factor and sales_uom:
+            factor = conversion_factors.get((template_item, sales_uom))
+        if sales_uom and factor and sales_uom != variant.stock_uom:
+            variant["display_uom"] = sales_uom
+            variant["display_conversion_factor"] = factor
+        else:
+            variant["display_uom"] = variant.stock_uom
+            variant["display_conversion_factor"] = 1
     total_stock = 0
 
     filters = {"item_code": ["in", [v.item_code for v in variants]]}
@@ -111,12 +133,23 @@ def get_template_stock_summary(template_item, warehouse=None):
 
     for v in variants:
         v["actual_qty"] = stock_data.get(v.item_code, 0)
+        v["display_actual_qty"] = v["actual_qty"] / v["display_conversion_factor"]
+
+    display_pairs = {
+        (v["display_uom"], v["display_conversion_factor"])
+        for v in variants
+        if v.get("display_uom")
+    }
+    display_uom = next(iter(display_pairs))[0] if len(display_pairs) == 1 else ""
+    display_factor = next(iter(display_pairs))[1] if display_uom else 1
 
     return {
         "template_code": template.item_code,
         "template_name": template.item_name,
         "template_spu": template.custom_spu_code,
         "total_stock": total_stock,
+        "display_total_stock": total_stock / display_factor if display_uom else total_stock,
+        "display_uom": display_uom,
         "variants": variants,
     }
 
