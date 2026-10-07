@@ -44,3 +44,12 @@ erpnext/www/banking.html
 /PaymentDialog.remote.vue
 /ReturnDialog.remote.vue
 /locale.remote.ts
+
+# Local development artifacts; keep files on disk, out of source commits.
+/.tmp/
+/tmp/
+/artifacts/
+/output/
+/outputs/
+/tmp_*.py
+/xpos-client/xpos/

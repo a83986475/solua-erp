@@ -1,5 +1,11 @@
 # Solua ERPNext agent rules
 
+## Preserve form loading entrypoints
+
+- Before deploying `hooks.py` or wholesale form scripts, run `node my_custom_app_example/solua_home/tests/wholesale_forms_check.cjs`. The check covers the active loader, cache version, release whitelist, and bulk quantity behavior; a failure blocks deployment.
+- Compare candidate `doctype_js` with live production before writing. Never overwrite production `hooks.py` with an older whole-file copy; merge only the task's intended entries and preserve other production changes.
+- Sales Order, Delivery Note, and Pick List use `wholesale_forms_additional_notes_loader_v17.js` in the local source, loading `wholesale_forms_stock_entry_v20261006.js?v=stock-entry-tools-20261006a`. Read back the live production entrypoint before deployment. A deliberate loader upgrade must update hooks, loader, release whitelist, and the entrypoint check together. Use a new filename/cache version and verify the actual served script and draft Sales Order tools menu after deployment.
+
 ## Production backup path: STOP before writing
 
 - `sites/erp.solua.one/private/backups/` is reserved exclusively for Frappe/Bench-generated backup files. Agents, scripts, and people must never create subdirectories or place manual snapshots/rollback copies there.
