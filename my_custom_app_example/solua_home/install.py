@@ -121,6 +121,7 @@ def install_wholesale_only():
             raise RuntimeError("Solua Page assets missing")
         for method in (
             "solua_home.api.home.get_dashboard_data",
+            "solua_home.api.home.record_feature_usage",
             "solua_home.api.home.get_color_variants",
             "solua_home.api.stock.prepare_delivery_snapshot",
             "solua_home.printing.wholesale.prepare_print_snapshot",
@@ -166,6 +167,7 @@ def after_install():
     configure_sales_invoice_printing()
     configure_pick_list_printing()
     sync_standard_pages()
+    ensure_home_feature_settings()
     add_member_system_fields()
     ensure_whatsapp_module()
     sync_whatsapp_doctypes()
@@ -175,6 +177,21 @@ def after_install():
 def after_migrate():
     """每次迁移后执行"""
     after_install()
+
+
+def ensure_home_feature_settings():
+    """Seed the initial homepage choices once; never re-add choices an admin removed."""
+    if not frappe.db.exists("DocType", "Solua Home Settings"):
+        return
+    from solua_home.api.home import DEFAULT_HOME_FEATURE_KEYS
+
+    settings = frappe.get_single("Solua Home Settings")
+    if frappe.utils.cint(settings.get("setup_initialized")):
+        return
+    for feature_key in DEFAULT_HOME_FEATURE_KEYS:
+        settings.append("manual_features", {"feature_key": feature_key})
+    settings.setup_initialized = 1
+    settings.save(ignore_permissions=True)
 
 
 def sync_cash_discount_print_formats():

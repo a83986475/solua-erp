@@ -63,24 +63,32 @@ setImmediate(async()=>{
  assert.equal(frappe.route_options,null);assert.deepEqual(routes.pop(),["List","Item",null]);
  data.permissions={new_item:true,new_stock_entry:true,new_stock_reconciliation:true,new_purchase_receipt:true,
   new_sales_order:true,new_delivery_note:true,read_item:true,read_customer:true,read_supplier:true,
-  read_print_settings:true,read_print_format:true,new_pricing_rule:true,read_pos_closing:true,
+  read_print_settings:true,read_print_format:true,new_pricing_rule:true,read_pos_closing:true,read_home_settings:true,
   read_sales_order:true,read_delivery_note:true,read_sales_invoice:true,read_pos_invoice:true,read_quotation:true,
   read_stock_entry:true,read_warehouse:true,read_stock_reconciliation:true,read_purchase_receipt:true,
   new_purchase_order:true,read_purchase_order:true,read_purchase_invoice:true,
   new_payment_entry:true,read_payment_entry:true,read_item_price:true,read_stock_ledger:true,read_bin:true,read_pick_list:true};
+ data.common_features={manual_keys:["查库存","销售订单","送货中心"],auto_add_frequent:true,threshold:3,auto_limit:5,
+  usage:{"销售订单":6,"新建物料":5,"送货中心":4,"销售发票":3}};
  frappe.pages["solua-home"].on_page_load({});
  await new Promise(resolve=>setImmediate(resolve));root=roots.at(-1);
  const actions=node('[data-role="actions"]').content;
+ const quickActions=node('[data-role="quick-actions"]').content;
  const reportLinks=node('[data-role="report-links"]').content;
  for (const label of ["盈利能力分析","库存树报表","经营金额报表","送货汇总","物料销售明细"])
   assert(reportLinks.includes(label),"missing wholesale report link: "+label);
  assert(reportLinks.includes('data-report="Item-wise Sales History"'),"missing item-wise sales report link");
+ assert(quickActions.includes("送货中心")&&quickActions.includes("/mobile?view=delivery&desktop=1"),"missing desktop delivery center link");
  assert(!actions.includes('data-workspace="Buying"'));
  assert(!actions.includes("新建采购订单"));
  for (const label of ["销售","新建销售订单","销售订单分析报表","物料销售明细","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
   assert(actions.includes(label),"missing homepage action: "+label);
  assert(actions.includes('data-report="Item-wise Sales History"')&&actions.includes('"from_date":"2026-09-04"'),"item-wise sales history must default to the last calendar month");
  assert(actions.includes("Item Price")&&actions.includes("sales-invoice-approval"),"price list and invoice-submit check entry points are present");
+ assert((quickActions.match(/data-feature-key=/g)||[]).length===5,"manual plus frequent shortcuts are rendered once");
+ assert(quickActions.indexOf('data-feature-key="销售订单"')<quickActions.indexOf('data-feature-key="新建物料"'));
+ assert(quickActions.indexOf('data-feature-key="新建物料"')<quickActions.indexOf('data-feature-key="送货中心"'));
+ assert(quickActions.includes('data-feature-key="销售发票"'),"frequent sales invoice is promoted");
  // Group titles are the entrance to the module workspace, so each block is a one-click jump.
  for (const workspace of ["Selling","Stock","Invoicing"])
   assert(actions.includes('data-workspace="'+workspace+'"'),"missing workspace link: "+workspace);
@@ -110,11 +118,13 @@ setImmediate(async()=>{
  actionHandler.call({dataset:{utility:"print_designer"}});assert.deepEqual(routes.pop(),["print-designer"]);
  actionHandler.call({dataset:{utility:"a4_print_designer"}});assert.deepEqual(routes.pop(),["a4-print-designer"]);
  actionHandler.call({dataset:{utility:"sales_invoice_approval"}});assert.deepEqual(routes.pop(),["sales-invoice-approval"]);
+ actionHandler.call({dataset:{utility:"home_settings"}});assert.deepEqual(routes.pop(),["Form","Solua Home Settings"]);
  actionHandler.call({dataset:{utility:"label_print"}});actionHandler.call({dataset:{utility:"promotion"}});actionHandler.call({dataset:{utility:"pos_closing"}});
  assert.deepEqual(calls,["label","promotion","pos"]);
  actionHandler.call({dataset:{utility:"xpos"}});assert.equal(opened.at(-1)[0],"/desk/x-pos?sidebar=X%20POS");
+ actionHandler.call({dataset:{utility:"delivery_center"}});assert.equal(opened.at(-1)[0],"/mobile?view=delivery&desktop=1");
  // Delivery Note entry lives once in the sales block, after the create-sales-order shortcut.
- assert.equal((actions.match(/新建交货单/g)||[]).length,1);
+ assert.equal((actions.match(/data-feature-key="新建交货单"/g)||[]).length,1);
  const sellGroup=actions.indexOf("销售");
  assert(sellGroup>-1&&sellGroup<actions.indexOf("库存")&&actions.indexOf("新建交货单")>sellGroup);
  assert(actions.indexOf("新建交货单")>actions.indexOf("新建销售订单"));

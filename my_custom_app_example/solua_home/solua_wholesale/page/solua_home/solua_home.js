@@ -34,8 +34,10 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	const GROUP_LINK_HINT = __("打开对应模块工作区");
 	const DESK_SUBTITLE = __("批发经营 · 订单履约 · 配送与库存");
 	const POS_SUBTITLE = __("收银台 · 销售单与交班");
+	const DEFAULT_QUICK_FEATURES = ["销售订单", "交货单", "送货中心", "销售发票", "新建销售订单", "按订单开交货单", "查库存"];
 	let current_warehouse = null;
 	let dashboard_data = null;
+	let feature_markup = {};
 	let totals_generation = 0;
 	let common_enabled = false;
 	let common_range = {period: "本月", from_date: "", to_date: ""};
@@ -57,6 +59,11 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	}
 	sync_period_controls();
 
+	function remember_feature(markup, feature_key) {
+		if (markup && feature_key && !feature_markup[feature_key]) feature_markup[feature_key] = markup;
+		return markup;
+	}
+
 	// A row action: with a name it opens the form, with { new_doc: true } it starts a new
 	// document, with { view: true } it opens the filtered list the user can browse.
 	function action(label, doctype, name, allowed = false, options = {}) {
@@ -67,7 +74,8 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		const view = options.view ? ` data-view="list"` : "";
 		const href = options.href ? ` href="${text(options.href)}"` : "";
 		const tag = options.href ? "a" : "button";
-		return `<${tag} class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${stock_entry_type ? ` data-stock-entry-type="${text(stock_entry_type)}"` : ""}${new_doc}${view}${href}>${text(label)}</${tag}>`;
+		const feature_key = options.feature_key || label;
+		return remember_feature(`<${tag} class="btn btn-default btn-sm solua-home-action" data-feature-key="${text(feature_key)}" data-doctype="${text(doctype)}" data-name="${text(name || "")}"${purpose ? ` data-purpose="${text(purpose)}"` : ""}${stock_entry_type ? ` data-stock-entry-type="${text(stock_entry_type)}"` : ""}${new_doc}${view}${href}>${text(label)}</${tag}>`, feature_key);
 	}
 
 	function new_action(label, doctype, allowed = false, options = {}) {
@@ -81,10 +89,11 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 
 	function utility_action(label, key, allowed = false) {
 		if (!allowed) return "";
-		const hrefs = { print_settings: "/app/print-settings", print_designer: "/app/print-designer", a4_print_designer: "/desk/a4-print-designer", wholesale_print_format: "/app/print-format", sales_invoice_approval: "/desk/sales-invoice-approval" };
+		const hrefs = { print_settings: "/app/print-settings", print_designer: "/app/print-designer", a4_print_designer: "/desk/a4-print-designer", wholesale_print_format: "/app/print-format", sales_invoice_approval: "/desk/sales-invoice-approval", delivery_center: "/mobile?view=delivery&desktop=1", home_settings: "/app/solua-home-settings" };
 		const href = hrefs[key] ? ` href="${text(hrefs[key])}"` : "";
 		const tag = href ? "a" : "button";
-		return `<${tag} class="btn btn-default btn-sm solua-home-action" data-utility="${text(key)}"${href}>${text(label)}</${tag}>`;
+		const feature_key = label;
+		return remember_feature(`<${tag} class="btn btn-default btn-sm solua-home-action" data-feature-key="${text(feature_key)}" data-utility="${text(key)}"${href}>${text(label)}</${tag}>`, feature_key);
 	}
 
 	function report_action(label, report, allowed = false, filters = {}) {
@@ -92,12 +101,14 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		const today = dashboard_data?.query_time?.slice(0, 10);
 		const dated = ["Item-wise Sales History", "Sales Order Analysis", "Sales Register", "Gross Profit", "Stock Balance", "Stock Ledger"].includes(report);
 		const dates = dated && today ? {from_date: frappe.datetime.add_months(today, -1), to_date: today} : {};
-		return `<button type="button" class="btn btn-default btn-sm" data-report="${text(report)}" data-report-filters="${text(JSON.stringify({company: dashboard_data?.company, ...dates, ...filters}))}">${text(label)}</button>`;
+		const feature_key = label;
+		return remember_feature(`<button type="button" class="btn btn-default btn-sm" data-feature-key="${text(feature_key)}" data-report="${text(report)}" data-report-filters="${text(JSON.stringify({company: dashboard_data?.company, ...dates, ...filters}))}">${text(label)}</button>`, feature_key);
 	}
 
 	function filtered_action(label, doctype, allowed, filters) {
 		if (!allowed) return "";
-		return `<button class="btn btn-default btn-sm solua-home-action" data-doctype="${text(doctype)}" data-filters="${text(JSON.stringify({company: dashboard_data?.company, ...filters}))}">${text(label)}</button>`;
+		const feature_key = label;
+		return remember_feature(`<button class="btn btn-default btn-sm solua-home-action" data-feature-key="${text(feature_key)}" data-doctype="${text(doctype)}" data-filters="${text(JSON.stringify({company: dashboard_data?.company, ...filters}))}">${text(label)}</button>`, feature_key);
 	}
 
 	// The group header doubles as the entrance to the module workspace, so the block is
@@ -125,8 +136,25 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		return frappe.msgprint(__("没有访问「{0}」工作区的权限。", [text(name)]));
 	}
 
+	function render_common_features(data) {
+		const preferences = data.common_features || {manual_keys: DEFAULT_QUICK_FEATURES, auto_add_frequent: false, usage: {}};
+		const usage = preferences.usage || {};
+		const manual = (Array.isArray(preferences.manual_keys) ? preferences.manual_keys : DEFAULT_QUICK_FEATURES)
+			.filter((key, index, keys) => key && keys.indexOf(key) === index && feature_markup[key]);
+		const auto = preferences.auto_add_frequent
+			? Object.keys(usage).filter(key => !manual.includes(key) && feature_markup[key] && Number(usage[key]) >= (Number(preferences.threshold) || 3))
+				.sort((a, b) => Number(usage[b]) - Number(usage[a]) || a.localeCompare(b))
+				.slice(0, Number(preferences.auto_limit) || 5)
+			: [];
+		const keys = manual.concat(auto);
+		const order = Object.fromEntries(keys.map((key, index) => [key, index]));
+		keys.sort((a, b) => Number(usage[b] || 0) - Number(usage[a] || 0) || order[a] - order[b]);
+		root.find('[data-role="quick-actions"]').html(keys.map(key => feature_markup[key]).filter(Boolean).join(""));
+	}
+
 	function render(data) {
 		dashboard_data = data;
+		feature_markup = {};
 		const pos_mode = data.home_mode === "pos";
 		current_warehouse = data.warehouse || null;
 		root.find('[data-role="company"]').text(data.company || "");
@@ -153,19 +181,21 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			const today = data.query_time?.slice(0, 10);
 			const dates = ["Profitability Analysis", "Item-wise Sales History"].includes(report) && today ? {from_date: frappe.datetime.add_months(today, -1), to_date: today} : {};
 			const filters = {company: data.company, ...dates, ...(report === "Template Stock Tree" ? {warehouse: data.warehouse} : {})};
-			return `<button type="button" class="btn btn-default btn-sm" data-report="${text(report)}" data-report-filters="${text(JSON.stringify(filters))}">${text(label)}</button>`;
+			return remember_feature(`<button type="button" class="btn btn-default btn-sm" data-feature-key="${text(label)}" data-report="${text(report)}" data-report-filters="${text(JSON.stringify(filters))}">${text(label)}</button>`, label);
 		}).join(""));
 		root.find('[data-role="report-links"]').append(`<button type="button" class="btn btn-default btn-sm" data-sidebar-open="1">${__("打开批发侧栏")}</button>`);
-		root.find('[data-role="quick-actions"]').html([
+		[
 			view_action(__("销售订单"), "Sales Order", permissions.read_sales_order),
 			view_action(__("交货单"), "Delivery Note", permissions.read_delivery_note),
+			utility_action(__("送货中心"), "delivery_center", permissions.read_delivery_note),
 			view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
 			new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
 			report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 			utility_action(__("按订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
-			permissions.read_item ? `<button class="btn btn-default btn-sm" data-focus-search="1">${__("查库存")}</button>` : ""
-		].filter(Boolean).join(""));
+			permissions.read_item ? remember_feature(`<button class="btn btn-default btn-sm" data-feature-key="查库存" data-focus-search="1">${__("查库存")}</button>`, "查库存") : ""
+		].filter(Boolean);
 		root.find('[data-role="actions"]').html(desk_actions(permissions, stock_entry_types));
+		render_common_features(data);
 		load_billing_queue(data);
 	}
 
@@ -344,6 +374,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				utility_action(__("POS交班"), "pos_closing", permissions.read_pos_closing),
 				utility_action(__("公开色卡"), "colors", true),
 				utility_action(__("xPos 收银台"), "xpos", true),
+				utility_action(__("首页常用功能设置"), "home_settings", permissions.read_home_settings),
 			]),
 		].join("");
 	}
@@ -412,6 +443,14 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		dialog.show();
 	}
 
+	function record_feature_usage(feature_key) {
+		if (!feature_key || typeof frappe.call !== "function") return;
+		try {
+			const request = frappe.call({method: "solua_home.api.home.record_feature_usage", args: {feature_key}});
+			request?.catch?.(() => {});
+		} catch (_) {}
+	}
+
 	root.on("click", "[data-issue-toggle]", function () {
 		root.find(`[data-issue-body="${this.dataset.issueToggle}"]`).toggleClass("solua-home-issue-open");
 		if (this.classList) this.classList.toggle("solua-home-issue-open");
@@ -420,9 +459,11 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 	root.on("click", "[data-report], [data-total]", function () {
 		if (this.dataset.total) {
 			if (common_enabled && !range_valid()) return frappe.msgprint(__("请选择有效的开始和结束日期"));
+			record_feature_usage(this.dataset.featureKey);
 			frappe.route_options = {metric: this.dataset.total, company: dashboard_data?.company, ...(common_enabled ? {...common_range, use_route_period: 1} : {})};
 			return frappe.set_route("query-report", "Solua Business Totals");
 		}
+		record_feature_usage(this.dataset.featureKey);
 		frappe.route_options = JSON.parse(this.dataset.reportFilters || "{}");
 		frappe.set_route("query-report", this.dataset.report);
 	});
@@ -459,7 +500,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			frappe.show_alert({message: __("发票草稿已打开，尚未保存"), indicator: "orange"});
 		}).catch(() => frappe.msgprint(__("无法生成发票草稿，请刷新队列后重试。"))).finally(() => { button.disabled = false; });
 	});
-	root.on("click", "[data-focus-search]", () => root.find('[data-role="search"]').trigger("focus"));
+	root.on("click", "[data-focus-search]", function () { record_feature_usage(this.dataset.featureKey || "查库存"); root.find('[data-role="search"]').trigger("focus"); });
 	root.on("click", "[data-scroll]", function () { root.find(`[data-section="${this.dataset.scroll}"]`)[0]?.scrollIntoView({behavior: "smooth"}); });
 	root.on("change", "[data-common-enabled]", function () {
 		common_enabled = !!this.checked;
@@ -487,6 +528,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			if (event?.metaKey || event?.ctrlKey || event?.shiftKey || event?.button !== 0) return;
 			event.preventDefault();
 		}
+		record_feature_usage(this.dataset.featureKey);
 		const doctype = this.dataset.doctype;
 		const utility = this.dataset.utility;
 		if (this.dataset.workspace) return open_workspace(this.dataset.workspace, this.dataset.fallbackView || doctype || null);
@@ -495,6 +537,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		if (utility === "a4_print_designer") return frappe.set_route("a4-print-designer");
 		if (utility === "wholesale_print_format") return open_print_format_editor();
 		if (utility === "sales_invoice_approval") return frappe.set_route("sales-invoice-approval");
+		if (utility === "home_settings") return frappe.set_route("Form", "Solua Home Settings");
 		if (utility === "label_print") {
 			if (typeof window.solua_home?.label_print?.open === "function") return window.solua_home.label_print.open();
 			return frappe.msgprint(__("标签打印功能尚未加载，请刷新后重试。"));
@@ -509,6 +552,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		}
 		if (utility === "colors") return window.open("/colors", "_blank");
 		if (utility === "xpos") return window.open("/desk/x-pos?sidebar=X%20POS", "_blank", "noopener");
+		if (utility === "delivery_center") return window.open("/mobile?view=delivery&desktop=1", "_blank", "noopener");
 		if (utility === "delivery_from_order") return open_delivery_from_order();
 		if (!doctype) return;
 		if (doctype === "Stock Entry" && this.dataset.purpose) {

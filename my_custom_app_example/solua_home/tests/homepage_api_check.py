@@ -19,6 +19,8 @@ frappe.whitelist = identity
 frappe.read_only = identity
 frappe.utils = types.ModuleType("frappe.utils")
 frappe.utils.flt = lambda value, precision=None: float(value or 0)
+frappe.utils.cint = lambda value: int(float(value or 0))
+frappe.utils.now_datetime = lambda: "2026-10-03 12:00:00"
 frappe.utils.nowdate = lambda: "2026-10-03"
 sys.modules["frappe"] = frappe
 sys.modules["frappe.utils"] = frappe.utils
@@ -94,4 +96,49 @@ result = home.search_items("STYLE", warehouse="W1", company="Co")
 sku = next(item for item in result["items"] if item["name"] == "SKU-C20")
 assert sku["display_uom"] == "卷"
 assert (sku["display_actual_qty"], sku["display_reserved_qty"], sku["display_available_qty"]) == (25, 4, 21)
+
+# Homepage settings are global, while usage counts stay scoped to the logged-in user.
+frappe.session = types.SimpleNamespace(user="worker@example.com")
+settings_rows = [Row(feature_key="销售订单"), Row(feature_key="不存在的功能")]
+settings = types.SimpleNamespace(get=lambda key, default=None: {
+    "manual_features": settings_rows,
+    "auto_add_frequent": 1,
+}.get(key, default))
+existing_usage = Row(name="usage-1", usage_count=2)
+usage_rows = [Row(feature_key="销售订单", usage_count=2), Row(feature_key="交货单", usage_count=4)]
+updated_usage = []
+created_usage = []
+
+class HomeDB:
+    def exists(self, doctype, name):
+        return doctype in {"DocType", "Solua Home Settings", "Solua Home Feature Usage"}
+
+    def get_value(self, doctype, filters, fields, as_dict=False):
+        return existing_usage
+
+    def set_value(self, *args, **kwargs):
+        updated_usage.append((args, kwargs))
+
+
+class NewUsage:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def insert(self, **kwargs):
+        created_usage.append((self.payload, kwargs))
+
+
+frappe.db = HomeDB()
+frappe.get_single = lambda doctype: settings
+frappe.get_all = lambda *args, **kwargs: usage_rows
+frappe.get_doc = lambda payload: NewUsage(payload)
+preferences = home._home_feature_preferences()
+assert preferences["manual_keys"] == ["销售订单"]
+assert preferences["usage"] == {"销售订单": 2, "交货单": 4}
+home.record_feature_usage("销售订单")
+assert updated_usage and updated_usage[-1][0][2]["usage_count"] == 3
+existing_usage = None
+home.record_feature_usage("交货单")
+assert created_usage and created_usage[-1][0]["feature_key"] == "交货单"
+assert home.record_feature_usage("不存在的功能")["state"] == "ignored"
 print("PASS: all-backlog customer grouping preserves per-delivery drafts; permission empty state; unconfigured reorder thresholds; template and color search; missing Bin does not become zero stock")

@@ -1,0 +1,18 @@
+{
+  "name": "Solua Home Feature Usage",
+  "module": "Solua Wholesale",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "fields": [
+    {"fieldname": "user", "fieldtype": "Link", "label": "用户", "options": "User", "reqd": 1, "index": 1},
+    {"fieldname": "feature_key", "fieldtype": "Data", "label": "功能", "reqd": 1, "index": 1},
+    {"fieldname": "usage_count", "fieldtype": "Int", "label": "打开次数", "default": "0", "reqd": 1},
+    {"fieldname": "last_used", "fieldtype": "Datetime", "label": "最后打开时间"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1},
+    {"role": "Administrator", "read": 1, "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}
