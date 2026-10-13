@@ -87,6 +87,36 @@ frappe.provide("solua_home.global_js");
 		return true;
 	};
 
+	// Frappe's Connections badges are click handlers without hrefs, so the
+	// browser cannot offer Ctrl/Cmd-click, middle-click, or "open in new tab".
+	const enhanceConnectionLinks = () => {
+		if (typeof document === "undefined" || document.__solua_connection_links) return true;
+		document.__solua_connection_links = true;
+		const update = (root = document) => {
+			const frm = window.cur_frm;
+			if (!frm?.doc?.name) return;
+			root.querySelectorAll?.(".form-links .document-link").forEach((link) => {
+				const anchor = link.querySelector(".badge-link");
+				const doctype = link.dataset.doctype;
+				if (!anchor || !doctype) return;
+				const fieldname = link.querySelector(".document-link-badge")?.dataset.fieldname
+					|| frm.dashboard?.data?.fieldnames?.[doctype]
+					|| frm.dashboard?.data?.non_standard_fieldnames?.[doctype]
+					|| frm.dashboard?.data?.fieldname;
+				const names = link.dataset.names?.split(",").filter(Boolean);
+				const params = new URLSearchParams();
+				if (names?.length) params.set("name", JSON.stringify(["in", names]));
+				else if (fieldname) params.set(fieldname, frm.doc.name);
+				const slug = frappe.router?.slug ? frappe.router.slug(doctype) : doctype.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+				anchor.href = `/app/${slug}${params.toString() ? `?${params}` : ""}`;
+				anchor.title = __("可按住 Ctrl/⌘、中键或右键在新标签页打开");
+			});
+		};
+		update();
+		new MutationObserver(() => update()).observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ["data-names"]});
+		return true;
+	};
+
 	// LinkControl 可能在脚本加载时尚未就绪，轮询等它加载（最多 15 秒）
 	let tries = 0;
 	const ensure = () => {
@@ -95,4 +125,5 @@ frappe.provide("solua_home.global_js");
 		if (tries <= 30) setTimeout(ensure, 500);
 	};
 	ensure();
+	enhanceConnectionLinks();
 })();

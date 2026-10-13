@@ -4,7 +4,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt, nowdate
+from frappe.utils import cint, flt, now_datetime, nowdate
 
 
 DEFAULT_COMPANY = "Solua Home, Lda"
@@ -12,6 +12,19 @@ SERVICE_ACCOUNT_MARKERS = ("sync", "api", "integration", "service", "bot")
 # Curtain and rod templates carry their colour through this item attribute.
 COLOR_ATTRIBUTE = "Cor"
 ITEM_ISSUE_ROW_LIMIT = 200
+HOME_FEATURE_KEYS = (
+    "销售订单", "交货单", "送货中心", "销售发票", "新建销售订单", "按订单开交货单", "查库存",
+    "销售订单分析报表", "新建交货单", "按销售订单开交货单", "送货汇总报表", "拣货单", "盈利能力分析",
+    "销售发票明细报表", "待完成发票草稿", "销售退货", "POS 销售单", "报价单", "客户/门店", "价格表",
+    "优惠/促销管理", "新建物料", "物料列表", "库存树报表", "库存余额报表", "库存流水报表", "库存入库",
+    "物料出库", "领用", "损耗", "出入库记录", "手机扫码盘点", "盘点单", "仓库与库位", "经营金额报表",
+    "应收账款报表", "销售毛利报表", "未收款发票", "新建收款单", "收付款单", "打印设置", "打印设计",
+    "A4 打印设计器", "销售单格式", "标签打印", "POS交班", "公开色卡", "xPos 收银台", "开始收银（xPos）",
+    "物料销售明细", "送货汇总", "首页常用功能设置",
+)
+DEFAULT_HOME_FEATURE_KEYS = ("销售订单", "交货单", "送货中心", "销售发票", "新建销售订单", "按订单开交货单", "查库存")
+HOME_USAGE_THRESHOLD = 3
+HOME_AUTO_FEATURE_LIMIT = 5
 
 
 def _has_field(doctype, fieldname):
@@ -296,7 +309,74 @@ def _permissions():
         "read_pricing_rule": _can_read("Pricing Rule"),
         "new_pricing_rule": _can_create("Pricing Rule"),
         "read_pos_closing": _can_read("POS Closing Entry"),
+        "read_home_settings": _can_read("Solua Home Settings"),
     }
+
+
+def _home_feature_preferences():
+    """Return only this user's homepage shortcut counts and global selection."""
+    result = {
+        "manual_keys": list(DEFAULT_HOME_FEATURE_KEYS),
+        "auto_add_frequent": True,
+        "usage": {},
+        "threshold": HOME_USAGE_THRESHOLD,
+        "auto_limit": HOME_AUTO_FEATURE_LIMIT,
+    }
+    if not frappe.db.exists("DocType", "Solua Home Settings"):
+        return result
+    try:
+        settings = frappe.get_single("Solua Home Settings")
+        result["manual_keys"] = [
+            row.feature_key for row in (settings.get("manual_features") or [])
+            if row.get("feature_key") in HOME_FEATURE_KEYS
+        ]
+        result["auto_add_frequent"] = bool(cint(settings.get("auto_add_frequent")))
+    except Exception:
+        return result
+    if frappe.db.exists("DocType", "Solua Home Feature Usage"):
+        rows = frappe.get_all(
+            "Solua Home Feature Usage",
+            filters={"user": frappe.session.user},
+            fields=["feature_key", "usage_count"],
+            limit_page_length=0,
+            ignore_permissions=True,
+        )
+        usage = {}
+        for row in rows:
+            if row.feature_key in HOME_FEATURE_KEYS:
+                usage[row.feature_key] = usage.get(row.feature_key, 0) + cint(row.usage_count)
+        result["usage"] = usage
+    return result
+
+
+@frappe.whitelist()
+def record_feature_usage(feature_key=None):
+    """Count a homepage feature click without storing document or customer data."""
+    if frappe.session.user in {"Guest", "Administrator"} or feature_key not in HOME_FEATURE_KEYS:
+        return {"state": "ignored"}
+    if not frappe.db.exists("DocType", "Solua Home Feature Usage"):
+        return {"state": "unavailable"}
+    row = frappe.db.get_value(
+        "Solua Home Feature Usage",
+        {"user": frappe.session.user, "feature_key": feature_key},
+        ["name", "usage_count"],
+        as_dict=True,
+    )
+    if row:
+        frappe.db.set_value(
+            "Solua Home Feature Usage", row.name,
+            {"usage_count": cint(row.usage_count) + 1, "last_used": now_datetime()},
+            update_modified=False,
+        )
+    else:
+        frappe.get_doc({
+            "doctype": "Solua Home Feature Usage",
+            "user": frappe.session.user,
+            "feature_key": feature_key,
+            "usage_count": 1,
+            "last_used": now_datetime(),
+        }).insert(ignore_permissions=True)
+    return {"state": "ok"}
 
 
 def _stock_entry_types():
@@ -377,6 +457,7 @@ def get_dashboard_data(company=None, warehouse=None):
             "query_time": frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S"),
             "permissions": _permissions(),
             "stock_entry_types": {},
+            "common_features": _home_feature_preferences(),
         }
     resolved_warehouse = _resolve_warehouse(company_doc, warehouse)
     today = nowdate()
@@ -480,6 +561,7 @@ def get_dashboard_data(company=None, warehouse=None):
         "item_data": _item_data_status(),
         "permissions": _permissions(),
         "stock_entry_types": _stock_entry_types(),
+        "common_features": _home_feature_preferences(),
     }
 
 

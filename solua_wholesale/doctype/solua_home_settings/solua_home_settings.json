@@ -1,0 +1,42 @@
+{
+  "name": "Solua Home Settings",
+  "module": "Solua Wholesale",
+  "doctype": "DocType",
+  "issingle": 1,
+  "engine": "InnoDB",
+  "fields": [
+    {
+      "fieldname": "auto_add_frequent",
+      "fieldtype": "Check",
+      "label": "自动加入高频功能",
+      "default": "1",
+      "description": "功能累计打开 3 次后，自动加入常用功能；关闭后只显示下方手动选择的功能。"
+    },
+    {
+      "fieldname": "manual_section",
+      "fieldtype": "Section Break",
+      "label": "手动选择常用功能"
+    },
+    {
+      "fieldname": "manual_features",
+      "fieldtype": "Table",
+      "label": "常用功能",
+      "options": "Solua Home Feature Selection",
+      "description": "保留在此表中的功能会出现在首页；首页会根据实际打开次数排序。"
+    },
+    {
+      "fieldname": "setup_initialized",
+      "fieldtype": "Check",
+      "label": "已初始化",
+      "default": "0",
+      "hidden": 1,
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1},
+    {"role": "Administrator", "read": 1, "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

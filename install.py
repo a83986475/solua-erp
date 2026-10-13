@@ -3,7 +3,7 @@ import json
 
 import frappe
 
-PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
+PICK_LIST_PRINT_FORMAT = "拣货单"
 SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
 WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
@@ -121,6 +121,7 @@ def install_wholesale_only():
             raise RuntimeError("Solua Page assets missing")
         for method in (
             "solua_home.api.home.get_dashboard_data",
+            "solua_home.api.home.record_feature_usage",
             "solua_home.api.home.get_color_variants",
             "solua_home.api.stock.prepare_delivery_snapshot",
             "solua_home.printing.wholesale.prepare_print_snapshot",
@@ -166,6 +167,7 @@ def after_install():
     configure_sales_invoice_printing()
     configure_pick_list_printing()
     sync_standard_pages()
+    ensure_home_feature_settings()
     add_member_system_fields()
     ensure_whatsapp_module()
     sync_whatsapp_doctypes()
@@ -176,6 +178,20 @@ def after_migrate():
     """每次迁移后执行"""
     after_install()
 
+
+def ensure_home_feature_settings():
+    """Seed the initial homepage choices once; never re-add choices an admin removed."""
+    if not frappe.db.exists("DocType", "Solua Home Settings"):
+        return
+    from solua_home.api.home import DEFAULT_HOME_FEATURE_KEYS
+
+    settings = frappe.get_single("Solua Home Settings")
+    if frappe.utils.cint(settings.get("setup_initialized")):
+        return
+    for feature_key in DEFAULT_HOME_FEATURE_KEYS:
+        settings.append("manual_features", {"feature_key": feature_key})
+    settings.setup_initialized = 1
+    settings.save(ignore_permissions=True)
 
 def sync_cash_discount_print_formats():
     """Keep cash discount inside the invoice total block for every custom format."""
@@ -190,15 +206,22 @@ def sync_cash_discount_print_formats():
         html = doc.html or ""
         original = html
         html = html.replace("{{ _('批发销售单') }}", "Factura / 销售单").replace("Venda por atacado / 批发销售单", "Factura / 销售单")
+        html = html.replace(
+            "现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)",
+            "{{ '现金付款折扣参考 / Desconto pronto pagamento de referência' if cd.get('is_estimate') else '现金付款折扣 / Desconto pronto pagamento' }} ({{ cd.rate }}%)",
+        ).replace(
+            "现金实收 / Valor recebido em numerário",
+            "{{ '现金实收参考 / Valor de referência em numerário' if cd.get('is_estimate') else '现金实收 / Valor recebido em numerário' }}",
+        )
         if "wholesale-cash-summary" not in html:
             start = html.find("\n{% set cd = p.get('cash_discount') or {} %}")
             end = html.find("\n{% if doc.get('custom_print_color_qr') %}", start)
             if start >= 0 and end >= 0:
                 html = html[:start] + html[end:]
             cash_rows = ("{% set cd = p.get('cash_discount') or {} %}{% if cd.get('enabled') %}"
-                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)</td><td style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr>"
-                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9'>现金实收 / Valor recebido em numerário</td><td style='text-align:right;background:#f5f1e9'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}")
-            marker = "</tfoot>\n</table>"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>{{ '现金付款折扣参考 / Desconto pronto pagamento de referência' if cd.get('is_estimate') else '现金付款折扣 / Desconto pronto pagamento' }} ({{ cd.rate }}%)</td><td style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr>"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9'>{{ '现金实收参考 / Valor de referência em numerário' if cd.get('is_estimate') else '现金实收 / Valor recebido em numerário' }}</td><td style='text-align:right;background:#f5f1e9'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}")
+            marker = "</tfoot>"
             if marker in html:
                 html = html.replace(marker, cash_rows + marker, 1)
         if "wholesale-title" in html and ".wholesale-cash-summary" not in html:
@@ -260,7 +283,7 @@ def configure_sales_invoice_printing():
 def configure_pick_list_printing():
     """拣货单默认打印格式 + 单据单位下拉只列已维护换算关系的单位
 
-    2026-09-26：现场拣货用「拣货单（简版）」（SPU/SKU/数量 + 拣货人/司机双列确认）。
+    2026-09-26：现场拣货用「拣货单」（SPU/SKU/数量 + 拣货人/司机双列确认）。
     Stock Settings 的 allow_uom_with_conversion_rate_defined_in_item 打开后，
     单据行的单位下拉只列出该货号 UOM Conversion Detail 里已维护的单位（ERPNext
     保证每个物料至少有一行本位单位），避免选到没有换算关系的单位而被按 1:1 算错数量。
@@ -325,7 +348,7 @@ def _sync_additional_notes_print_format(folder):
             "{% if doc.get('custom_print_color_qr') %}",
         ),
         "pick_list_simple": (
-            "拣货单（简版）",
+            "拣货单",
             "{% set p = get_pick_list_print_data(doc) %}",
             '<div id="footer-html"',
         ),
@@ -335,7 +358,24 @@ def _sync_additional_notes_print_format(folder):
         return
     name, set_marker, output_marker = spec
     doc = frappe.get_doc("Print Format", name) if frappe.db.exists("Print Format", name) else None
-    if not doc or "custom_print_additional_notes" in doc.html:
+    if not doc:
+        return
+    if folder == "sales_order_wholesale_color":
+        variant_codes = (
+            "{% if not p.get('customer_merged') and item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+            "{% if item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+        )
+        html = doc.html or ""
+        for variant_code in variant_codes:
+            html = html.replace(variant_code, "")
+        html = html.replace(
+            "{{ (item.order_code or item.item_code) | e }}",
+            "{{ (item.order_code if p.get('customer_merged') else item.item_code) | e }}",
+        )
+        if html != doc.html:
+            doc.html = html
+            doc.save(ignore_permissions=True)
+    if "custom_print_additional_notes" in doc.html:
         return
     show_set = "{% set show_additional_notes = doc.get('custom_print_additional_notes') if doc.get('custom_print_additional_notes') is not none else 1 %}"
     note = "{% if show_additional_notes and doc.get('custom_additional_notes') %}<div class=\"block\">补充说明 / Observações: {{ doc.get('custom_additional_notes') | e }}</div>{% endif %}"
@@ -1090,6 +1130,12 @@ def add_sales_color_print_fields():
 def add_wholesale_fields(commit=True):
     """Add only the small snapshots needed for wholesale order/delivery prints."""
     fields = [
+        {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_html", "label": "差价明细（打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细打印快照，不参与会计计算。"},
+        {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_json", "label": "差价明细（结构化打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细结构化打印快照，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail", "label": "差价明细", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价摘要，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail_html", "label": "差价明细（打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细打印快照，不参与会计计算。"},
+        {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail_json", "label": "差价明细（结构化打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细结构化打印快照，不参与会计计算。"},
+    ] + [
         {"dt": dt, "fieldname": "custom_wholesale_snapshot", "label": "Wholesale print snapshot",
          "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "no_copy": 1}
         for dt in ("Sales Order", "Delivery Note")
@@ -1151,8 +1197,14 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
-        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "purpose"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order", "label": "销售订单", "fieldtype": "Link", "options": "Sales Order", "read_only": 1, "in_list_view": 1, "insert_after": "customer", "description": "记录本拣货单的销售订单来源，即使库存不足导致拣货行未生成。"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order_comparison_data", "label": "销售订单对比快照", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "no_copy": 1, "insert_after": "custom_sales_order"},
+        {"dt": "Pick List", "fieldname": "custom_pick_result", "label": "拣货结果", "fieldtype": "Select", "options": "待拣货\n已拣齐\n部分拣货\n缺货待补", "default": "待拣货", "insert_after": "purpose", "in_list_view": 1, "description": "打印后按实际拣货结果填写；部分拣货或缺货待补不会自动补齐数量。"},
+        {"dt": "Pick List", "fieldname": "custom_shortage_note", "label": "缺货说明", "fieldtype": "Small Text", "insert_after": "custom_pick_result", "description": "选择缺货待补时必填，记录缺货物料/数量及后续处理。"},
+        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_shortage_note"},
         {"dt": "Pick List", "fieldname": "custom_print_additional_notes", "label": "拣货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_additional_notes"},
+        {"dt": "Pick List", "fieldname": "custom_order_comparison_tab", "label": "订单对比区", "fieldtype": "Tab Break", "insert_after": "locations"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order_comparison", "label": "订单对比明细", "fieldtype": "HTML", "insert_after": "custom_order_comparison_tab"},
         {"dt": "Pick List Item", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "read_only": 1, "in_list_view": 1, "insert_after": "description"},
     ]
     for field in fields:
@@ -1164,7 +1216,7 @@ def add_wholesale_fields(commit=True):
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] in {"Pick List", "Pick List Item"}:
-            updates = {key: field[key] for key in ("insert_after", "label", "read_only", "in_list_view") if key in field}
+            updates = {key: field[key] for key in ("insert_after", "label", "options", "default", "read_only", "hidden", "no_copy", "in_list_view", "description") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] == "Sales Order" and field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:

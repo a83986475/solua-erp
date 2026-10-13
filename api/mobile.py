@@ -60,6 +60,7 @@ def get_mobile_reports(period="month", from_date=None, to_date=None):
             "label": METRICS[metric],
             "state": result.get("state"),
             "amount": result.get("amount"),
+            "unallocated_amount": result.get("unallocated_amount") if metric == "paid" else None,
             "currency": result.get("currency") or "MZN",
             "from_date": result.get("from_date") or "",
             "to_date": result.get("to_date") or "",
@@ -82,7 +83,7 @@ MOBILE_REPORTS = {
     "Template Stock Tree": ("库存树报表", "stock"),
     "Solua Business Totals": ("经营金额报表", "business"),
     "Solua Delivery Summary": ("送货汇总", "delivery"),
-    "Item-wise Sales History": ("物料销售明细", "item_sales"),
+    "Item-wise Sales History": ("物料销售明细金额", "item_sales"),
 }
 MOBILE_REPORT_PAGE_LENGTH = 50
 MOBILE_REPORT_MAX_PAGE_LENGTH = 100
@@ -159,6 +160,7 @@ def _mobile_business_report(report, company, from_date, to_date, metric, page, p
         "currency": result.get("currency") or "MZN",
         "metric": metric,
         "metric_label": METRICS[metric],
+        "unallocated_amount": result.get("unallocated_amount") if metric == "paid" else None,
         "metric_options": [] if report == "Solua Delivery Summary" else [
             {"value": key, "label": label}
             for key, label in METRICS.items()
@@ -177,6 +179,7 @@ def _mobile_business_report(report, company, from_date, to_date, metric, page, p
     _mobile_paginate(payload, rows, page, page_length)
     payload["summary"] = [
         {"label": METRICS[metric], "value": flt(result.get("amount") or 0), "type": "money", "currency": payload["currency"]},
+        *([{"label": "未分配收款", "value": flt(result.get("unallocated_amount") or 0), "type": "money", "currency": payload["currency"]}] if metric == "paid" else []),
         {"label": "明细行数", "value": len(items), "type": "number"},
     ]
     return payload
@@ -714,6 +717,23 @@ def _sales_order_relations(name, docstatus):
     )
     invoice_names = list(dict.fromkeys(direct_invoice_names + [row.parent for row in invoice_rows]))
     invoices = _document_summaries("Sales Invoice", invoice_names)
+    pick_item_names = frappe.get_all(
+        "Pick List Item",
+        filters={"sales_order": name, "parenttype": "Pick List"},
+        pluck="parent",
+        limit_page_length=100,
+    )
+    pick_lists = []
+    if pick_item_names:
+        pick_lists = frappe.get_all(
+            "Pick List",
+            filters={"name": ["in", list(dict.fromkeys(pick_item_names))], "docstatus": ["<", 2]},
+            fields=["name", "docstatus", "status", "modified", "creation"],
+            order_by="modified desc",
+            limit_page_length=100,
+        )
+        for pick_list in pick_lists:
+            pick_list["date"] = str(pick_list.modified or pick_list.creation or "")
     invoices_by_delivery = {}
     for row in invoice_rows:
         invoices_by_delivery.setdefault(row.delivery_note, set()).add(row.parent)
@@ -729,7 +749,9 @@ def _sales_order_relations(name, docstatus):
     return {
         "delivery_notes": deliveries,
         "sales_invoices": invoices,
+        "pick_lists": pick_lists,
         "can_create_delivery": bool(docstatus == 1 and _can_create("Delivery Note")),
+        "can_create_pick_list": bool(docstatus == 1 and _can_create("Pick List")),
     }
 
 
@@ -758,9 +780,11 @@ def create_delivery_note(sales_order):
     sales_order.check_permission("read")
     if sales_order.docstatus != 1:
         frappe.throw(_("只有已提交的销售订单可以开交货单"))
-    existing = [row for row in _sales_order_relations(sales_order.name, sales_order.docstatus)["delivery_notes"] if row.docstatus == 0]
+    from solua_home.api.stock import get_existing_draft_delivery_note
+
+    existing = get_existing_draft_delivery_note(sales_order.name)
     if existing:
-        return {"state": "existing", **_document_summary(frappe.get_doc("Delivery Note", existing[0].name))}
+        return {"state": "existing", **_document_summary(existing)}
     from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
 
     delivery = make_delivery_note(sales_order.name)
@@ -787,6 +811,32 @@ def create_sales_invoice(delivery_note):
     invoice = frappe.get_doc(invoice_data)
     invoice.insert()
     return {"state": "draft", **_document_summary(invoice)}
+
+
+@frappe.whitelist()
+def create_pick_list(sales_order):
+    """Create or reuse a draft Pick List for a submitted Sales Order."""
+    _require_admin()
+    if not _can_create("Pick List"):
+        frappe.throw(_("没有创建拣货单的权限"), frappe.PermissionError)
+    sales_order = frappe.get_doc("Sales Order", str(sales_order or "").strip())
+    sales_order.check_permission("read")
+    if sales_order.docstatus != 1:
+        frappe.throw(_("只有已提交的销售订单可以生成拣货单"))
+
+    from solua_home.api.stock import get_existing_draft_pick_list
+
+    existing = get_existing_draft_pick_list(sales_order.name)
+    if existing:
+        return {"state": "existing", "doctype": "Pick List", "name": existing.name, "docstatus": 0}
+
+    from solua_home.api.stock import create_pick_list as map_pick_list
+
+    pick_list = map_pick_list(sales_order.name)
+    if not pick_list or not pick_list.locations:
+        frappe.throw(_("该销售订单没有可拣货的剩余数量"))
+    pick_list.insert()
+    return {"state": "draft", "doctype": "Pick List", "name": pick_list.name, "docstatus": pick_list.docstatus}
 
 
 @frappe.whitelist()

@@ -25,11 +25,17 @@ EXPORT_DOCTYPES = ("Sales Order", "Sales Invoice", "Delivery Note", "Pick List")
 
 SOLUA_BULK_PDF_DOCTYPES = frozenset(EXPORT_DOCTYPES)
 SOLUA_PDF_MARGINS = {
-    "margin-top": "12mm",
-    "margin-bottom": "12mm",
-    "margin-left": "12mm",
-    "margin-right": "12mm",
+    "margin-top": "8mm",
+    "margin-bottom": "8mm",
+    "margin-left": "8mm",
+    "margin-right": "8mm",
 }
+SOLUA_MOBILE_PDF_ZOOM = "0.85"
+SOLUA_MOBILE_PDF_ZOOM_BY_DOCTYPE = {"Sales Invoice": "0.90"}
+
+
+def _mobile_pdf_zoom(doctype):
+    return SOLUA_MOBILE_PDF_ZOOM_BY_DOCTYPE.get(doctype, SOLUA_MOBILE_PDF_ZOOM)
 
 # 列顺序 = 导出/勾选面板的显示顺序
 COLUMN_LABELS = (
@@ -97,7 +103,12 @@ def _wholesale_rows(doc):
         row = {"idx": position}
         for key in DOCTYPE_COLUMNS[doc.doctype]:
             if key != "idx":
-                row[key] = item.get(key)
+                # 客户合并模式的打印主货号是模板的 order_code；导出表格必须跟 PDF 同一显示值。
+                row[key] = (
+                    item.get("order_code") or item.get("item_code")
+                    if key == "item_code" and cint(doc.get("custom_print_merge_order_code"))
+                    else item.get(key)
+                )
         rows.append(row)
     return rows
 
@@ -212,7 +223,7 @@ def _send_csv(table, filename):
     from frappe.desk.utils import provide_binary_file
 
     buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
+    writer = csv.writer(buffer, lineterminator="\r\n")
     for row in table:
         writer.writerow(["" if cell is None else cell for cell in row])
     # BOM 让 Excel 正确识别中文；内容为 UTF-8
@@ -326,7 +337,6 @@ PDF_IMAGE_JPEG_QUALITY = 78
 _PDF_IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _PDF_IMG_SRC_RE = re.compile(r"(\bsrc\s*=\s*)([\"'])(.*?)(\2)", re.IGNORECASE | re.DOTALL)
 
-
 def _pdf_image_bytes(source):
     """Read only site-local or inline images; leave arbitrary external URLs alone."""
     source = str(source or "").strip()
@@ -341,6 +351,11 @@ def _pdf_image_bytes(source):
 
     parsed = urlparse(source)
     path = unquote(parsed.path or source.split("?", 1)[0])
+    if path.startswith("private/files/"):
+        path = "/" + path
+    elif path.startswith("files/"):
+        path = "/" + path
+
     if path.startswith("/private/files/"):
         root = Path(frappe.get_site_path("private", "files")).resolve()
         relative = path[len("/private/files/"):]
@@ -410,10 +425,9 @@ def _optimize_pdf_images(html):
     return _PDF_IMG_TAG_RE.sub(replace_tag, html)
 
 
-def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None):
-    """Render one PDF, optionally forcing the customer-facing merge for this export only."""
+def _render_document_html(doc, print_format, merge_customer=False, doctype=None):
+    """Render one document with its existing print format and optimized local images."""
     from copy import copy
-    from frappe.utils.pdf import get_pdf
 
     doctype = doctype or doc.doctype
     print_doc = doc
@@ -421,8 +435,12 @@ def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None):
         print_doc = copy(doc)
         if isinstance(print_doc, dict):
             print_doc["custom_print_merge_order_code"] = 1
+            if doctype == "Sales Order":
+                print_doc["custom_print_color_images"] = 1
         else:
             print_doc.set("custom_print_merge_order_code", 1)
+            if doctype == "Sales Order":
+                print_doc.set("custom_print_color_images", 1)
     html = frappe.get_print(
         doctype,
         doc.name,
@@ -431,7 +449,19 @@ def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None):
         doc=print_doc,
     )
     html = _optimize_pdf_images(html)
-    return get_pdf(html, {"page-size": "A4", **SOLUA_PDF_MARGINS})
+    return html
+
+
+def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None, mobile=False):
+    """Render one PDF, optionally forcing the customer-facing merge for this export only."""
+    from frappe.utils.pdf import get_pdf
+
+    doctype = doctype or doc.doctype
+    html = _render_document_html(doc, print_format, merge_customer=merge_customer, doctype=doctype)
+    options = {"page-size": "A4", **SOLUA_PDF_MARGINS}
+    if cint(mobile):
+        options["zoom"] = _mobile_pdf_zoom(doctype)
+    return get_pdf(html, options)
 
 
 def _document_date(doc, date_field):
@@ -474,6 +504,25 @@ def _customer_import_table(doc, merge_customer=True):
     return rows
 
 
+def _customer_sales_order_table(doc):
+    """Build the mobile customer sheet with the same eight columns as the desktop PDF."""
+    from copy import copy
+
+    print_doc = copy(doc)
+    print_doc.set("custom_print_merge_order_code", 1)
+    columns = ("item_name", "item_code", "barcode", "description", "qty", "uom", "rate", "amount")
+    rows = _wholesale_rows(print_doc)
+    table = _header_rows(doc) + [[]]
+    table.append([_(LABELS[key]) for key in columns])
+    for row in rows:
+        # The customer sheet merges same-template rows and exposes only the template code.
+        row = dict(row)
+        row["item_code"] = row.get("order_code") or row.get("item_code") or ""
+        table.append([_cell(row.get(key), key) for key in columns])
+    table.append(_total_row(rows, columns))
+    return table
+
+
 def _xlsx_bytes(table, sheet_name, quantity_columns=None):
     from frappe.utils.xlsxutils import make_xlsx
 
@@ -502,16 +551,13 @@ def _write_unique(output, used_names, filename, content):
 
 
 def _with_solua_bulk_pdf_margins(doctype, print_format, options):
-    """补齐原生批量 PDF 未传递的 A4 四边距，保持标准格式原样。"""
+    """补齐四类业务单据批量 PDF 的 A4 页面参数，不改打印格式内部布局。"""
     doctypes = set(doctype) if isinstance(doctype, dict) else {doctype}
     if not doctypes & SOLUA_BULK_PDF_DOCTYPES:
         return options
 
     if not print_format and len(doctypes) == 1:
         print_format = frappe.get_meta(next(iter(doctypes))).default_print_format
-    if not print_format or frappe.db.get_value("Print Format", print_format, "module") != "Solua Wholesale":
-        return options
-
     parsed = frappe.parse_json(options) if options else {}
     if not isinstance(parsed, dict) or parsed.get("page-size") not in (None, "A4"):
         return options
@@ -522,31 +568,23 @@ def _with_solua_bulk_pdf_margins(doctype, print_format, options):
 
 def _is_solua_bulk_format(doctype, print_format):
     doctypes = set(doctype) if isinstance(doctype, dict) else {doctype}
-    if not doctypes & SOLUA_BULK_PDF_DOCTYPES:
-        return False
-    if not print_format and len(doctypes) == 1:
-        print_format = frappe.get_meta(next(iter(doctypes))).default_print_format
-    return bool(
-        print_format
-        and frappe.db.get_value("Print Format", print_format, "module") == "Solua Wholesale"
-    )
+    return bool(doctypes & SOLUA_BULK_PDF_DOCTYPES)
 
 
-def _solua_pdf_options(doctype, print_format):
-    """Return the same A4 options for the single-document PDF endpoint."""
+def _solua_pdf_options(doctype, print_format, mobile=False):
+    """Return A4 page parameters while leaving the selected print format unchanged."""
     if doctype not in SOLUA_BULK_PDF_DOCTYPES:
         return {}
-    if not print_format:
-        print_format = frappe.get_meta(doctype).default_print_format
-    if not print_format or frappe.db.get_value("Print Format", print_format, "module") != "Solua Wholesale":
-        return {}
-    return {"page-size": "A4", **SOLUA_PDF_MARGINS}
+    options = {"page-size": "A4", **SOLUA_PDF_MARGINS}
+    if cint(mobile):
+        options["zoom"] = _mobile_pdf_zoom(doctype)
+    return options
 
 
 @frappe.whitelist(allow_guest=True)
 @frappe.concurrent_limit()
 def download_pdf(
-    doctype, name, format=None, doc=None, no_letterhead=0, language=None, letterhead=None, pdf_generator=None
+    doctype, name, format=None, doc=None, no_letterhead=0, language=None, letterhead=None, pdf_generator=None, mobile=0
 ):
     """Keep the detail/preview PDF button on the same A4 margin path as batch PDF."""
     from frappe.translate import print_language
@@ -556,7 +594,7 @@ def download_pdf(
         pdf_generator = "wkhtmltopdf"
     doc = doc or frappe.get_doc(doctype, name)
     validate_print_permission(doc)
-    pdf_options = _solua_pdf_options(doctype, format)
+    pdf_options = _solua_pdf_options(doctype, format, mobile=mobile)
     with print_language(language):
         if pdf_options and pdf_generator == "wkhtmltopdf":
             from frappe.utils.pdf import get_pdf
@@ -615,11 +653,13 @@ def _render_multi_pdf(
 
     for index, (document_type, document_name) in enumerate(documents, start=1):
         try:
+            doc = frappe.get_doc(document_type, document_name)
             html = frappe.get_print(
                 document_type,
                 document_name,
                 print_format,
                 as_pdf=False,
+                doc=doc,
                 no_letterhead=no_letterhead,
                 letterhead=letterhead,
             )
@@ -768,15 +808,15 @@ def download_document_pdfs(doctype, names):
 
 
 @frappe.whitelist()
-def download_sales_order_customer_pdf(name):
-    """Download one customer-facing Sales Order PDF, without a ZIP wrapper."""
+def download_sales_order_customer_pdf(name, mobile=0):
+    """Download one customer-facing Sales Order PDF, matching the desktop detail rows."""
     from solua_home.api.a4_designer import _active_print_format
 
     doc = get_export_document("Sales Order", name)
     print_format = _active_print_format("Sales Order")
     if not print_format:
         frappe.throw(_("销售订单没有可用的打印格式"))
-    pdf = _render_document_pdf(doc, print_format, merge_customer=True)
+    pdf = _render_document_pdf(doc, print_format, merge_customer=True, mobile=mobile)
     customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
     filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户订单.pdf"
     frappe.local.response.filename = filename
@@ -786,11 +826,11 @@ def download_sales_order_customer_pdf(name):
 
 @frappe.whitelist()
 def download_sales_order_customer_xlsx(name):
-    """Download one compact customer-facing Sales Order spreadsheet."""
+    """Download one customer-facing spreadsheet with the desktop PDF columns."""
     doc = get_export_document("Sales Order", name)
     customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
     filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户表格"
-    _send_xlsx(_customer_import_table(doc, merge_customer=True), filename)
+    _send_xlsx(_customer_sales_order_table(doc), filename)
 
 
 @frappe.whitelist()

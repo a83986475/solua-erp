@@ -95,9 +95,130 @@ def requires_large_invoice_approval(doc):
     return frappe.session.user != "Administrator" and not frappe.has_role("Accounts Manager")
 
 
+def _invoice_source_keys(row, capacities):
+    keys = []
+    for kind, field in (("so", "so_detail"), ("dn", "dn_detail")):
+        value = row.get(field)
+        if value and (kind, value) in capacities:
+            keys.append((kind, value))
+    return keys
+
+
+def _invoice_source_qty(row):
+    return flt(row.get("stock_qty")) or flt(row.get("qty"))
+
+
+def _invoice_source_overages(current_rows, existing_rows, capacities):
+    totals = {}
+    for row in [*existing_rows, *current_rows]:
+        if cint(row.get("is_return")):
+            continue
+        qty = _invoice_source_qty(row)
+        if qty > 0:
+            for key in _invoice_source_keys(row, capacities):
+                totals[key] = totals.get(key, 0) + qty
+    return {
+        key: total - flt(capacities[key])
+        for key, total in totals.items()
+        if total > flt(capacities[key]) + 0.000001
+    }
+
+
+def _validate_invoice_source_quantities(doc):
+    """Stop a Sales Order or Delivery Note from being billed twice."""
+    flags = getattr(doc, "flags", None)
+    if (
+        cint(doc.get("is_return"))
+        or cint(doc.get("docstatus")) == 2
+        or doc.get("_action") == "cancel"
+        or getattr(flags, "in_cancel", False)
+    ):
+        return
+
+    current_rows = []
+    so_details = set()
+    dn_details = set()
+    for item in doc.get("items", []):
+        if _invoice_source_qty(item) <= 0:
+            continue
+        so_detail = item.get("so_detail")
+        dn_detail = item.get("dn_detail")
+        if not so_detail and not dn_detail:
+            continue
+        current_rows.append(item)
+        if so_detail:
+            so_details.add(so_detail)
+        if dn_detail:
+            dn_details.add(dn_detail)
+    if not current_rows:
+        return
+
+    # Serialize invoice drafts for the same source rows before reading existing invoices.
+    if so_details:
+        frappe.db.sql(
+            "SELECT name FROM `tabSales Order Item` WHERE name IN %(names)s FOR UPDATE",
+            {"names": tuple(so_details)},
+        )
+    if dn_details:
+        frappe.db.sql(
+            "SELECT name FROM `tabDelivery Note Item` WHERE name IN %(names)s FOR UPDATE",
+            {"names": tuple(dn_details)},
+        )
+
+    capacities = {}
+    if so_details:
+        for row in frappe.db.sql(
+            "SELECT name, stock_qty, qty FROM `tabSales Order Item` WHERE name IN %(names)s",
+            {"names": tuple(so_details)},
+            as_dict=True,
+        ):
+            capacities[("so", row.get("name"))] = _invoice_source_qty(row)
+    if dn_details:
+        for row in frappe.db.sql(
+            "SELECT name, stock_qty, qty FROM `tabDelivery Note Item` WHERE name IN %(names)s",
+            {"names": tuple(dn_details)},
+            as_dict=True,
+        ):
+            capacities[("dn", row.get("name"))] = _invoice_source_qty(row)
+    if not capacities:
+        return
+
+    source_conditions = []
+    params = {"so_details": tuple(so_details), "dn_details": tuple(dn_details)}
+    if so_details:
+        source_conditions.append("sii.so_detail IN %(so_details)s")
+    if dn_details:
+        source_conditions.append("sii.dn_detail IN %(dn_details)s")
+    filters = [
+        "si.docstatus IN (0, 1)",
+        "si.is_return = 0",
+        f"({' OR '.join(source_conditions)})",
+    ]
+    if doc.get("name"):
+        filters.append("si.name != %(current_name)s")
+        params["current_name"] = doc.name
+    if doc.get("company"):
+        filters.append("si.company = %(company)s")
+        params["company"] = doc.company
+    existing_rows = frappe.db.sql(
+        """SELECT sii.so_detail, sii.dn_detail, sii.qty, sii.stock_qty, si.is_return
+             FROM `tabSales Invoice Item` sii
+             JOIN `tabSales Invoice` si ON si.name = sii.parent
+            WHERE """ + " AND ".join(filters),
+        params,
+        as_dict=True,
+    )
+    for kind, source in _invoice_source_overages(current_rows, existing_rows, capacities):
+        label = "销售订单行" if kind == "so" else "交货单行"
+        frappe.throw(
+            _("来源{0} {1} 的累计开票数量超过可开票数量").format(label, source)
+        )
+
+
 def validate_sales_invoice(doc, method=None):
     """销售发票保存时验证"""
     validate_transaction_quantities(doc)
+    _validate_invoice_source_quantities(doc)
 
     if requires_large_invoice_approval(doc):
         if not doc.get("custom_approver"):
@@ -186,6 +307,7 @@ def verify_discount_approval_password(password, company=None):
     if not enabled or not approval_pwd:
         return {"ok": True}
     return {"ok": password == approval_pwd}
+
 
 def on_invoice_submitted(doc, method=None):
     """销售发票提交后执行"""
@@ -349,73 +471,36 @@ def validate_sales_order(doc, method=None):
             frappe.throw(_("交货日期不能早于销售单日期"))
 
 
+def validate_sales_order_stock(doc, method=None):
+    """Block submitted Sales Orders whose remaining quantity exceeds available stock."""
+    from solua_home.api.stock import get_sales_order_stock_requirements, validate_stock_requirements
+
+    requirements = get_sales_order_stock_requirements(doc)
+    self_reserved = {}
+    if doc.get("docstatus") == 1 and doc.get("name"):
+        # Updating a submitted order must replace its old reservation, not count
+        # the newly edited quantity as its own available stock.
+        previous = getattr(getattr(doc, "flags", None), "_stock_previous_doc", None)
+        previous = previous or frappe.get_doc("Sales Order", doc.name)
+        self_reserved = get_sales_order_stock_requirements(previous)
+
+    validate_stock_requirements(
+        requirements,
+        doc.get("company"),
+        self_reserved=self_reserved,
+        message="销售订单库存不足，不能提交或保存",
+    )
+
+
 @frappe.whitelist()
 def get_sales_order_item_display(item_code):
-    """Return only the real barcode and clean sales description for a row."""
+    """Return the row's barcode, description, and variant color-card image."""
+    from solua_home.printing.color_card import get_item_color_info
     from solua_home.printing.wholesale import get_item_sales_display
 
-    return get_item_sales_display(item_code)
-
-
-@frappe.whitelist()
-def get_sales_invoice_approval_data(invoice_name):
-    """Return the readable, linked data used by the standalone invoice check page."""
-    if not invoice_name:
-        frappe.throw(_("缺少销售发票编号"))
-
-    doc = frappe.get_doc("Sales Invoice", invoice_name)
-    if not frappe.has_permission(doc=doc, ptype="read"):
-        frappe.throw(_("没有读取该销售发票的权限"), frappe.PermissionError)
-
-    order_names = list(dict.fromkeys(item.get("sales_order") for item in doc.get("items", []) if item.get("sales_order")))
-    delivery_names = []
-    if order_names and frappe.has_permission("Delivery Note", ptype="read"):
-        delivery_names = [
-            row["name"]
-            for row in frappe.db.get_list(
-                "Delivery Note",
-                filters=[
-                    ["Delivery Note Item", "against_sales_order", "in", order_names],
-                    ["docstatus", "=", 1],
-                ],
-                fields=["name"],
-                distinct=True,
-                limit_page_length=100,
-            )
-        ]
-
-    discount = get_max_discount_percentage(doc)
-    discount_enabled = cint(frappe.db.get_value("Company", doc.company, "custom_enable_discount_approval") or 0)
-    discount_threshold = flt(frappe.db.get_value("Company", doc.company, "custom_discount_approval_threshold") or 0)
-    large_amount = flt(doc.grand_total) > 100000
-    approval_bypassed = frappe.session.user == "Administrator" or frappe.has_role("Accounts Manager")
-
-    return {
-        "invoice": {
-            "name": doc.name,
-            "customer": doc.customer,
-            "currency": doc.currency,
-            "grand_total": flt(doc.grand_total),
-            "due_date": doc.due_date,
-            "discount": discount,
-            "status": doc.status,
-            "can_submit": bool(frappe.has_permission(doc=doc, ptype="submit")),
-        },
-        "approval": {
-            "large_amount": large_amount,
-            "bypassed": approval_bypassed,
-            "requires_approver": large_amount and not approval_bypassed,
-            "approver": doc.get("custom_approver") or "",
-            "approval_date": doc.get("custom_approval_date") or "",
-            "discount_needs_approval": bool(discount_enabled and discount > discount_threshold),
-        },
-        "sales_orders": order_names,
-        "delivery_notes": delivery_names,
-        "items": [
-            {"item_code": item.item_code, "qty": flt(item.qty), "uom": item.uom, "amount": flt(item.amount)}
-            for item in doc.get("items", [])
-        ],
-    }
+    result = get_item_sales_display(item_code)
+    result["image"] = (get_item_color_info(item_code) or {}).get("image") or ""
+    return result
 
 
 # Sales-order-only import/selection helpers.  The resolver deliberately calls
@@ -815,7 +900,34 @@ def get_sales_order_color_variants(barcode, context=None):
     from solua_home.api.home import get_color_variants
 
     context = _sales_context(context)
+    query = str(barcode or "").strip()
+    exact_codes = {query}
+    if query and not query.upper().startswith("SH"):
+        exact_codes.add(f"SH{query}")
+    exact_variants = frappe.get_all(
+        "Item",
+        filters={"disabled": 0, "has_variants": 0},
+        or_filters=[["name", "in", list(exact_codes)], ["item_code", "in", list(exact_codes)]],
+        fields=["name", "item_code", "variant_of"],
+        limit_page_length=20,
+    )
+    exact_variant = next(
+        (
+            row for row in exact_variants
+            if row.get("variant_of")
+            and (row.get("name") in exact_codes or row.get("item_code") in exact_codes)
+        ),
+        None,
+    )
     result = get_color_variants(barcode=barcode, barcode_only=False)
+    if exact_variant:
+        exact_names = {exact_variant.get("name"), exact_variant.get("item_code")}
+        for group in result.get("templates") or []:
+            group["variants"] = [
+                variant for variant in group.get("variants") or []
+                if variant.get("name") in exact_names or variant.get("item_code") in exact_names
+            ]
+        result["templates"] = [group for group in result.get("templates") or [] if group.get("variants")]
     if result.get("state") != "ok":
         return {"state": result.get("state") or "no_data", "templates": [], "variants": []}
 
@@ -860,7 +972,7 @@ def search_sales_order_items(context=None, filters=None):
         item_filters["item_group"] = filters.item_group
     if filters.get("template"):
         item_filters["variant_of"] = filters.template
-    fields = ["name", "item_name", "item_group", "variant_of", "has_variants", "disabled", "is_stock_item"]
+    fields = ["name", "item_code", "item_name", "item_group", "variant_of", "has_variants", "disabled", "is_stock_item"]
     for field in ("custom_order_code", "custom_swatch_image", "image"):
         if frappe.get_meta("Item").has_field(field):
             fields.append(field)
@@ -868,12 +980,13 @@ def search_sales_order_items(context=None, filters=None):
     or_filters = None
     if query:
         like = f"%{query}%"
-        or_filters = [[field, "like", like] for field in ("name", "item_name", "custom_order_code") if field in fields]
+        or_filters = [[field, "like", like] for field in ("name", "item_code", "item_name", "custom_order_code") if field in fields]
     items = frappe.get_all("Item", filters=item_filters, or_filters=or_filters, fields=fields, limit=100, order_by="name asc")
     if query and not filters.get("template") and "custom_order_code" in fields:
         template_names = frappe.get_all(
             "Item",
-            filters={"disabled": 0, "has_variants": 1, "custom_order_code": query},
+            filters={"disabled": 0, "has_variants": 1},
+            or_filters=[[field, "like", like] for field in ("name", "item_code", "item_name", "custom_order_code") if field in fields],
             pluck="name",
         )
         if template_names:

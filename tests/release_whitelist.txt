@@ -93,3 +93,4 @@ my_custom_app_example/solua_home/public/js/quantity_display_precision_v20261004.
 my_custom_app_example/solua_home/quantity_precision.py
 my_custom_app_example/solua_home/tests/quantity_display_precision_check.cjs
 my_custom_app_example/solua_home/tests/quantity_precision_check.py
+my_custom_app_example/solua_home/public/js/pick_list_order_reconciliation_v20261009.js

@@ -8,11 +8,18 @@ from solua_home.api.home import _can_read, _list
 
 def ensure_fields():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
-    create_custom_fields({"Sales Order": [{
-        "fieldname": "custom_order_end_reason", "label": "订单结束原因", "fieldtype": "Small Text",
-        "insert_after": "status", "read_only": 1, "allow_on_submit": 1, "no_copy": 1,
-        "depends_on": "eval:doc.status=='Closed'", "description": "仅记录实际结束原因，历史空值不自动补填。",
-    }]}, update=False)
+    create_custom_fields({"Sales Order": [
+        {
+            "fieldname": "custom_order_end_reason", "label": "订单结束原因", "fieldtype": "Small Text",
+            "insert_after": "status", "read_only": 1, "allow_on_submit": 1, "no_copy": 1,
+            "depends_on": "eval:doc.status=='Closed'", "description": "仅记录实际结束原因，历史空值不自动补填。",
+        },
+        {
+            "fieldname": "custom_replaced_by", "label": "替代订单", "fieldtype": "Link", "options": "Sales Order",
+            "insert_after": "custom_order_end_reason", "read_only": 1, "allow_on_submit": 1, "no_copy": 1,
+            "depends_on": "eval:doc.status=='Closed'", "description": "旧订单被新订单替代时记录，不删除旧单。",
+        },
+    ]}, update=False)
 
 
 def lifecycle(doc):
@@ -84,9 +91,16 @@ def get_order_statuses(names):
     for doc in docs:
         doc.check_permission("read")
     deliveries, invoices = [], []
-    params = {"orders": tuple(doc.name for doc in docs)}
+    order_names = tuple(doc.name for doc in docs)
+    companies = tuple({d.company for d in docs})
+    params = {"orders": order_names}
     if _can_read("Delivery Note"):
-        parents = _list("Delivery Note", {"docstatus": 1, "company": ["in", list({d.company for d in docs})]}, ["name"])
+        candidate_names = frappe.db.sql("""SELECT DISTINCT dn.name
+                FROM `tabDelivery Note Item` dni JOIN `tabDelivery Note` dn ON dn.name=dni.parent
+                JOIN `tabSales Order Item` soi ON soi.name=dni.so_detail
+                WHERE soi.parent IN %(orders)s AND dn.docstatus=1 AND dn.company IN %(companies)s""",
+                {**params, "companies": companies}, pluck="name")
+        parents = _list("Delivery Note", {"name": ["in", candidate_names], "docstatus": 1, "company": ["in", list(companies)]}, ["name"]) if candidate_names else []
         if parents:
             deliveries = frappe.db.sql("""SELECT dni.so_detail, dni.stock_qty, dn.is_return
                 FROM `tabDelivery Note Item` dni JOIN `tabDelivery Note` dn ON dn.name=dni.parent
@@ -94,7 +108,12 @@ def get_order_statuses(names):
                 WHERE soi.parent IN %(orders)s AND dn.name IN %(parents)s""",
                 {**params, "parents": tuple(row.name for row in parents)}, as_dict=True)
     if _can_read("Sales Invoice"):
-        parents = _list("Sales Invoice", {"docstatus": 1, "company": ["in", list({d.company for d in docs})]}, ["name"])
+        candidate_names = frappe.db.sql("""SELECT DISTINCT si.name
+                FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` si ON si.name=sii.parent
+                JOIN `tabSales Order Item` soi ON soi.name=sii.so_detail
+                WHERE soi.parent IN %(orders)s AND si.docstatus=1 AND si.company IN %(companies)s""",
+                {**params, "companies": companies}, pluck="name")
+        parents = _list("Sales Invoice", {"name": ["in", candidate_names], "docstatus": 1, "company": ["in", list(companies)]}, ["name"]) if candidate_names else []
         if parents:
             invoices = frappe.db.sql("""SELECT sii.so_detail, sii.parent, sii.stock_qty,
                        si.is_return, si.update_stock, si.outstanding_amount

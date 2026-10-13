@@ -144,6 +144,47 @@ def linked_drafts(company, notes, so_note_map=None):
     return result
 
 
+def _draft_sales_invoices_for_source(fieldname, source_name):
+    rows = frappe.get_all(
+        "Sales Invoice Item",
+        filters={fieldname: source_name, "parenttype": "Sales Invoice"},
+        pluck="parent",
+        limit_page_length=100,
+    )
+    if not rows:
+        return []
+    return [
+        row.name
+        for row in frappe.get_all(
+            "Sales Invoice",
+            filters={"name": ["in", list(dict.fromkeys(rows))], "docstatus": 0},
+            fields=["name"],
+            order_by="modified desc",
+            limit_page_length=100,
+        )
+    ]
+
+
+@frappe.whitelist()
+def make_sales_invoice(source_name, target_doc=None, args=None):
+    """Reuse a Delivery Note invoice draft before invoking the native mapper."""
+    drafts = _draft_sales_invoices_for_source("delivery_note", source_name)
+    if drafts:
+        return frappe.get_doc("Sales Invoice", drafts[0])
+    return billing_module().make_sales_invoice(source_name, target_doc, args=args)
+
+
+@frappe.whitelist()
+def make_sales_invoice_from_sales_order(source_name, target_doc=None, ignore_permissions=False, args=None):
+    """Reuse a Sales Order invoice draft before invoking the native mapper."""
+    drafts = _draft_sales_invoices_for_source("sales_order", source_name)
+    if drafts:
+        return frappe.get_doc("Sales Invoice", drafts[0])
+    from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice as native_make_sales_invoice
+
+    return native_make_sales_invoice(source_name, target_doc, ignore_permissions, args)
+
+
 def get_rows(company, start, end, customer=None):
     billing = billing_module()
     filters = {"company": company, "docstatus": 1, "is_return": 0,
@@ -170,7 +211,8 @@ def get_rows(company, start, end, customer=None):
                                           invoiced_qty[doc.name].get(row.name, 0),
                                           invoiced_amounts[doc.name].get(row.name, 0))
                           for row in doc.items)
-        amount = qty_amount + adjustment
+        # The report's main amount is invoiceable quantity only; price differences stay separate.
+        amount = qty_amount
         if amount <= 0.005 and abs(adjustment) <= 0.005:
             continue
         draft_names = drafts.get(doc.name, [])

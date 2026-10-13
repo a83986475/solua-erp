@@ -833,6 +833,7 @@
 				if (!current || current.item_code !== item_code) return;
 				const value = response.message || {};
 				frappe.model.set_value(cdt, cdn, "custom_item_barcode", value.barcode || "");
+				if (value.image) frappe.model.set_value(cdt, cdn, "image", value.image);
 				if (value.description) frappe.model.set_value(cdt, cdn, "description", value.description);
 			});
 		},

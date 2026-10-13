@@ -1,0 +1,16 @@
+{
+  "name": "Solua Home Feature Selection",
+  "module": "Solua Wholesale",
+  "doctype": "DocType",
+  "istable": 1,
+  "fields": [
+    {
+      "fieldname": "feature_key",
+      "fieldtype": "Select",
+      "label": "功能",
+      "options": "销售订单\n交货单\n送货中心\n销售发票\n新建销售订单\n按订单开交货单\n查库存\n销售订单分析报表\n新建交货单\n按销售订单开交货单\n送货汇总报表\n拣货单\n盈利能力分析\n销售发票明细报表\n待完成发票草稿\n销售退货\nPOS 销售单\n报价单\n客户/门店\n价格表\n优惠/促销管理\n新建物料\n物料列表\n库存树报表\n库存余额报表\n库存流水报表\n库存入库\n物料出库\n领用\n损耗\n出入库记录\n手机扫码盘点\n盘点单\n仓库与库位\n经营金额报表\n应收账款报表\n销售毛利报表\n未收款发票\n新建收款单\n收付款单\n打印设置\n打印设计\nA4 打印设计器\n销售单格式\n标签打印\nPOS交班\n公开色卡\nxPos 收银台\n开始收银（xPos）\n物料销售明细\n送货汇总\n首页常用功能设置",
+      "reqd": 1,
+      "in_list_view": 1
+    }
+  ]
+}

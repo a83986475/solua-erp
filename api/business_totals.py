@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import flt, getdate, nowdate
 from solua_home.api.home import _can_read, _invoice_specs, _list, _resolve_company
 
-METRICS = {"orders": "总订单金额", "pending_delivery": "待交付订单金额", "invoices": "总开票金额", "receivable": "总应收款", "paid": "总已付金额", "delivered": "送货金额", "unbilled": "已交货未开票金额"}
+METRICS = {"orders": "净订单金额", "pending_delivery": "待交付订单金额", "invoices": "开票净额", "receivable": "净应收款", "paid": "实际收款金额", "delivered": "净送货金额", "unbilled": "已交货未开票金额", "returns": "退货核对"}
 
 
 def pending_delivery_rows(company, start, end, customer=None, closed=False):
@@ -13,6 +13,8 @@ def pending_delivery_rows(company, start, end, customer=None, closed=False):
     if customer:
         filters["customer"] = customer
     filters["status"] = "Closed" if closed else ["not in", ["Closed", "Completed", "Cancelled"]]
+    if closed:
+        filters["custom_replaced_by"] = ["is", "not set"]
     returned = {}
     if closed:
         return_filters = {"company": company, "docstatus": 1, "is_return": 1}
@@ -23,7 +25,8 @@ def pending_delivery_rows(company, start, end, customer=None, closed=False):
                 if item.so_detail:
                     returned[item.so_detail] = returned.get(item.so_detail, 0) - flt(item.qty)
     rows = []
-    for order in _list("Sales Order", filters, ["name", "transaction_date", "customer"], order_by="transaction_date asc, name asc"):
+    fields = ["name", "transaction_date", "customer", "custom_replaced_by"]
+    for order in _list("Sales Order", filters, fields, order_by="transaction_date asc, name asc"):
         doc = frappe.get_doc("Sales Order", order.name)
         amount = 0
         for item in doc.items:
@@ -57,6 +60,50 @@ def date_range(period="month", from_date=None, to_date=None):
     return str(start), str(end)
 
 
+def _order_total_result(company_doc, start, end, period, customer=None):
+    base = {"company": company_doc.name, "docstatus": 1}
+    filters = {**base, "transaction_date": ["between", [start, end]]}
+    if customer:
+        filters["customer"] = customer
+    if not _can_read("Sales Order"):
+        return {"state": "no_permission", "amount": None, "items": []}
+    items = []
+    for row in _list("Sales Order", filters, ["name", "transaction_date", "customer", "base_grand_total"],
+                     order_by="transaction_date asc, name asc"):
+        items.append({"doctype": "Sales Order", "name": row.name, "date": str(row.transaction_date),
+                      "customer": row.customer, "amount": flt(row.base_grand_total),
+                      "currency": company_doc.default_currency})
+    return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items),
+            "items": items, "from_date": start, "to_date": end, "company": company_doc.name,
+            "currency": company_doc.default_currency, "metric": "orders", "period": period}
+
+
+def _delivered_rows(company, start, end, customer=None):
+    filters = {"company": company, "docstatus": 1, "posting_date": ["between", [start, end]], "is_return": 0}
+    if customer:
+        filters["customer"] = customer
+    fields = ["name", "posting_date", "customer", "base_grand_total"]
+    rows = []
+    for row in _list("Delivery Note", filters, fields, order_by="posting_date asc, name asc"):
+        from erpnext.stock.doctype.delivery_note.delivery_note import get_returned_qty_map
+
+        doc = frappe.get_doc("Delivery Note", row.name)
+        returned = get_returned_qty_map(doc.name)
+        net_amount = 0
+        for item in doc.items:
+            qty = max(flt(item.qty), 0)
+            net_qty = max(0, qty - flt(returned.get(item.name, 0)))
+            item_amount = flt(getattr(item, "base_net_amount", 0) or getattr(item, "base_amount", 0))
+            net_amount += item_amount * net_qty / qty if qty else 0
+        net_total = flt(getattr(doc, "base_net_total", 0) or getattr(doc, "base_total", 0))
+        tax_discount_ratio = flt(doc.base_grand_total) / net_total if net_total else 1
+        amount = flt(net_amount * tax_discount_ratio, 2)
+        if amount > 0.005:
+            rows.append({"doctype": "Delivery Note", "name": row.name, "date": str(row.posting_date),
+                         "customer": row.customer, "amount": amount})
+    return rows
+
+
 @frappe.whitelist()
 @frappe.read_only()
 def get_total(metric="orders", period="month", from_date=None, to_date=None, company=None, customer=None):
@@ -66,6 +113,18 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
     if not company_doc:
         return {"state": "no_permission", "amount": None, "items": []}
     start, end = date_range(period, from_date, to_date)
+    if metric == "orders":
+        gross = _order_total_result(company_doc, start, end, period, customer)
+        if gross["state"] == "no_permission":
+            return gross
+        parts = [get_total(metric=part, period=period, from_date=from_date, to_date=to_date,
+                            company=company, customer=customer)
+                 for part in ("invoices", "pending_delivery", "unbilled")]
+        if any(part["state"] == "no_permission" for part in parts):
+            return {"state": "no_permission", "amount": None, "items": []}
+        items = [row for part in parts for row in part["items"]]
+        return {**gross, "state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items),
+                "items": items}
     if metric == "pending_delivery":
         if not _can_read("Sales Order"):
             return {"state": "no_permission", "amount": None, "items": []}
@@ -83,11 +142,46 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
         return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items), "items": items,
                 "from_date": start, "to_date": end, "company": company_doc.name,
                 "currency": company_doc.default_currency, "metric": metric, "period": period}
+    if metric == "returns":
+        from solua_home.api.return_reconciliation import get_rows
+        if not _can_read("Delivery Note"):
+            return {"state": "no_permission", "amount": None, "items": []}
+        items = get_rows(company_doc.name, start, end, customer)
+        return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items), "items": items,
+                "from_date": start, "to_date": end, "company": company_doc.name,
+                "currency": company_doc.default_currency, "metric": metric, "period": period}
+    if metric == "paid":
+        if not _can_read("Payment Entry"):
+            return {"state": "no_permission", "amount": None, "items": []}
+        filters = {"company": company_doc.name, "docstatus": 1, "posting_date": ["between", [start, end]],
+                   "payment_type": "Receive", "party_type": "Customer"}
+        if customer:
+            filters["party"] = customer
+        items = []
+        for row in _list("Payment Entry", filters, ["name", "posting_date", "party", "base_received_amount", "unallocated_amount"],
+                         order_by="posting_date asc, name asc"):
+            amount = flt(row.base_received_amount)
+            if amount <= 0:
+                continue
+            items.append({"doctype": "Payment Entry", "name": row.name, "date": str(row.posting_date),
+                          "customer": row.party, "amount": amount, "unallocated_amount": flt(row.unallocated_amount),
+                          "currency": company_doc.default_currency})
+        return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items),
+                "unallocated_amount": sum(row["unallocated_amount"] for row in items),
+                "items": items, "from_date": start, "to_date": end, "company": company_doc.name,
+                "currency": company_doc.default_currency, "metric": metric, "period": period}
     base = {"company": company_doc.name, "docstatus": 1}
     invoice_specs = _invoice_specs(company_doc.name, ["between", [start, end]])
-    specs = [("Sales Order", {**base, "transaction_date": ["between", [start, end]]})] if metric == "orders" else invoice_specs
+    specs = invoice_specs
     if metric == "delivered":
-        specs = [("Delivery Note", {**base, "posting_date": ["between", [start, end]], "is_return": 0})]
+        if not _can_read("Delivery Note"):
+            return {"state": "no_permission", "amount": None, "items": []}
+        items = _delivered_rows(company_doc.name, start, end, customer)
+        for row in items:
+            row["currency"] = company_doc.default_currency
+        return {"state": "ok" if items else "no_data", "amount": sum(row["amount"] for row in items),
+                "items": items, "from_date": start, "to_date": end, "company": company_doc.name,
+                "currency": company_doc.default_currency, "metric": metric, "period": period}
     if not any(_can_read(dt) for dt, _ in specs):
         return {"state": "no_permission", "amount": None, "items": []}
     items = []
@@ -95,7 +189,7 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
         date_field = "transaction_date" if dt == "Sales Order" else "posting_date"
         fields = ["name", date_field]
         fields += ["customer", "base_grand_total"]
-        if metric in ("receivable", "paid"):
+        if metric == "receivable":
             fields += ["outstanding_amount", "conversion_rate"]
         if metric == "receivable":
             filters = {**filters, "outstanding_amount": [">", 0]}
@@ -105,10 +199,6 @@ def get_total(metric="orders", period="month", from_date=None, to_date=None, com
             amount = flt(row.base_grand_total)
             if metric == "receivable":
                 amount = flt(row.outstanding_amount) * flt(row.conversion_rate or 1)
-            elif metric == "paid":
-                amount = flt(row.base_grand_total) - flt(row.outstanding_amount) * flt(row.conversion_rate or 1)
-            if metric == "paid" and not amount:
-                continue
             items.append({"doctype": dt, "name": row.name, "date": str(row.get(date_field)),
                           "customer": row.get("customer"), "amount": amount,
                           "currency": company_doc.default_currency})
@@ -123,20 +213,23 @@ def get_reconciliation(period="year", from_date=None, to_date=None, company=None
     """Explain order less invoice totals; all categories use one explicit period."""
     if not all(_can_read(dt) for dt in ("Sales Order", "Delivery Note", "Sales Invoice")):
         return {"state": "no_permission", "amount": None, "groups": []}
-    args = dict(period=period, from_date=from_date, to_date=to_date, company=company, customer=customer)
-    totals = {metric: get_total(metric=metric, **args) for metric in ("orders", "invoices", "pending_delivery", "unbilled")}
-    orders = totals["orders"]
+    company_doc = _resolve_company(company)
+    if not company_doc:
+        return {"state": "no_permission", "amount": None, "groups": []}
+    start, end = date_range(period, from_date, to_date)
+    orders = _order_total_result(company_doc, start, end, period, customer)
     if orders["state"] == "no_permission":
         return {"state": "no_permission", "amount": None, "groups": []}
-    company, start, end = orders["company"], orders["from_date"], orders["to_date"]
+    args = dict(period=period, from_date=from_date, to_date=to_date, company=company, customer=customer)
+    totals = {metric: get_total(metric=metric, **args) for metric in ("invoices", "pending_delivery", "unbilled")}
+    company = orders["company"]
     groups = []
     def add(label, items):
         groups.append({"label": label, "amount": sum(row["amount"] for row in items), "items": items})
     add("待交付订单", totals["pending_delivery"]["items"])
     add("已结束订单未交付金额", pending_delivery_rows(company, start, end, customer, closed=True))
     billing = totals["unbilled"]["items"]
-    add("已交货待开票商品", [dict(row, amount=row["amount"] - row["price_adjustment"]) for row in billing
-                             if abs(row["amount"] - row["price_adjustment"]) > 0.005])
+    add("已交货待开票商品", [row for row in billing if abs(row["amount"]) > 0.005])
     add("价格调整", [dict(row, amount=row["price_adjustment"]) for row in billing if abs(row["price_adjustment"]) > 0.005])
     filters = {"company": company, "docstatus": 1, "is_return": 1, "posting_date": ["between", [start, end]]}
     if customer:

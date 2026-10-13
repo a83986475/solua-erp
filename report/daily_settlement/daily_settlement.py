@@ -16,10 +16,10 @@ def get_columns():
     return [
         {"fieldname": "cashier", "fieldtype": "Data", "label": _("收银员"), "width": 160},
         {"fieldname": "invoice_count", "fieldtype": "Int", "label": _("发票数"), "width": 80},
-        {"fieldname": "total_sales", "fieldtype": "Currency", "label": _("销售总额"), "width": 120},
+        {"fieldname": "total_sales", "fieldtype": "Currency", "label": _("销售原额"), "width": 120},
         {"fieldname": "return_count", "fieldtype": "Int", "label": _("退货数"), "width": 80},
         {"fieldname": "return_amount", "fieldtype": "Currency", "label": _("退货金额"), "width": 120},
-        {"fieldname": "net_sales", "fieldtype": "Currency", "label": _("净销售"), "width": 120},
+        {"fieldname": "net_sales", "fieldtype": "Currency", "label": _("销售净额"), "width": 120},
         {"fieldname": "cash_amount", "fieldtype": "Currency", "label": _("Cash"), "width": 100},
         {"fieldname": "card_amount", "fieldtype": "Currency", "label": _("Credit Card"), "width": 100},
         {"fieldname": "stored_value_amount", "fieldtype": "Currency", "label": _("储值支付"), "width": 100},
@@ -35,9 +35,9 @@ def get_data(filters):
         SELECT
             si.owner as cashier,
             COUNT(*) as invoice_count,
-            SUM(si.grand_total) as total_sales,
+            SUM(CASE WHEN si.is_return = 0 THEN si.grand_total ELSE 0 END) as total_sales,
             SUM(CASE WHEN si.is_return = 1 THEN 1 ELSE 0 END) as return_count,
-            SUM(CASE WHEN si.is_return = 1 THEN si.grand_total ELSE 0 END) as return_amount
+            SUM(CASE WHEN si.is_return = 1 THEN ABS(si.grand_total) ELSE 0 END) as return_amount
         FROM `tabSales Invoice` si
         WHERE si.is_pos = 1
           AND si.posting_date = %(date)s

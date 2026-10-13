@@ -3,6 +3,7 @@
 # 库存模块的自定义验证和事件处理
 # ============================
 
+import json
 import random
 from decimal import Decimal, InvalidOperation
 
@@ -38,6 +39,201 @@ def validate_transaction_quantities(doc, method=None):
             if doc.get("is_return") and flt(value) < 0:
                 value = abs(Decimal(str(value)))
             validate_positive_integer_qty(value, "数量", item.item_code)
+
+
+def _row_value(row, fieldname, default=None):
+    value = row.get(fieldname) if hasattr(row, "get") else getattr(row, fieldname, default)
+    return default if value is None else value
+
+
+def _sales_order_names_for_draft(doc):
+    """Return source orders for a draft Delivery Note or Pick List."""
+    doctype = getattr(doc, "doctype", "")
+    if doctype == "Delivery Note":
+        return {
+            _row_value(row, "against_sales_order")
+            for row in (doc.get("items") or [])
+            if _row_value(row, "against_sales_order")
+        }
+    if doctype == "Pick List":
+        names = {
+            _row_value(row, "sales_order")
+            for row in (doc.get("locations") or [])
+            if _row_value(row, "sales_order")
+        }
+        if doc.get("custom_sales_order"):
+            names.add(doc.custom_sales_order)
+        return names
+    return set()
+
+
+def _lock_sales_orders(order_names):
+    """Serialize draft creation for each source order in this transaction."""
+    for order_name in sorted({name for name in order_names if name}):
+        frappe.db.sql(
+            "SELECT name FROM `tabSales Order` WHERE name=%s FOR UPDATE",
+            (order_name,),
+        )
+
+
+def _existing_draft_for_sales_order(doctype, child_doctype, source_field, sales_order, exclude=None):
+    parents = frappe.get_all(
+        child_doctype,
+        filters={source_field: sales_order, "parenttype": doctype},
+        pluck="parent",
+        limit_page_length=100,
+    )
+    if not parents:
+        return None
+    drafts = frappe.get_all(
+        doctype,
+        filters={"name": ["in", list(dict.fromkeys(parents))], "docstatus": 0},
+        fields=["name"],
+        order_by="modified desc",
+        limit_page_length=100,
+    )
+    for row in drafts:
+        if row.name != exclude:
+            return frappe.get_doc(doctype, row.name)
+    return None
+
+
+def get_existing_draft_delivery_note(sales_order, exclude=None):
+    return _existing_draft_for_sales_order(
+        "Delivery Note", "Delivery Note Item", "against_sales_order", sales_order, exclude
+    )
+
+
+def get_existing_draft_pick_list(sales_order, exclude=None):
+    return _existing_draft_for_sales_order(
+        "Pick List", "Pick List Item", "sales_order", sales_order, exclude
+    )
+
+
+def validate_single_draft_source(doc, method=None):
+    """Allow one source-order draft; submitted partial documents remain valid."""
+    if doc.get("docstatus") != 0 or doc.get("is_return"):
+        return
+    order_names = _sales_order_names_for_draft(doc)
+    if not order_names:
+        return
+    _lock_sales_orders(order_names)
+    doctype = getattr(doc, "doctype", "")
+    finder = get_existing_draft_delivery_note if doctype == "Delivery Note" else get_existing_draft_pick_list
+    for order_name in order_names:
+        existing = finder(order_name, exclude=doc.name)
+        if existing:
+            label = "交货单" if doctype == "Delivery Note" else "拣货单"
+            frappe.throw(_("销售订单 {0} 已有{1}草稿 {2}，请打开现有草稿继续编辑。").format(
+                order_name, label, existing.name
+            ))
+
+
+def _row_stock_qty(row, qty_field="qty"):
+    stock_qty = flt(_row_value(row, "stock_qty", 0))
+    if stock_qty:
+        return stock_qty
+    factor = flt(_row_value(row, "conversion_factor", 1)) or 1
+    return flt(_row_value(row, qty_field, 0)) * factor
+
+
+def _is_stock_item(item_code, row=None):
+    if row is not None and _row_value(row, "is_stock_item") is not None:
+        return bool(_row_value(row, "is_stock_item"))
+    return bool(frappe.get_cached_value("Item", item_code, "is_stock_item"))
+
+
+def _has_product_bundle(doc, item_code):
+    checker = getattr(doc, "has_product_bundle", None)
+    if not checker:
+        return False
+    try:
+        return bool(checker(item_code))
+    except TypeError:
+        return bool(checker())
+
+
+def _add_stock_requirement(target, item_code, warehouse, qty):
+    qty = flt(qty)
+    if not item_code or not warehouse or qty <= 0:
+        return
+    key = (item_code, warehouse)
+    target[key] = target.get(key, 0) + qty
+
+
+def get_sales_order_stock_requirements(doc):
+    """Return remaining demand in Stock UOM, including Product Bundle components."""
+    requirements = {}
+    delivered_field = "delivered_qty"
+    if frappe.get_cached_value(
+        "Selling Settings", "Selling Settings", "dont_reserve_sales_order_qty_on_sales_return"
+    ):
+        delivered_field = "delivered_qty_with_returns"
+    packed_by_parent = {}
+    for packed in doc.get("packed_items") or []:
+        packed_by_parent.setdefault(_row_value(packed, "parent_detail_docname"), []).append(packed)
+
+    for item in doc.get("items") or []:
+        item_code = _row_value(item, "item_code")
+        if not item_code or _row_value(item, "delivered_by_supplier"):
+            continue
+        warehouse = _row_value(item, "warehouse") or doc.get("set_warehouse")
+        packed_rows = packed_by_parent.get(_row_value(item, "name"), [])
+        delivered_qty = flt(_row_value(item, "delivered_qty"))
+        if delivered_field == "delivered_qty_with_returns":
+            delivered_qty += flt(_row_value(item, "returned_qty"))
+        if packed_rows and _has_product_bundle(doc, item_code):
+            ordered_qty = flt(_row_value(item, "qty"))
+            remaining_ratio = max(ordered_qty - delivered_qty, 0) / ordered_qty if ordered_qty else 0
+            for packed in packed_rows:
+                _add_stock_requirement(
+                    requirements,
+                    _row_value(packed, "item_code"),
+                    _row_value(packed, "warehouse") or warehouse,
+                    flt(_row_value(packed, "qty")) * remaining_ratio,
+                )
+            continue
+        if not _is_stock_item(item_code, item):
+            continue
+        factor = flt(_row_value(item, "conversion_factor", 1)) or 1
+        remaining = max(_row_stock_qty(item) - delivered_qty * factor, 0)
+        _add_stock_requirement(requirements, item_code, warehouse, remaining)
+    return requirements
+
+
+def _lock_bin_rows(item_code, warehouse):
+    if not warehouse:
+        return
+    from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
+
+    warehouses = list(get_child_warehouses(warehouse) or [])
+    if warehouse not in warehouses:
+        warehouses.append(warehouse)
+    bin_table = frappe.qb.DocType("Bin")
+    frappe.qb.from_(bin_table).select(bin_table.name).where(
+        (bin_table.item_code == item_code) & bin_table.warehouse.isin(warehouses)
+    ).for_update().run()
+
+
+def validate_stock_requirements(requirements, company, self_reserved=None, message="库存不足"):
+    """Check actual stock less other reservations, locking Bin rows first."""
+    self_reserved = self_reserved or {}
+    shortages = []
+    from erpnext.stock.get_item_details import get_bin_details
+
+    for (item_code, warehouse), required_qty in sorted(requirements.items()):
+        _lock_bin_rows(item_code, warehouse)
+        bin_details = get_bin_details(item_code, warehouse, company, include_child_warehouses=True) or {}
+        actual_qty = flt(bin_details.get("actual_qty"))
+        reserved_qty = flt(bin_details.get("reserved_qty"))
+        available_qty = actual_qty - reserved_qty + flt(self_reserved.get((item_code, warehouse)))
+        if required_qty > available_qty + 0.000001:
+            shortages.append(_("{0}（仓库：{1}，需求：{2}，实际：{3}，预留：{4}，可用：{5}）").format(
+                item_code, warehouse, required_qty, actual_qty, reserved_qty, available_qty
+            ))
+
+    if shortages:
+        frappe.throw(_("{0}：<br>{1}").format(message, "<br>".join(shortages)))
 
 
 def copy_sales_order_pick_notes(doc, method=None):
@@ -78,6 +274,36 @@ def copy_sales_order_pick_notes(doc, method=None):
             doc.custom_additional_notes = notes[0][1]
         elif notes:
             doc.custom_additional_notes = "\n".join(f"{sales_order}: {note}" for sales_order, note in notes)
+
+    if frappe.get_meta("Pick List").has_field("custom_sales_order") and len(order_names) == 1:
+        doc.custom_sales_order = order_names[0]
+
+
+@frappe.whitelist()
+def make_delivery_note(source_name, target_doc=None, kwargs=None):
+    """Reuse an existing draft before opening the native mapped Delivery Note."""
+    if target_doc is None:
+        existing = get_existing_draft_delivery_note(source_name)
+        if existing:
+            return existing
+    from erpnext.selling.doctype.sales_order.mapper import make_delivery_note as native_make_delivery_note
+
+    return native_make_delivery_note(source_name, target_doc, kwargs=kwargs)
+
+
+@frappe.whitelist()
+def create_pick_list(source_name, target_doc=None):
+    """Keep the source Sales Order even when the native mapper creates no location rows."""
+    if target_doc is None:
+        existing = get_existing_draft_pick_list(source_name)
+        if existing:
+            return existing
+    from erpnext.selling.doctype.sales_order.mapper import create_pick_list as native_create_pick_list
+
+    doc = native_create_pick_list(source_name, target_doc)
+    if frappe.get_meta("Pick List").has_field("custom_sales_order"):
+        doc.custom_sales_order = source_name
+    return doc
 
 
 def validate_product_bundle_definition(doc, method=None):
@@ -301,9 +527,456 @@ def on_stock_entry_submitted(doc, method=None):
         frappe.msgprint(_("物料转移单 {0} 已提交").format(doc.name))
 
 
+def _pick_list_source_orders(doc):
+    names = []
+    custom_name = _row_value(doc, "custom_sales_order")
+    if custom_name:
+        names.append(custom_name)
+
+    for row in doc.get("locations") or []:
+        sales_order = _row_value(row, "sales_order")
+        if not sales_order and _row_value(row, "sales_order_item"):
+            sales_order = frappe.db.get_value(
+                "Sales Order Item", _row_value(row, "sales_order_item"), "parent"
+            )
+        if sales_order and sales_order not in names:
+            names.append(sales_order)
+    return names
+
+
+def _merge_pick_list_order_comparison(doc, order_names, expected, expected_meta):
+    picked_by_key = {}
+    for row in doc.get("locations") or []:
+        sales_order_item = _row_value(row, "sales_order_item")
+        item_code = _row_value(row, "item_code")
+        if not sales_order_item or not item_code:
+            continue
+        key = (sales_order_item, item_code)
+        entry = picked_by_key.setdefault(key, {"planned": 0, "picked": 0})
+        entry["planned"] += _row_stock_qty(row)
+        entry["picked"] += flt(_row_value(row, "picked_qty"))
+
+    rows = []
+    tolerance = 0.000001
+    for key, required_stock in expected.items():
+        meta = dict(expected_meta[key])
+        picked = picked_by_key.get(key, {})
+        planned_stock = flt(picked.get("planned"))
+        picked_stock = flt(picked.get("picked"))
+        shortage_stock = max(required_stock - picked_stock, 0)
+        if shortage_stock <= tolerance:
+            status = "已拣齐"
+        elif picked_stock > tolerance:
+            status = "部分拣货"
+        else:
+            status = "缺货/未生成拣货行"
+        meta.update({
+            "order_qty": required_stock,
+            "planned_qty": planned_stock,
+            "picked_qty": picked_stock,
+            "shortage_qty": shortage_stock,
+            "status": status,
+            "missing": planned_stock <= tolerance,
+        })
+        rows.append(meta)
+
+    for key, picked in picked_by_key.items():
+        if key in expected:
+            continue
+        sales_order_item, item_code = key
+        rows.append({
+            "sales_order": _row_value(doc, "custom_sales_order") or "",
+            "sales_order_item": sales_order_item,
+            "item_code": item_code,
+            "item_name": item_code,
+            "stock_uom": "",
+            "order_qty": 0,
+            "planned_qty": flt(picked.get("planned")),
+            "picked_qty": flt(picked.get("picked")),
+            "shortage_qty": 0,
+            "status": "拣货单多出",
+            "missing": False,
+            "extra": True,
+        })
+
+    shortage_rows = [row for row in rows if flt(row.get("shortage_qty")) > tolerance]
+    return {
+        "sales_orders": order_names,
+        "rows": rows,
+        "summary": {
+            "order_qty": sum(flt(row.get("order_qty")) for row in rows),
+            "planned_qty": sum(flt(row.get("planned_qty")) for row in rows),
+            "picked_qty": sum(flt(row.get("picked_qty")) for row in rows),
+            "shortage_qty": sum(flt(row.get("shortage_qty")) for row in rows),
+            "shortage_count": len(shortage_rows),
+            "missing_count": sum(1 for row in shortage_rows if row.get("missing")),
+            "extra_count": sum(1 for row in rows if row.get("extra")),
+            "complete": not shortage_rows and not any(row.get("extra") for row in rows),
+        },
+    }
+
+
+def _pick_list_order_comparison(doc):
+    """Compare a Pick List with every remaining stock line on its Sales Order(s)."""
+    order_names = _pick_list_source_orders(doc)
+
+    # Submission updates Sales Order.picked_qty. Keep the pre-submit order
+    # quantities so a submitted Pick List remains a reliable audit snapshot.
+    snapshot_data = _row_value(doc, "custom_sales_order_comparison_data") if cint(doc.get("docstatus")) == 1 else None
+    if snapshot_data:
+        try:
+            snapshot = json.loads(snapshot_data) if isinstance(snapshot_data, str) else snapshot_data
+            snapshot_orders = snapshot.get("sales_orders") or []
+            expected = {}
+            expected_meta = {}
+            for row in snapshot.get("rows") or []:
+                sales_order_item = _row_value(row, "sales_order_item")
+                item_code = _row_value(row, "item_code")
+                order_qty = flt(_row_value(row, "order_qty"))
+                if not sales_order_item or not item_code or order_qty <= 0:
+                    continue
+                key = (sales_order_item, item_code)
+                expected[key] = order_qty
+                expected_meta[key] = {
+                    "sales_order": _row_value(row, "sales_order") or "",
+                    "sales_order_item": sales_order_item,
+                    "item_code": item_code,
+                    "item_name": _row_value(row, "item_name") or item_code,
+                    "stock_uom": _row_value(row, "stock_uom") or "",
+                }
+            if expected:
+                return _merge_pick_list_order_comparison(
+                    doc,
+                    snapshot_orders or order_names,
+                    expected,
+                    expected_meta,
+                )
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+    expected = {}
+    expected_meta = {}
+    order_cache = {}
+
+    for order_name in order_names:
+        order = order_cache.get(order_name)
+        if order is None:
+            order = frappe.get_doc("Sales Order", order_name)
+            order_cache[order_name] = order
+
+        packed_by_parent = {}
+        for packed in order.get("packed_items") or []:
+            packed_by_parent.setdefault(_row_value(packed, "parent_detail_docname"), []).append(packed)
+
+        for item in order.get("items") or []:
+            if _row_value(item, "delivered_by_supplier"):
+                continue
+
+            item_name = _row_value(item, "name")
+            item_code = _row_value(item, "item_code")
+            if not item_name or not item_code:
+                continue
+
+            factor = flt(_row_value(item, "conversion_factor", 1)) or 1
+            picked_uom = flt(_row_value(item, "picked_qty")) / factor
+            delivered_uom = flt(_row_value(item, "delivered_qty"))
+            remaining_uom = max(flt(_row_value(item, "qty")) - max(picked_uom, delivered_uom), 0)
+            packed_rows = packed_by_parent.get(item_name, [])
+
+            if packed_rows and _has_product_bundle(order, item_code):
+                ordered_uom = flt(_row_value(item, "qty"))
+                remaining_ratio = remaining_uom / ordered_uom if ordered_uom else 0
+                for packed in packed_rows:
+                    component_code = _row_value(packed, "item_code")
+                    required_stock = _row_stock_qty(packed) * remaining_ratio
+                    if not component_code or required_stock <= 0:
+                        continue
+                    key = (item_name, component_code)
+                    expected[key] = expected.get(key, 0) + required_stock
+                    expected_meta[key] = {
+                        "sales_order": order_name,
+                        "sales_order_item": item_name,
+                        "item_code": component_code,
+                        "item_name": _row_value(packed, "item_name") or component_code,
+                        "stock_uom": _row_value(packed, "stock_uom")
+                        or frappe.get_cached_value("Item", component_code, "stock_uom")
+                        or "",
+                    }
+                continue
+
+            if not _is_stock_item(item_code, item):
+                continue
+
+            required_stock = max(_row_stock_qty(item) - max(
+                flt(_row_value(item, "picked_qty")), delivered_uom * factor
+            ), 0)
+            if required_stock <= 0:
+                continue
+            key = (item_name, item_code)
+            expected[key] = expected.get(key, 0) + required_stock
+            expected_meta[key] = {
+                "sales_order": order_name,
+                "sales_order_item": item_name,
+                "item_code": item_code,
+                "item_name": _row_value(item, "item_name") or item_code,
+                "stock_uom": _row_value(item, "stock_uom")
+                or frappe.get_cached_value("Item", item_code, "stock_uom")
+                or "",
+            }
+
+    return _merge_pick_list_order_comparison(doc, order_names, expected, expected_meta)
+
+
+@frappe.whitelist()
+def get_pick_list_sales_order_comparison(pick_list):
+    doc = frappe.get_doc("Pick List", pick_list)
+    doc.check_permission("read")
+    return _pick_list_order_comparison(doc)
+
+
+def _active_pick_list_for_sales_order_item(sales_order_item):
+    if not sales_order_item:
+        return None
+    rows = frappe.db.sql(
+        """SELECT i.parent, i.name FROM `tabPick List Item` i
+        JOIN `tabPick List` p ON p.name=i.parent
+        WHERE p.docstatus=1 AND i.sales_order_item=%s
+        LIMIT 1""",
+        (sales_order_item,),
+        as_dict=True,
+    )
+    return rows[0] if rows else None
+
+
+def _validate_delivery_pick_rows(doc):
+    current_by_pick_item = {}
+    row_by_pick_item = {}
+    for row in doc.get("items") or []:
+        pick_item = _row_value(row, "pick_list_item")
+        against_pick_list = _row_value(row, "against_pick_list")
+        if not pick_item and not against_pick_list:
+            continue
+        if not pick_item or not against_pick_list:
+            frappe.throw(_("交货单拣货路径缺少 Pick List 行关联：{0}").format(_row_value(row, "item_code")))
+        current_by_pick_item[pick_item] = current_by_pick_item.get(pick_item, 0) + _row_stock_qty(row)
+        row_by_pick_item[pick_item] = row
+
+    for pick_item, current_qty in current_by_pick_item.items():
+        pick = frappe.db.get_value(
+            "Pick List Item",
+            pick_item,
+            ["parent", "item_code", "warehouse", "picked_qty", "delivered_qty", "sales_order_item"],
+            as_dict=True,
+        )
+        row = row_by_pick_item[pick_item]
+        if not pick or pick.parent != _row_value(row, "against_pick_list"):
+            frappe.throw(_("交货单引用的 Pick List 行不存在或不匹配：{0}").format(pick_item))
+        if cint(frappe.db.get_value("Pick List", pick.parent, "docstatus")) != 1:
+            frappe.throw(_("交货单只能引用已提交的 Pick List：{0}").format(pick.parent))
+        if pick.item_code != _row_value(row, "item_code"):
+            is_bundle_parent = (
+                pick.sales_order_item
+                and pick.sales_order_item == _row_value(row, "so_detail")
+                and not _is_stock_item(_row_value(row, "item_code"), row)
+            )
+            if not is_bundle_parent:
+                frappe.throw(_("交货单物料与 Pick List 不匹配：{0}").format(_row_value(row, "item_code")))
+        if _row_value(row, "warehouse") and pick.warehouse and _row_value(row, "warehouse") != pick.warehouse:
+            frappe.throw(_("交货单仓库与 Pick List 不匹配：{0}").format(_row_value(row, "item_code")))
+
+        prior_delivered = flt(frappe.db.sql(
+            """SELECT COALESCE(SUM(i.stock_qty),0) FROM `tabDelivery Note Item` i
+            JOIN `tabDelivery Note` d ON d.name=i.parent
+            WHERE d.docstatus=1 AND COALESCE(d.is_return,0)=0 AND d.name<>%s
+            AND i.pick_list_item=%s""",
+            (doc.name or "", pick_item),
+        )[0][0])
+        allowed_qty = flt(pick.picked_qty)
+        if prior_delivered + current_qty > allowed_qty + 0.000001:
+            frappe.throw(_("交货单数量超过实际已拣数量：{0}（已拣 {1}，此前已交 {2}，本次 {3}）").format(
+                pick.item_code, allowed_qty, prior_delivered, current_qty
+            ))
+
+
+def _get_direct_delivery_requirements(doc):
+    requirements = {}
+    self_reserved = {}
+    source_cache = {}
+    bundle_parent_names = set()
+
+    for row in doc.get("items") or []:
+        if not _row_value(row, "against_sales_order") or _row_value(row, "pick_list_item"):
+            continue
+        order_name = _row_value(row, "against_sales_order")
+        source = source_cache.get(order_name)
+        if source is None:
+            source = frappe.get_doc("Sales Order", order_name)
+            source_cache[order_name] = source
+        if _has_product_bundle(source, _row_value(row, "item_code")):
+            bundle_parent_names.add(_row_value(row, "name"))
+            continue
+        if _is_stock_item(_row_value(row, "item_code"), row):
+            _add_stock_requirement(
+                requirements,
+                _row_value(row, "item_code"),
+                _row_value(row, "warehouse") or doc.get("set_warehouse"),
+                _row_stock_qty(row),
+            )
+
+    for packed in doc.get("packed_items") or []:
+        if _row_value(packed, "parent_detail_docname") not in bundle_parent_names:
+            continue
+        _add_stock_requirement(
+            requirements,
+            _row_value(packed, "item_code"),
+            _row_value(packed, "warehouse") or doc.get("set_warehouse"),
+            _row_stock_qty(packed),
+        )
+
+    for source in source_cache.values():
+        if cint(source.docstatus) != 1:
+            continue
+        for key, qty in get_sales_order_stock_requirements(source).items():
+            self_reserved[key] = self_reserved.get(key, 0) + qty
+    return requirements, self_reserved
+
+
+def validate_delivery_route(doc, method=None):
+    """Keep direct and Pick List delivery paths quantity-safe before submit."""
+    if doc.get("is_return") or doc.get("docstatus") in (1, 2):
+        return
+
+    _validate_delivery_pick_rows(doc)
+    for row in doc.get("items") or []:
+        if _row_value(row, "pick_list_item") or not _row_value(row, "against_sales_order"):
+            continue
+        active_pick = _active_pick_list_for_sales_order_item(_row_value(row, "so_detail"))
+        if active_pick:
+            frappe.throw(_("销售订单行 {0} 已有有效 Pick List，请从 Pick List 生成交货单；如需直送，请先取消该 Pick List。").format(
+                _row_value(row, "so_detail")
+            ))
+
+    requirements, self_reserved = _get_direct_delivery_requirements(doc)
+    validate_stock_requirements(
+        requirements,
+        doc.get("company"),
+        self_reserved=self_reserved,
+        message="直送交货单库存不足，不能保存或提交",
+    )
+
+
+def validate_pick_list_result(doc, method=None, require_result=False):
+    """Require an explicit full/partial shortage result before Pick List submit."""
+    if doc.get("purpose") != "Delivery" or not frappe.get_meta("Pick List").has_field("custom_pick_result"):
+        return
+
+    result = doc.get("custom_pick_result")
+    allowed = {"待拣货", "已拣齐", "部分拣货", "缺货待补"}
+    if result and result not in allowed:
+        frappe.throw(_("拣货结果无效，请重新选择"))
+    if require_result and result not in {"已拣齐", "部分拣货", "缺货待补"}:
+        frappe.throw(_("提交拣货单前必须选择：已拣齐、部分拣货或缺货待补"))
+    if not result or result == "待拣货":
+        return
+
+    doc.pick_manually = 1
+    doc.scan_mode = 1
+    locations = doc.get("locations") or []
+    shortage_qty = 0
+    picked_qty = 0
+    for row in locations:
+        requested = _row_stock_qty(row)
+        picked = flt(_row_value(row, "picked_qty"))
+        if picked < -0.000001 or picked > requested + 0.000001:
+            frappe.throw(_("{0} 的已拣数量不能超过需求数量或小于0").format(_row_value(row, "item_code")))
+        picked_qty += picked
+        shortage_qty += max(requested - picked, 0)
+
+    if result == "已拣齐":
+        if not locations or shortage_qty > 0.000001:
+            frappe.throw(_("拣货结果选择为已拣齐时，所有拣货行必须填写实际已拣数量"))
+    elif result == "部分拣货" and picked_qty <= 0:
+        frappe.throw(_("部分拣货至少要有一行实际已拣数量；全部缺货请选择缺货待补"))
+    elif result == "缺货待补" and not (_row_value(doc, "custom_shortage_note") or "").strip():
+        frappe.throw(_("缺货待补必须填写缺货说明"))
+
+    comparison = _pick_list_order_comparison(doc)
+    summary = comparison["summary"]
+    if comparison["sales_orders"] and result == "已拣齐" and not summary["complete"]:
+        details = "<br>".join(
+            _("{0}：订单待拣 {1}，实际已拣 {2}，缺货 {3}").format(
+                row["item_code"], row["order_qty"], row["picked_qty"], row["shortage_qty"]
+            )
+            for row in comparison["rows"]
+            if flt(row.get("shortage_qty")) > 0.000001 or row.get("extra")
+        )
+        frappe.throw(_("销售订单对比未通过，不能标记为已拣齐：<br>{0}").format(details))
+    if comparison["sales_orders"] and result in {"部分拣货", "缺货待补"} and summary["complete"]:
+        frappe.throw(_("销售订单对比显示没有缺货或未拣数量；如已全部拣齐，请选择已拣齐"))
+
+    if require_result and comparison["sales_orders"] and frappe.get_meta("Pick List").has_field(
+        "custom_sales_order_comparison_data"
+    ):
+        doc.custom_sales_order_comparison_data = json.dumps({
+            "sales_orders": comparison["sales_orders"],
+            "rows": [
+                {
+                    key: row.get(key)
+                    for key in ("sales_order", "sales_order_item", "item_code", "item_name", "stock_uom", "order_qty")
+                }
+                for row in comparison["rows"]
+                if not row.get("extra")
+            ],
+        }, ensure_ascii=False)
+
+
+def validate_pick_list_before_submit(doc, method=None):
+    validate_pick_list_result(doc, require_result=True)
+
+
+def sync_delivery_contact_phone(doc, method=None):
+    """Save a draft Delivery Note's store phone as the linked Contact's primary mobile."""
+    if doc.get("docstatus") != 0:
+        return
+
+    customer = doc.get("customer")
+    contact_name = doc.get("contact_person")
+    phone = str(doc.get("custom_store_phone") or "").strip()
+    if not customer or not contact_name or not phone:
+        return
+
+    contact = frappe.get_doc("Contact", contact_name)
+    if not any(
+        link.get("link_doctype") == "Customer" and link.get("link_name") == customer
+        for link in (contact.get("links") or [])
+    ):
+        return
+
+    target = next(
+        (row for row in (contact.get("phone_nos") or [])
+         if str(row.get("phone") or "").strip() == phone),
+        None,
+    )
+    if target is None:
+        target = contact.append("phone_nos", {"phone": phone})
+
+    changed = str(target.get("phone") or "").strip() != phone or not target.get("is_primary_mobile_no")
+    target.phone = phone
+    target.is_primary_mobile_no = 1
+    for row in contact.get("phone_nos") or []:
+        if row is not target and row.get("is_primary_mobile_no"):
+            row.is_primary_mobile_no = 0
+            changed = True
+
+    if changed:
+        contact.save()
+
+
 def validate_delivery_note(doc, method=None):
     """交货单验证"""
+    validate_single_draft_source(doc)
     validate_transaction_quantities(doc)
+    validate_delivery_route(doc)
 
     # Keep the selected store/order identifiers on the delivery snapshot when
     # a note is created from a Sales Order; standard address/contact fields are

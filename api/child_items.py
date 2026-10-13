@@ -12,14 +12,22 @@ def _items(value):
 @frappe.whitelist()
 def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname="items"):
 	data = _items(trans_items)
-	if parent_doctype != "Sales Order" or not any("additional_notes" in row or "pos_additional_notes" in row for row in data):
+	if parent_doctype != "Sales Order":
 		return native_update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname)
 
+	has_notes = any("additional_notes" in row or "pos_additional_notes" in row for row in data)
 	before = frappe.get_doc(parent_doctype, parent_doctype_name)
 	before_names = {row.name for row in before.get(child_docname) or []}
-	native_update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname)
+	result = native_update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname)
 
 	after = frappe.get_doc(parent_doctype, parent_doctype_name)
+	after.flags._stock_previous_doc = before
+	from solua_home.api.sales import validate_sales_order_stock
+	if after.docstatus == 1:
+		validate_sales_order_stock(after)
+	if not has_notes:
+		return result
+
 	by_name = {row.name: row for row in after.get(child_docname) or []}
 	new_by_code = {}
 	for row in after.get(child_docname) or []:
@@ -42,3 +50,5 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 		for fieldname in fields:
 			if getattr(target, fieldname, None) != note:
 				frappe.db.set_value("Sales Order Item", target.name, fieldname, note)
+
+	return result

@@ -440,6 +440,13 @@ def format_print_money(value, currency=None, precision=0):
                                   precision=0 if precision is None else precision)
 
 
+def _cash_discount_excluded(doc):
+    if doc.get("selling_price_list") == "Wholesale Selling 3":
+        return True
+    customer = doc.get("customer")
+    return bool(customer and frappe.db.get_value("Customer", customer, "default_price_list") == "Wholesale Selling 3")
+
+
 def get_cash_discount_info(doc):
     """Read a submitted cash discount for a Sales Invoice without changing it."""
     if doc.doctype != "Sales Invoice" or not doc.get("name"):
@@ -475,7 +482,17 @@ def get_cash_discount_info(doc):
                 "rate": round(amount / total * 100, 3),
                 "amount": amount,
                 "cash_paid": round(total - amount, 2),
+                "is_estimate": False,
             }
+    if doc.get("payment_terms_template") == "PRONTO PAGAMENTO" and not _cash_discount_excluded(doc):
+        amount = round(total * 0.03, 2)
+        return {
+            "enabled": True,
+            "rate": 3,
+            "amount": amount,
+            "cash_paid": round(total - amount, 2),
+            "is_estimate": True,
+        }
     return {"enabled": False}
 
 
@@ -791,9 +808,11 @@ def get_wholesale_print_data(doc, live=False):
     customer_print = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
     if customer_print:
         _refresh_customer_item_images(data)
+        data["customer_merged"] = False
     if customer_print and doc.get("custom_print_merge_order_code"):
+        original_count = len(data.get("items") or [])
         data["items"] = _merge_customer_print_items(data.get("items"))
-        data["customer_merged"] = any(item.get("customer_merged") for item in data.get("items") or [])
+        data["customer_merged"] = len(data["items"]) < original_count
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(

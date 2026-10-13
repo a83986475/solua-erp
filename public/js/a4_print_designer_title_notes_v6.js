@@ -25,7 +25,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	};
 	const defaultFeatures = { payment_schedule: false, color_qr: false, additional_notes: false, order_total_box: false, price_difference: false, footer: true, legacy_warning: false, legacy_controls: false };
 	const defaultControlDefaults = { custom_print_color_images: true, custom_print_item_name: true, custom_print_sku: true, custom_print_color_code: true, custom_print_cor: true, custom_print_description: true, custom_print_additional_notes: true };
-	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 12, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: false };
+	const defaultSettings = { fontSize: 9, titleSize: 18, headSize: 9, lineHeight: 1.35, cellPadding: 1.5, pageMargin: 8, logoWidth: 32, logoHeight: 20, titleColor: "#99732c", headBg: "#f5f1e9", itemBorders: false };
 	const config = {
 		doctype: types[0],
 		visible: Object.fromEntries(types.map(type => [type, Object.fromEntries([...base, ...columns[type]].map(key => [key, key !== "image" && key !== "additional_notes" && !key.startsWith("price_")]))])),
@@ -60,7 +60,7 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	const status = text => root.find('[data-role="status"]').text(text);
 	const esc = value => frappe.utils.escape_html(String(value == null ? "" : value));
 	const rowValue = (row, key) => ({ name: row.item_name, sku: row.order_code || row.item_code, color_code: row.color_code, additional_notes: row.additional_notes || row.pos_additional_notes, price_item: row.item_name, price_code: row.item_code, price_qty: row.qty, price_uom: row.uom, price_old_rate: row.old_rate, price_new_rate: row.new_rate, price_unit_diff: row.unit_difference, price_total_diff: row.difference_amount }[key] ?? row[key]);
-	const partyText = party => [party?.nuit, party?.store, party?.address, party?.contact, party?.phone].filter(Boolean).map(value => esc(String(value).replace(/<br\s*\/?>(?\n)?/gi, " "))).join("<br>");
+	const partyText = party => [party?.nuit, party?.store, party?.address, party?.contact, party?.phone].filter(Boolean).map(value => esc(String(value).replace(/<br\s*\/?>(\r?\n)?/gi, " "))).join("<br>");
 	const allowed = () => [...base, ...columns[config.doctype]];
 	const visibleCols = () => {
 		const keys = allowed().filter(key => config.visible[config.doctype][key]);
@@ -236,9 +236,3 @@ frappe.pages["a4-print-designer"].on_page_load = function (wrapper) {
 	call("get_access").then(data => { canSave = !!data.can_save; canPublish = !!data.can_publish; if (!canSave) root.find('[data-action=save]').prop("disabled", true); if (!canPublish) root.find('[data-action=publish]').prop("disabled", true); status(canSave ? "可预览、导入、新建并发布打印格式。" : "可预览与导入；当前账号没有 Print Format 创建权限，保存已禁用。"); }).catch(e => status(e.message || "权限读取失败"));
 	loadDocuments(); loadFormats(); render();
 };
-
-
-
-
-
-

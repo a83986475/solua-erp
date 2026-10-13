@@ -11,7 +11,7 @@ def _filter_items(items, exclude_legacy):
         return items
     return {name: item for name, item in items.items() if "LEGACY" not in name.upper()}
 
-def _report_values(item, actual, reserved, opening=0, sold=0):
+def _report_values(item, actual, reserved, opening=0, sold=0, delivered=0):
     """Return report quantities in the item's configured sales UOM when safe."""
     factor = flt(item.get("report_factor") or 1)
     uom = item.get("report_uom") or item.get("stock_uom")
@@ -25,14 +25,16 @@ def _report_values(item, actual, reserved, opening=0, sold=0):
         "available_qty": (flt(actual) - flt(reserved)) / factor,
         "opening_qty": flt(opening) / factor,
         "sold_qty": flt(sold) / factor,
+        "delivered_qty": flt(delivered) / factor,
     }
 
 
-def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantities=None):
+def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantities=None, delivered_quantities=None):
     groups = {}
     quantities = {}
     opening_quantities = opening_quantities or {}
     sold_quantities = sold_quantities or {}
+    delivered_quantities = delivered_quantities or {}
     for stock in bins:
         qty = quantities.setdefault(stock["item_code"], [0, 0])
         qty[0] += flt(stock["actual_qty"])
@@ -47,7 +49,7 @@ def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantiti
         if key not in groups:
             groups[key] = []
         actual, reserved = quantities.get(item["name"], [0, 0])
-        groups[key].append({**_report_values(item, actual, reserved, opening_quantities.get(item["name"], 0), sold_quantities.get(item["name"], 0)), "warehouse": warehouse})
+        groups[key].append({**_report_values(item, actual, reserved, opening_quantities.get(item["name"], 0), sold_quantities.get(item["name"], 0), delivered_quantities.get(item["name"], 0)), "warehouse": warehouse})
     for item in items.values():
         if item.get("has_variants") and not any(key[0] == item["name"] for key in groups):
             groups[(item["name"], item.get("report_uom") or item["stock_uom"])] = []
@@ -56,19 +58,35 @@ def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantiti
         code, uom = key
         node_id = json.dumps(key, ensure_ascii=False)
         if items[code].get("has_variants"):
-            # Parent rows repeat the child totals; keep them as tree labels so exports sum once.
             rows.append({
                 "node_id": node_id, "parent_id": "", "indent": 0,
                 "item_code": code, "item_name": items[code]["item_name"],
                 "warehouse": warehouse, "stock_uom": items[code].get("report_uom") or uom,
-                **{field: (sum(row[field] for row in children) if not children else None)
-                   for field in ("actual_qty", "reserved_qty", "available_qty", "opening_qty", "sold_qty")},
+                **{field: sum(row[field] for row in children)
+                   for field in ("actual_qty", "reserved_qty", "available_qty", "opening_qty", "sold_qty", "delivered_qty")},
             })
             for child in sorted(children, key=lambda row: row["item_code"]):
                 rows.append({**child, "node_id": json.dumps((*key, child["item_code"])),
                              "parent_id": node_id, "indent": 1})
         else:
             rows.extend({**child, "node_id": node_id, "parent_id": "", "indent": 0} for child in children)
+    return rows
+
+
+def add_totals(rows):
+    parent_ids = {row["parent_id"] for row in rows if row.get("parent_id")}
+    leaves = [row for row in rows if row["node_id"] not in parent_ids]
+    totals = {}
+    for row in leaves:
+        total = totals.setdefault(row["stock_uom"], {field: 0 for field in ("opening_qty", "sold_qty", "delivered_qty", "actual_qty", "reserved_qty", "available_qty")})
+        for field in total:
+            total[field] += flt(row.get(field))
+    for uom, total in sorted(totals.items()):
+        rows.append({
+            "node_id": json.dumps(("__total__", uom), ensure_ascii=False), "parent_id": "", "indent": 0,
+            "item_code": "", "item_name": _("合计（去重）"), "warehouse": "", "stock_uom": uom,
+            **total,
+        })
     return rows
 
 
@@ -138,6 +156,7 @@ def execute(filters=None):
             ):
                 opening_quantities[row.item_code] = opening_quantities.get(row.item_code, 0) + flt(row.qty)
     sold_quantities = {}
+    delivered_quantities = {}
     if warehouses and items:
         orders = frappe.get_all(
             "Sales Order",
@@ -155,6 +174,17 @@ def execute(filters=None):
                 },
                 fields=["item_code", "qty", "stock_qty", "conversion_factor"], limit_page_length=0,
             ))
+        for row in frappe.get_all(
+            "Stock Ledger Entry",
+            filters={
+                "warehouse": ["in", warehouses],
+                "item_code": ["in", list(items)],
+                "voucher_type": ["in", ["Delivery Note", "Sales Invoice"]],
+                "is_cancelled": 0,
+            },
+            fields=["item_code", "actual_qty"], limit_page_length=0,
+        ):
+            delivered_quantities[row.item_code] = delivered_quantities.get(row.item_code, 0) - flt(row.actual_qty)
     if filters.template:
         items = {name: item for name, item in items.items()
                  if name == filters.template or item.get("variant_of") == filters.template}
@@ -168,5 +198,7 @@ def execute(filters=None):
                    for field, label in [("actual_qty", "实际数量"), ("reserved_qty", "销售预留数量"), ("available_qty", "可用数量")])
     warehouse_label = filters.warehouse or _("全部有权限仓库")
     columns.insert(4, {"fieldname": "opening_qty", "label": _("初始库存"), "fieldtype": "Float", "precision": "0", "width": 130})
-    columns.insert(5, {"fieldname": "sold_qty", "label": _("已销售数量"), "fieldtype": "Float", "precision": "0", "width": 130})
-    return columns, group_rows(items, bins, warehouse_label, opening_quantities, sold_quantities) if warehouses else []
+    columns.insert(5, {"fieldname": "sold_qty", "label": _("销售订单数量"), "fieldtype": "Float", "precision": "0", "width": 130})
+    columns.insert(6, {"fieldname": "delivered_qty", "label": _("已出货数量"), "fieldtype": "Float", "precision": "0", "width": 130})
+    rows = group_rows(items, bins, warehouse_label, opening_quantities, sold_quantities, delivered_quantities) if warehouses else []
+    return columns, add_totals(rows)

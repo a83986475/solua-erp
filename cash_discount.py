@@ -5,6 +5,8 @@ from frappe.utils import flt
 
 LEVEL_THREE = "Wholesale Selling 3"
 DISCOUNT_ACCOUNT = "Discount Allowed - SH"
+CASH_TERM = "PRONTO PAGAMENTO"
+CASH_RATE = 3
 
 
 def excludes_cash_discount(doc):

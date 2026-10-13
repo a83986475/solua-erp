@@ -7,6 +7,8 @@ import frappe
 import requests
 
 FIELDS = ("custom_delivery_map_url", "custom_delivery_coordinates")
+QQ_MAP_HOSTS = {"map.qq.com"}
+GOOGLE_MAP_HOSTS = {"www.google.com", "google.com", "maps.google.com", "maps.app.goo.gl", "goo.gl", "www.google.co.mz", "www.google.pt"}
 
 
 def ensure_location_fields():
@@ -39,12 +41,12 @@ def validate_map_url(value):
         port = parsed.port
     except ValueError:
         frappe.throw("地图链接格式无效")
-    hosts = {"www.google.com", "google.com", "maps.google.com", "maps.app.goo.gl", "goo.gl", "www.google.co.mz", "www.google.pt"}
+    hosts = GOOGLE_MAP_HOSTS | QQ_MAP_HOSTS
     if (len(value) > 2048 or parsed.scheme != "https" or parsed.hostname not in hosts
             or parsed.username or parsed.password or port not in (None, 443)):
-        frappe.throw("请填写有效的 HTTPS Google Maps 地点分享链接")
-    if parsed.hostname not in ("maps.app.goo.gl",) and not parsed.path.startswith("/maps"):
-        frappe.throw("只支持 Google Maps 地点链接")
+        frappe.throw("请填写有效的 HTTPS Google Maps 或 QQ 地图地点分享链接")
+    if parsed.hostname not in ("maps.app.goo.gl", *QQ_MAP_HOSTS) and not parsed.path.startswith("/maps"):
+        frappe.throw("只支持 Google Maps 或 QQ 地图地点链接")
     return value
 
 
@@ -52,6 +54,8 @@ def _extract_coordinates(value):
     parsed = urlparse(value)
     query = parse_qs(parsed.query)
     candidates = [query.get(key, [""])[0] for key in ("query", "q", "destination")]
+    if parsed.hostname in QQ_MAP_HOSTS:
+        candidates.insert(0, f"{query.get('pointy', [''])[0]},{query.get('pointx', [''])[0]}")
     text = unquote(value)
     pin = re.search(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)", text)
     if pin:
@@ -85,7 +89,7 @@ def resolve_map_location(map_url):
         if response.status_code not in (301, 302, 303, 307, 308) or not response.headers.get("Location"):
             break
         current = validate_map_url(urljoin(current, response.headers["Location"]))
-    return {"map_url": original, "coordinates": "", "message": "链接中没有明确地点坐标，请在 Google Maps 长按收货点复制坐标，或到店使用手机定位。"}
+    return {"map_url": original, "coordinates": "", "message": "链接中没有明确地点坐标，请在地图应用中复制坐标，或到店使用手机定位。"}
 
 
 @frappe.whitelist()

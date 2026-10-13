@@ -107,7 +107,7 @@ def generate_weekly_report():
 
     _log_info(
         f"本周销售汇总: {data[0].invoice_count} 张发票, "
-        f"总金额: {data[0].total_sales}",
+		f"净销售额: {data[0].total_sales}",
         "周报",
     )
 
