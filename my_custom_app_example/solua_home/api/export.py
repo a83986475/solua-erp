@@ -30,7 +30,7 @@ SOLUA_PDF_MARGINS = {
     "margin-left": "8mm",
     "margin-right": "8mm",
 }
-SOLUA_PDF_ZOOM = "0.85"
+SOLUA_PDF_ZOOM = "1.00"
 SOLUA_MOBILE_PDF_ZOOM = "0.85"
 SOLUA_MOBILE_PDF_ZOOM_BY_DOCTYPE = {"Sales Invoice": "0.90"}
 
