@@ -22,7 +22,11 @@ def get_item_color_info(item_code):
     if not item_code:
         return {}
 
-    item = frappe.get_doc("Item", item_code)
+    try:
+        item = frappe.get_doc("Item", item_code)
+    except frappe.DoesNotExistError:
+        # Historical submitted documents may retain an Item code after its master is removed.
+        return {}
     attrs = {
         row.attribute: row.attribute_value
         for row in frappe.get_all(
