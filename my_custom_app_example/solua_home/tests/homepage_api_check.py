@@ -135,6 +135,7 @@ frappe.get_doc = lambda payload: NewUsage(payload)
 preferences = home._home_feature_preferences()
 assert preferences["manual_keys"] == ["销售订单"]
 assert preferences["usage"] == {"销售订单": 2, "交货单": 4}
+frappe.session.user = "Administrator"
 home.record_feature_usage("销售订单")
 assert updated_usage and updated_usage[-1][0][2]["usage_count"] == 3
 existing_usage = None

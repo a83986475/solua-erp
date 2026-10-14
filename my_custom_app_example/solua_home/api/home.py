@@ -352,7 +352,7 @@ def _home_feature_preferences():
 @frappe.whitelist()
 def record_feature_usage(feature_key=None):
     """Count a homepage feature click without storing document or customer data."""
-    if frappe.session.user in {"Guest", "Administrator"} or feature_key not in HOME_FEATURE_KEYS:
+    if frappe.session.user == "Guest" or feature_key not in HOME_FEATURE_KEYS:
         return {"state": "ignored"}
     if not frappe.db.exists("DocType", "Solua Home Feature Usage"):
         return {"state": "unavailable"}
