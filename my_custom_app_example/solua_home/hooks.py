@@ -270,7 +270,7 @@ doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
     "Sales Invoice": ["public/js/sales_invoice_print_options_v20261005.js", "public/js/document_table_export_v20261005b.js", "public/js/sales_invoice_stock_guard_v20261003.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js"],
-    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v17.js", "public/js/document_table_export_v20261005c.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js"],
+    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v17.js", "public/js/document_table_export_v20261005c.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/sales_order_item_query_v20261014.js"],
     "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v17.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js"],
     "Pick List": ["public/js/wholesale_forms_additional_notes_loader_v17.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js"],
     "Stock Entry": "public/js/wholesale_forms_additional_notes_loader_v17.js",
