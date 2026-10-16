@@ -7,7 +7,7 @@ const js = fs.readFileSync(root + 'public/js/public_home.js', 'utf8');
 
 for (const marker of [
   '/assets/solua_home/css/public_home.css?v=20261016a',
-  '/assets/solua_home/js/public_home.js?v=20261016a',
+  '/assets/solua_home/js/public_home.js?v=20261016b',
   'sem preços nesta fase',
 ]) assert(html.includes(marker), `missing homepage marker: ${marker}`);
 assert(js.includes('/api/method/solua_home.api.color_card.get_public_catalog'), 'missing catalog API route');

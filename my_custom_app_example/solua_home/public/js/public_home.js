@@ -23,7 +23,7 @@
         return;
       }
       grid.innerHTML = items.map(renderCard).join('');
-      status.textContent = `${items.length} coleção${items.length === 1 ? '' : 'ões'} publicada${items.length === 1 ? '' : 's'} · sem preços`;
+      status.textContent = `${items.length} ${items.length === 1 ? 'coleção publicada' : 'coleções publicadas'} · sem preços`;
     })
     .catch(() => {
       grid.innerHTML = '<div class="catalog-placeholder">Não foi possível carregar o catálogo agora. A cartela pública continua disponível em /colors.</div>';
