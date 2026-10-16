@@ -196,6 +196,51 @@ def get_public_color_card(query=None):
     return None
 
 
+@frappe.whitelist(allow_guest=True)
+def get_public_catalog(limit=60, start=0):
+    """Return the published, price-free catalog used by the public home page.
+
+    This deliberately reuses the color-card publication gate and card builder;
+    guest callers never receive Item Price, stock, cost, warehouse, or notes.
+    """
+    if not _has_column("custom_color_card_published"):
+        return {"items": [], "logo": "/files/solua-logo.jpg", "next_start": None}
+
+    try:
+        limit = min(max(int(limit), 1), 100)
+    except (TypeError, ValueError):
+        limit = 60
+    try:
+        start = max(int(start), 0)
+    except (TypeError, ValueError):
+        start = 0
+
+    templates = frappe.get_all(
+        "Item",
+        filters={
+            "has_variants": 1,
+            "disabled": 0,
+            "custom_color_card_published": 1,
+        },
+        fields=["item_code"],
+        order_by="modified desc, item_code asc",
+        limit_start=start,
+        limit_page_length=limit + 1,
+    )
+
+    cards = []
+    for row in templates[:limit]:
+        card = _build_public_card(row.item_code)
+        if card:
+            cards.append(card)
+
+    return {
+        "items": cards,
+        "logo": "/files/solua-logo.jpg",
+        "next_start": start + limit if len(templates) > limit else None,
+    }
+
+
 def get_public_color_card_url(item_or_code):
     """供 Jinja 打印使用的公开色卡地址；未发布时返回空字符串。"""
     item_code = getattr(item_or_code, "name", None) or getattr(item_or_code, "item_code", None)
