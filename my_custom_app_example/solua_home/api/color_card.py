@@ -258,4 +258,6 @@ def get_public_color_card_url(item_or_code):
         return ""
 
     key = frappe.db.get_value("Item", template_code, "custom_order_code") or template_code
-    return f"{get_url('/colors')}?q={quote(str(key))}"
+    public_site_url = (frappe.conf.get("public_site_url") or "").rstrip("/")
+    base_url = public_site_url or get_url("").rstrip("/")
+    return f"{base_url}/colors?q={quote(str(key))}"

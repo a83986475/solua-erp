@@ -8,6 +8,7 @@ text = SOURCE.read_text(encoding="utf-8")
 assert "def get_public_catalog(" in text
 assert '"custom_color_card_published": 1' in text
 assert '"logo": "/files/solua-logo.jpg"' in text
+assert 'frappe.conf.get("public_site_url")' in text
 catalog = text[text.index("def get_public_catalog("):]
 assert "standard_rate" not in catalog
 assert "price_list_rate" not in catalog
