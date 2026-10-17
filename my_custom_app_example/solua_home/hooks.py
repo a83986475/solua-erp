@@ -290,7 +290,7 @@ doctype_list_js = {
     "Item": [
         "public/js/item_variant_wizard.js",
         "public/js/item_data_wizard.js",
-        "public/js/item_list_metrics_v20261017c.js",
+        "public/js/item_list_metrics_v20261017d.js",
     ],
     # DocType 列表默认只显示会用到的单据类型（白名单，见 public/js/doctype_module_filter.js）
     "DocType": [

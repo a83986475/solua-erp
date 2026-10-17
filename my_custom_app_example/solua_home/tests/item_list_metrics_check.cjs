@@ -1,7 +1,7 @@
 // Item list script: column widths are pinned and the refresh button stays wired.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
 const base = path.join(__dirname, "..");
-const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017c.js"), "utf8");
+const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017d.js"), "utf8");
 
 const calls = [], alerts = [], buttons = [];
 let loaded = 0, inherited = 0, dialog;
@@ -53,9 +53,11 @@ assert.equal(dialog.fields.find((field) => field.fieldname === "item_code").get_
 	"solua_home.api.item_price_bulk.item_query", "bulk prices must bypass ERPNext's template-excluding Item query");
 assert.equal(dialog.secondary_action_label, undefined, "cancel is added after a preview so the initial dialog stays simple");
 assert(!source.includes('dialog.set_value("item_code", "")'), "successful updates must retain the selected Item");
-assert(source.includes('dialog.set_secondary_action(() => dialog.hide())'), "preview must expose a cancel action");
-assert(source.includes('dialog.set_secondary_action_label(__("取消"))'), "cancel action must have a visible label");
-assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017c.js"'),
+assert(source.includes('dialog.set_secondary_action(() => {'), "preview must expose a return-to-edit action");
+assert(source.includes('dialog.set_secondary_action_label(__("返回修改"))'), "return-to-edit action must have a visible label");
+assert(source.includes('dialog.get_secondary_btn().addClass("hide")'), "returning to edit must hide the preview-only action");
+assert(!source.includes('dialog.set_secondary_action(() => dialog.hide())'), "return-to-edit must keep the dialog open");
+assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017d.js"'),
 	"Item list must load the versioned selector fix");
 buttons[0].action();
 assert.equal(calls.at(-1).method, "solua_home.item_metrics.refresh_all_item_metrics");
