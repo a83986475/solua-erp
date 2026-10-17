@@ -887,7 +887,7 @@ frappe.provide("solua_home.pos");
 			'<p><b>状态：</b>' + status_text + '</p>' +
 			'<hr>' +
 			'<p><b>POS 发票数：</b>' + (data.invoice_count || 0) + ' 笔</p>' +
-			'<p><b>销售总额：</b>' + frappe.utils.flt(data.total_amount || 0).toLocaleString() + ' MZN</p>' +
+			'<p><b>销售净额：</b>' + frappe.utils.flt(data.total_amount || 0).toLocaleString() + ' MZN</p>' +
 			'<p><b>期初金额：</b>' + frappe.utils.flt(data.opening_amount || 0).toLocaleString() + ' MZN</p>' +
 			'<hr>' +
 			'<p><b>各支付方式收款：</b></p>' +

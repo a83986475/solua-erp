@@ -14,8 +14,10 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				<select class="form-control" aria-label="统一时间范围" data-common-period>${["今天", "本周", "本月", "本季度", "本年", "自定义"].map(period => `<option>${__(period)}</option>`).join("")}</select>
 				<span data-common-custom><input type="date" class="form-control" aria-label="统一开始日期" data-common-from> ～ <input type="date" class="form-control" aria-label="统一结束日期" data-common-to></span>
 				<span class="text-muted">${__("默认各自设置；关闭统一范围后恢复。")}</span></div>
-				<div class="solua-home-period-note text-muted">${__("已付金额按期间发票的结清金额统计，包含已核销预收款及结算调整。")}</div>
-				<div class="solua-home-cards solua-home-totals" data-role="totals"></div></section>
+				<div class="solua-home-period-note text-muted">${__("实际收款金额按收款日期统计，取已提交收款单的实收金额；不含发票结清、折扣、核销调整或退款。")}</div>
+				<div class="solua-home-cards solua-home-totals" data-role="totals"></div>
+				<div data-role="payment-reconciliation"></div>
+				<div data-role="reconciliation"></div></section>
 			<div class="solua-home-columns">
 			<section class="solua-home-section" data-section="pending"><h3>${__("待处理")}</h3><div data-role="pending"></div></section>
 			<section class="solua-home-section" data-section="billing"><h3>${__("待开票客户")}</h3><div data-role="billing"></div></section>
@@ -190,7 +192,6 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			utility_action(__("送货中心"), "delivery_center", permissions.read_delivery_note),
 			view_action(__("销售发票"), "Sales Invoice", permissions.read_sales_invoice),
 			new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
-			report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 			utility_action(__("按订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
 			permissions.read_item ? remember_feature(`<button class="btn btn-default btn-sm" data-feature-key="查库存" data-focus-search="1">${__("查库存")}</button>`, "查库存") : ""
 		].filter(Boolean);
@@ -244,8 +245,8 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 			["Stock Projected Qty", {company: data.company, warehouse: data.warehouse}],
 		];
 		const cards = [
-			[__("今日已开票额"), money(data.invoiced_today?.amount, data.currency), data.invoiced_today?.state],
-			[__("客户未收款"), money(data.outstanding?.amount, data.currency), data.outstanding?.state],
+			[__("今日开票净额"), money(data.invoiced_today?.amount, data.currency), data.invoiced_today?.state],
+			[__("客户未收余额"), money(data.outstanding?.amount, data.currency), data.outstanding?.state],
 			[__("已确认待交付"), data.orders_pending?.count ?? "—", data.orders_pending?.state],
 			[__("今日已送货额"), money(data.delivered_today?.amount, data.currency), data.delivered_today?.state],
 			[__("库存预警"), data.low_stock?.count ?? "—", data.low_stock?.state],
@@ -284,25 +285,62 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 
 	function load_totals(data) {
 		const generation = ++totals_generation;
-		const labels = {orders: "总订单金额", invoices: "总开票金额", receivable: "总应收款", paid: "总已付金额", unbilled: "未开票金额"};
+		const labels = {orders: "净订单金额", pending_delivery: "待交付订单金额", invoices: "开票净额", receivable: "净应收款", paid: "实际收款金额", unbilled: "已交货未开票金额"};
 		const section = root.find('[data-role="totals"]');
-		section.html(Object.entries(labels).map(([key, label]) => `<button type="button" class="solua-home-card" data-total="${key}"><div class="solua-home-card-label">${text(__(label))} ›</div><div class="solua-home-card-value" data-total-value="${key}">—</div><div class="solua-home-card-state" data-total-period="${key}">${__("加载中…")}</div></button>`).join(""));
+		section.html(Object.entries(labels).map(([key, label]) => `<button type="button" class="solua-home-card" data-total="${key}"><div class="solua-home-card-label">${text(__(label))} ›</div><div class="solua-home-card-value" data-total-value="${key}">—</div>${key === "paid" ? `<div class="solua-home-card-extra" data-total-extra="paid">${__("未分配收款")}：—</div>` : ""}<div class="solua-home-card-state" data-total-period="${key}">${__("加载中…")}</div></button>`).join(""));
+		root.find('[data-role="payment-reconciliation"]').html("");
+		root.find('[data-role="reconciliation"]').html("");
 		if (common_enabled && !range_valid()) {
 			root.find('[data-total]').prop("disabled", true);
 			root.find('[data-total-period]').text(__("请选择有效的开始和结束日期"));
 			return;
 		}
+		const results = {};
 		for (const metric of Object.keys(labels)) {
-			let settings = {period: metric === "unbilled" ? "本年" : "本月"};
+			let settings = {period: ["unbilled", "pending_delivery"].includes(metric) ? "本年" : "本月"};
 			try { settings = {...settings, ...JSON.parse(window.localStorage?.getItem(`solua-business-period:${frappe.session?.user}:${metric}`) || "{}")}; } catch (_) {}
 			if (common_enabled) settings = {period: common_range.period, from_date: common_range.from_date, to_date: common_range.to_date};
+			if (metric === "orders") load_reconciliation(data, settings, generation);
 			frappe.call({method: "solua_home.api.business_totals.get_total", args: {metric, company: data.company, ...settings}}).then(response => {
 				if (generation !== totals_generation) return;
 				const result = response.message || {};
+				results[metric] = result;
 				root.find(`[data-total-value="${metric}"]`).text(["ok", "no_data"].includes(result.state) ? money(result.amount, data.currency) : "—");
+				if (metric === "paid") root.find('[data-total-extra="paid"]').text(`${__("未分配收款")}：${money(result.unallocated_amount || 0, data.currency)}`);
 				root.find(`[data-total-period="${metric}"]`).text(result.from_date ? `${settings.period} · ${result.from_date} ~ ${result.to_date}` : state_label(result.state));
+				render_payment_reconciliation(results, data.currency);
 			}).catch(() => { if (generation === totals_generation) root.find(`[data-total-period="${metric}"]`).text(__("加载失败")); });
 		}
+	}
+
+	function render_payment_reconciliation(results, currency) {
+		const invoice = results.invoices;
+		const receivable = results.receivable;
+		const paid = results.paid;
+		if (![invoice, receivable, paid].every(result => result && ["ok", "no_data"].includes(result.state))) return;
+		const settled = (invoice.amount || 0) - (receivable.amount || 0);
+		const unallocated = paid.unallocated_amount || 0;
+		const applied_cash = (paid.amount || 0) - unallocated;
+		const adjustment = settled - applied_cash;
+		root.find('[data-role="payment-reconciliation"]').html(`<div class="solua-home-payment-summary" data-payment-summary>
+			<div class="solua-home-payment-summary-head"><strong>${__("收款对账")}</strong><span class="solua-home-payment-status">${__("平衡")}</span></div>
+			<div class="solua-home-payment-summary-line">${__("发票净结算")} ${text(money(settled, currency))} · ${__("实际收款")} ${text(money(paid.amount || 0, currency))} · ${__("未分配")} ${text(money(unallocated, currency))}</div>
+			<details class="solua-home-payment-details"><summary>${__("查看对账明细")}</summary><div class="text-muted solua-home-period-note">${__("实际收款 - 未分配收款 + 其他结算调整 = 发票净结算")}</div><div class="solua-home-payment-detail-row"><span>${__("实际收款 - 未分配收款")}</span><span>${text(money(applied_cash, currency))}</span></div><div class="solua-home-payment-detail-row"><span>${__("其他结算调整")}</span><span>${text(money(adjustment, currency))}</span></div></details>
+		</div>`);
+	}
+
+	function load_reconciliation(data, settings, generation) {
+		const target = root.find('[data-role="reconciliation"]');
+		frappe.call({method: "solua_home.api.business_totals.get_reconciliation", args: {company: data.company, ...settings}}).then(response => {
+			if (generation !== totals_generation) return;
+			const result = response.message || {};
+			if (result.state !== "ok") return target.html(`<div class="text-muted">${text(state_label(result.state) || __("差额明细加载失败"))}</div>`);
+			const groups = (result.groups || []).filter(group => group.items?.length).map(group => {
+				const rows = group.items.map(row => row.name ? `<button type="button" class="solua-home-list-row" data-doctype="${text(row.doctype)}" data-name="${text(row.name)}"><span>${text(row.date)} · ${text(row.name)} · ${text(row.customer)}</span><span>${text(money(row.amount, result.currency))}</span></button>` : `<div class="solua-home-list-row"><span>${__("请按相同期间核对单据日期、关联及税费折扣")}</span><span>${text(money(row.amount, result.currency))}</span></div>`).join("");
+				return `<details class="solua-home-billing-customer"><summary>${text(__(group.label))} · ${text(money(group.amount, result.currency))} · ${__("{0} 项", [group.items.length])}</summary>${rows}</details>`;
+			}).join("");
+			target.html(`<details class="solua-home-billing-customer" data-reconciliation><summary>${__("订单与开票差额")} · ${text(money(result.amount, result.currency))} · ${__("点击展开明细")}</summary><div class="text-muted solua-home-period-note">${text(result.from_date)} ~ ${text(result.to_date)} · ${__("使用订单卡片期间统一核对。待交付按剩余数量折算，排除已关闭订单；退货、价格调整和贷项不代表可重复开票的商品。")}</div>${groups}</details>`);
+		}).catch(() => { if (generation === totals_generation) target.html(`<div class="text-muted">${__("差额明细加载失败，请刷新重试")}</div>`); });
 	}
 
 	// 收银员的入口：只用 POS（收银台 / 交班 / 查看自己开的 POS 销售单）
@@ -320,7 +358,6 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				new_action(__("新建销售订单"), "Sales Order", permissions.new_sales_order),
 				view_action(__("销售订单"), "Sales Order", permissions.read_sales_order),
 				report_action(__("销售订单分析报表"), "Sales Order Analysis", permissions.read_sales_order),
-				report_action(__("物料销售明细"), "Item-wise Sales History", permissions.read_sales_order),
 				new_action(__("新建交货单"), "Delivery Note", permissions.new_delivery_note),
 				utility_action(__("按销售订单开交货单"), "delivery_from_order", permissions.new_delivery_note),
 				view_action(__("交货单"), "Delivery Note", permissions.read_delivery_note),
@@ -428,7 +465,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				if (!values.sales_order) return;
 				dialog.hide();
 				frappe.call({
-					method: "erpnext.selling.doctype.sales_order.sales_order.make_delivery_note",
+					method: "solua_home.api.stock.make_delivery_note",
 					args: { source_name: values.sales_order },
 					freeze: true,
 					freeze_message: __("正在按订单生成交货单…"),

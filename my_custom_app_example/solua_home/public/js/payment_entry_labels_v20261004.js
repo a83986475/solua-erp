@@ -41,6 +41,25 @@ function has_cash_discount(frm) {
 	);
 }
 
+function remember_cash_discount_allocation(frm) {
+	frm.__solua_cash_discount_allocations = (frm.doc.references || [])
+		.filter((row) => row.reference_doctype === "Sales Invoice" && flt(row.allocated_amount))
+		.map((row) => ({ reference_name: row.reference_name, allocated_amount: flt(row.allocated_amount) }));
+}
+
+function restore_cash_discount_allocation(frm) {
+	if (!frm?.__solua_cash_discount_applied) return;
+	const saved = frm.__solua_cash_discount_allocations || [];
+	if (!saved.length) return;
+	for (const target of saved) {
+		const row = (frm.doc.references || []).find((item) => item.reference_name === target.reference_name);
+		if (row) row.allocated_amount = target.allocated_amount;
+	}
+	frm.doc.total_allocated_amount = saved.reduce((sum, row) => sum + row.allocated_amount, 0);
+	frm.events.set_unallocated_amount(frm);
+	frm.refresh_fields(["references", "total_allocated_amount", "unallocated_amount"]);
+}
+
 function clear_pronto_pagamento(frm) {
 	if (!frm.__solua_cash_discount_applied) return;
 	if (frm.doc.paid_amount === frm.__solua_cash_discount_net) {
@@ -68,6 +87,8 @@ async function apply_pronto_pagamento(frm, options = {}) {
 	// 只补空：重新打开或保存后刷新时，已经填过现金折扣就不再重算覆盖，
 	// 否则用户手改的实收与抵扣会被脚本改回自动算出的值。
 	if (options.only_if_missing && (frm.__solua_cash_discount_applied || has_cash_discount(frm))) {
+		frm.__solua_cash_discount_applied = true;
+		remember_cash_discount_allocation(frm);
 		return;
 	}
 	const references = (frm.doc.references || []).filter((row) => row.reference_doctype === "Sales Invoice");
@@ -98,6 +119,7 @@ async function apply_pronto_pagamento(frm, options = {}) {
 		return;
 	}
 	const { discount, net } = calculate_pronto_pagamento(gross);
+	remember_cash_discount_allocation(frm);
 	if (!frm.__solua_cash_discount_applied) {
 		frm.__solua_cash_discount_before = Object.fromEntries(
 			["paid_amount", "received_amount", "base_paid_amount", "base_received_amount", "total_allocated_amount", "base_total_allocated_amount"].map(key => [key, frm.doc[key]])
@@ -125,7 +147,7 @@ async function apply_pronto_pagamento(frm, options = {}) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento, truncate_decimals };
+	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento, restore_cash_discount_allocation, truncate_decimals };
 }
 
 if (typeof frappe !== "undefined") {
@@ -138,10 +160,11 @@ if (typeof frappe !== "undefined") {
 		custom_payment_term: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 		mode_of_payment: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 		party: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		paid_amount: restore_cash_discount_allocation,
 	});
 
 	frappe.ui.form.on("Payment Entry Reference", {
-		allocated_amount: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
+		allocated_amount: restore_cash_discount_allocation,
 		reference_name: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 		references_remove: (frm) => apply_pronto_pagamento(frm, { only_if_missing: false }),
 	});

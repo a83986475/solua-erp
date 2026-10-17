@@ -9,7 +9,7 @@
 	const sales_order_search_api = "solua_home.api.sales.search_sales_order_items";
 	const sales_order_store_options_api = "solua_home.api.sales.get_customer_store_options";
 	const active_print_format_api = "solua_home.api.a4_designer.get_active_format";
-	const print_formats = { "Sales Order": "客户订单确认单（颜色版）", "Delivery Note": "Guia de Remessa", "Pick List": "拣货单（简版）" };
+	const print_formats = { "Sales Order": "ORDER CONFIRMACAO(PT）", "Delivery Note": "Guia de Remessa", "Pick List": "拣货单（简版）" };
 	const is_stock_entry_form = (frm) => frm.doctype === "Stock Entry";
 
 	const is_positive_integer = (value) => {
@@ -889,6 +889,7 @@
 				if (!current || current.item_code !== item_code) return;
 				const value = response.message || {};
 				frappe.model.set_value(cdt, cdn, "custom_item_barcode", value.barcode || "");
+				if (value.image) frappe.model.set_value(cdt, cdn, "image", value.image);
 				if (value.description) frappe.model.set_value(cdt, cdn, "description", value.description);
 			});
 		},

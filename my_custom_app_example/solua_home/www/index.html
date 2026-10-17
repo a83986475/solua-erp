@@ -3,33 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SOLUA HOME — cortinas e escolhas de luz para a tua casa.">
+  <meta name="description" content="SOLUA HOME — cortinas, texturas e escolhas de luz para a tua casa.">
   <link rel="icon" href="/files/solua-logo.jpg" type="image/jpeg">
-  <link rel="stylesheet" href="/assets/solua_home/css/public_home.css?v=20261016a">
-  <script defer src="/assets/solua_home/js/public_home.js?v=20261016b"></script>
+  <link rel="stylesheet" href="/assets/solua_home/css/public_home.css?v=20261017c">
+  <script defer src="/assets/solua_home/js/public_home.js?v=20261017a"></script>
 </head>
 <body>
   <a class="skip-link" href="#conteudo">Saltar para o conteúdo</a>
   <header class="site-header">
-    <a class="wordmark" href="/" aria-label="SOLUA HOME, início">SOLUA<span>HOME</span></a>
-    <nav aria-label="Navegação principal"><a href="#cortinas">Cortinas</a><a href="#escolher">Como escolher</a><a href="/colors">Ver cores</a></nav>
-    <a class="header-link" href="/colors">Consultar cores <span aria-hidden="true">↗</span></a>
+    <a class="brand-logo" href="/" aria-label="SOLUA HOME, início"><img src="/files/solua-logo.jpg" alt="SOLUA HOME"></a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="navigation" aria-label="Abrir menu"><span></span><span></span></button>
+    <nav id="navigation" aria-label="Navegação principal">
+      <a href="#cortinas">Cortinas</a><a href="#colecoes">Coleções</a><a href="#guia">Como escolher</a><a href="#loja">A nossa loja</a>
+    </nav>
+    <a class="header-contact" href="#loja">Falar com a equipa <span aria-hidden="true">↗</span></a>
   </header>
 
   <main id="conteudo">
-    <section class="hero">
-      <div class="hero-copy"><p class="eyebrow"><span></span> UM NOVO OLHAR PARA A TUA CASA</p><h1>A tua luz.<br>A tua <em>escolha.</em></h1><p class="hero-lede">A luz muda um espaço.<br>A cortina certa torna-o teu.</p><div class="actions"><a class="button dark" href="#cortinas">Explorar cortinas <span aria-hidden="true">↗</span></a><a class="text-link" href="/colors">Abrir a cartela de cores <span aria-hidden="true">↗</span></a></div><p class="hero-note">Produtos publicados no ERPNext · sem preços nesta fase</p></div>
-      <div class="hero-art"><img src="/assets/solua_home/images/public_home_placeholder.svg" alt="Imagem de ambiente pendente de substituição por fotografia real" width="900" height="760"><span>IMAGEM DE AMBIENTE · POR CONFIRMAR</span></div>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> CORTINAS · TEXTURAS · LUZ</p>
+        <h1 id="hero-title">A tua luz.<br>A tua <em>escolha.</em></h1>
+        <p class="hero-description">A luz muda um espaço.<br>A cortina certa torna-o teu.</p>
+        <div class="hero-actions"><a class="button button-dark" href="#cortinas">Explorar cortinas <span aria-hidden="true">↗</span></a><a class="text-link" href="/colors">Ver a cartela de cores <span aria-hidden="true">↗</span></a></div>
+        <div class="hero-footnote"><span class="line"></span><span>Texturas que acolhem. Escolhas que fazem sentido.</span></div>
+      </div>
+      <div class="hero-art"><img src="/files/SH15107700ad5d00ad5d.png" alt="Cartela de cores ERP da coleção SH151077" width="648" height="649" fetchpriority="high"><span class="image-label">CARTELA ERP · REFERÊNCIA</span><div class="hero-caption"><span>01 /</span><p>Deixa a luz<br>fazer parte da decoração.</p></div></div>
     </section>
 
-    <section class="light-section" id="cortinas" aria-labelledby="light-title"><div class="section-head"><div><p class="eyebrow">COMEÇA PELA LUZ</p><h2 id="light-title">Como gostas da tua luz?</h2></div><p>Escolhe um ponto de partida e confirma depois o tecido, a medida e a instalação.</p></div><div class="light-grid"><a href="#catalogo" class="light-card"><b>01</b><strong>NATURAL <small>65%*</small></strong><span>Presença do dia e mais claridade.</span></a><a href="#catalogo" class="light-card"><b>02</b><strong>SUAVE <small>85%*</small></strong><span>Privacidade durante o dia, com luz acolhedora.</span></a><a href="#catalogo" class="light-card"><b>03</b><strong>MUITO ESCURO <small>95%*</small></strong><span>Menos luminosidade para descansar.</span></a><a href="#catalogo" class="light-card"><b>04</b><strong>BLACKOUT <small>100%*</small></strong><span>Máxima opacidade, conforme o tecido e a instalação.</span></a></div><p class="fine-print">* Guia de comunicação provisório. A classificação final deve ser confirmada por produto.</p></section>
+    <div class="values-strip"><span>◌ <b>A luz</b>, à tua maneira</span><span>□ <b>Medidas</b> a confirmar com a equipa</span><span>⌂ Escolhe online. <b>Vê de perto.</b></span></div>
 
-    <section class="catalog-section" id="catalogo" aria-labelledby="catalog-title"><div class="section-head"><div><p class="eyebrow">CATÁLOGO PUBLICADO</p><h2 id="catalog-title">Cortinas disponíveis para conhecer.</h2></div><p id="catalog-status" role="status" aria-live="polite">A carregar imagens e dados públicos…</p></div><div id="catalog-grid" class="catalog-grid"><div class="catalog-placeholder">A carregar o catálogo público…</div></div><p class="catalog-footnote">Os preços não estão publicados nesta fase. Para confirmar disponibilidade, medidas e valor, consulta a cartela de cores ou fala com a equipa.</p></section>
+    <section class="section light-section" id="cortinas" aria-labelledby="light-title">
+      <div class="section-heading"><div><p class="eyebrow">COMEÇA PELA LUZ</p><h2 id="light-title">Como gostas da tua luz?</h2></div><p>Mais claridade ou mais aconchego?<br>Encontra o teu ponto de equilíbrio.</p></div>
+      <div class="light-grid">
+        <a class="light-card" href="#colecoes"><div class="light-visual natural"><span class="light-number">01</span><img src="/files/SH151121920a54920a54.png" width="648" height="649" alt="Cartela de cores ERP SH151121"><span class="mini-placeholder">CARTELA ERP</span></div><div class="light-card-title"><h3>Natural <span>65%*</span></h3><span aria-hidden="true">↗</span></div><p>Para quem gosta da presença do dia.</p></a>
+        <a class="light-card" href="#colecoes"><div class="light-visual suave"><span class="light-number">02</span><img src="/files/SH151022ecedb5.png" width="656" height="657" alt="Cartela de cores ERP SH151022"><span class="mini-placeholder">CARTELA ERP</span></div><div class="light-card-title"><h3>Suave <span>85%*</span></h3><span aria-hidden="true">↗</span></div><p>Um convite a abrandar e ficar.</p></a>
+        <a class="light-card" href="#colecoes"><div class="light-visual escuro"><span class="light-number">03</span><img src="/files/SH151084c5ef64c5ef64.png" width="648" height="649" alt="Cartela de cores ERP SH151084"><span class="mini-placeholder">CARTELA ERP</span></div><div class="light-card-title"><h3>Muito escuro <span>95%*</span></h3><span aria-hidden="true">↗</span></div><p>Quando procuras menos luminosidade.</p></a>
+        <a class="light-card" href="#colecoes"><div class="light-visual blackout"><span class="light-number">04</span><img src="/files/SH15107700ad5d00ad5d.png" width="648" height="649" alt="Cartela de cores ERP SH151077"><span class="mini-placeholder">CARTELA ERP</span></div><div class="light-card-title"><h3>Blackout <span>100%*</span></h3><span aria-hidden="true">↗</span></div><p>Para espaços pensados para descansar.</p></a>
+      </div>
+      <p class="disclaimer">* As imagens são cartelas reais dos templates ERP usadas como referência visual. A classificação final deve ser confirmada por produto. A entrada de luz pelas bordas depende das medidas e da instalação.</p>
+    </section>
 
-    <section class="guide-section" id="escolher" aria-labelledby="guide-title"><p class="eyebrow">ESCOLHER PODE SER SIMPLES</p><h2 id="guide-title">Três passos. Um espaço teu.</h2><div class="guide-grid"><article><b>01</b><h3>Pensa na luz.</h3><p>Queres aproveitar a claridade ou escurecer o espaço? Começa pelo ambiente.</p></article><article><b>02</b><h3>Confirma as medidas.</h3><p>Confirma largura, altura, tipo de fixação e se o artigo é vendido à unidade ou ao par.</p></article><article><b>03</b><h3>Vê as cores.</h3><p>Usa a cartela pública e confirma a escolha com a equipa antes de comprar.</p></article></div></section>
+    <section class="section products-section" id="colecoes" aria-labelledby="catalog-title">
+      <div class="section-heading"><div><p class="eyebrow">CATÁLOGO PUBLICADO</p><h2 id="catalog-title">Encontra a tua cortina.</h2></div><span class="section-note" id="catalog-status" role="status" aria-live="polite">A carregar coleções…</span></div>
+      <div class="products-grid" id="catalog-grid"><div class="catalog-placeholder">A carregar o catálogo público…</div></div>
+      <p class="catalog-note">Os preços não estão publicados nesta fase. Confirma disponibilidade, medidas e valor através da cartela de cores ou com a equipa SOLUA HOME.</p>
+    </section>
 
-    <section class="store-section"><div><p class="eyebrow">DO ECRÃ PARA A TUA CASA</p><h2>Vê as cores.<br>Sente as texturas.</h2><p>O próximo passo pode ser uma consulta online ou uma visita à SOLUA HOME.</p><dl><dt>LOJA</dt><dd>Morada e horário serão preenchidos com os dados oficiais.</dd></dl><a class="button dark" href="/colors">Consultar a cartela de cores <span aria-hidden="true">↗</span></a></div><div class="store-placeholder"><strong>LOCALIZAÇÃO DA LOJA</strong><span>Mapa e WhatsApp serão configurados com os dados oficiais.</span></div></section>
+    <section class="story" aria-labelledby="story-title"><div class="story-image"><img src="/files/SH151022ecedb5.png" alt="Cartela de cores ERP da coleção SH151022" width="656" height="657" loading="lazy"><span class="image-label">CARTELA ERP · REFERÊNCIA</span></div><div class="story-copy"><p class="eyebrow">OS PEQUENOS DETALHES, TODOS OS DIAS</p><h2 id="story-title">Uma casa sente-se.<br><em>Não se explica.</em></h2><p>A textura que apetece tocar. A luz que chega devagar. O canto da sala onde gostas de ficar.</p><p>Escolhe as cortinas como escolhes viver: ao teu ritmo, com as tuas cores.</p><a class="text-link" href="#colecoes">Descobrir as cortinas <span aria-hidden="true">↗</span></a><span class="story-draft">Cartelas reais ERP · fotografia de ambiente por confirmar</span></div></section>
+
+    <section class="section guide-section" id="guia" aria-labelledby="guide-title"><div class="section-heading"><div><p class="eyebrow">ESCOLHER PODE SER SIMPLES</p><h2 id="guide-title">Três passos. Um espaço teu.</h2></div></div><div class="guide-grid"><article><span class="step">01</span><h3>Pensa na luz.</h3><p>Queres aproveitar a claridade ou escurecer o espaço? Começa pelo ambiente que procuras.</p><a href="#cortinas" class="text-link">Explorar os efeitos <span aria-hidden="true">↗</span></a></article><article><span class="step">02</span><h3>Confirma as medidas.</h3><p>Confirma largura, altura, tipo de fixação e se o artigo é vendido à unidade ou ao par.</p><a href="#loja" class="text-link">Pedir orientação <span aria-hidden="true">↗</span></a></article><article><span class="step">03</span><h3>Vamos conversar.</h3><p>Confirma cores, medidas e disponibilidade antes de comprar.</p><a href="#loja" class="text-link">Falar com a equipa <span aria-hidden="true">↗</span></a></article></div></section>
+
+    <section class="store" id="loja" aria-labelledby="store-title"><div class="store-copy"><p class="eyebrow">DO ECRÃ PARA A TUA CASA</p><h2 id="store-title">Vê as cores.<br>Sente as texturas.</h2><p>O próximo passo pode ser uma conversa<br>ou uma visita à SOLUA HOME.</p><dl><div><dt>ONDE ESTAMOS</dt><dd>Morada da loja por confirmar</dd></div><div><dt>HORÁRIO</dt><dd>Dias e horário por confirmar</dd></div></dl><a class="button button-dark" href="/colors">Consultar a cartela <span aria-hidden="true">↗</span></a></div><div class="map-placeholder" aria-label="Espaço reservado ao mapa da loja, localização ainda não fornecida"><div class="map-pattern"></div><div class="map-pin"><span>+</span><strong>SOLUA HOME</strong></div><span class="map-caption">MAPA E WHATSAPP · DADOS POR CONFIRMAR</span></div></section>
   </main>
-  <footer><a class="wordmark" href="/">SOLUA<span>HOME</span></a><span>A tua luz. A tua escolha.</span><a href="/colors">Cartela de cores</a></footer>
+  <footer><div class="footer-main"><a class="brand-logo" href="/" aria-label="SOLUA HOME, início"><img src="/files/solua-logo.jpg" alt="SOLUA HOME"></a><p>A tua luz. A tua escolha.</p><a href="#cortinas">Cortinas</a><a href="#guia">Como escolher</a><a href="/colors">Cartela de cores</a></div><div class="footer-bottom"><span>© 2026 SOLUA HOME</span><span>Imagens de ambiente e classificações marcadas como provisórias</span></div></footer>
 </body>
 </html>
