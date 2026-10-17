@@ -25,6 +25,9 @@ my_custom_app_example/solua_home/public/js/a4_print_designer_title_notes_v6.js
 my_custom_app_example/solua_home/public/js/doctype_module_filter.js
 my_custom_app_example/solua_home/public/js/document_table_export.js
 my_custom_app_example/solua_home/public/js/item_list_metrics.js
+my_custom_app_example/solua_home/public/js/item_list_metrics_v20261017.js
+my_custom_app_example/solua_home/api/item_price_bulk.py
+my_custom_app_example/solua_home/tests/item_price_bulk_query_check.py
 my_custom_app_example/solua_home/public/js/sales_order_list_tools.js
 my_custom_app_example/solua_home/public/js/wholesale_forms.js
 my_custom_app_example/solua_home/public/js/wholesale_forms_additional_notes_loader_v2.js
@@ -93,3 +96,6 @@ my_custom_app_example/solua_home/tests/quantity_display_precision_check.cjs
 my_custom_app_example/solua_home/tests/quantity_precision_check.py
 my_custom_app_example/solua_home/public/js/sales_order_item_query_v20261014.js
 my_custom_app_example/solua_home/api/sales_order_item_query.py
+my_custom_app_example/solua_home/public/js/wholesale_forms_additional_notes_loader_v19.js
+my_custom_app_example/solua_home/public/js/wholesale_forms_stock_entry_v20261017.js
+my_custom_app_example/solua_home/public/js/pick_list_order_reconciliation_v20261009d.js

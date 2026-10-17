@@ -1,10 +1,10 @@
 // Item list script: column widths are pinned and the refresh button stays wired.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
 const base = path.join(__dirname, "..");
-const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics.js"), "utf8");
+const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017.js"), "utf8");
 
 const calls = [], alerts = [], buttons = [];
-let loaded = 0, inherited = 0;
+let loaded = 0, inherited = 0, dialog;
 const sandbox = {
 	window: {},
 	frappe: {
@@ -13,6 +13,7 @@ const sandbox = {
 		listview_settings: { Item: { inherited_key: 1, onload() { inherited += 1; } } },
 		call: (options) => { calls.push(options); return Promise.resolve({ message: { updated: 93 } }); },
 		show_alert: (alert) => alerts.push(alert),
+		ui: { Dialog: class { constructor(options) { dialog = options; } show() {} } },
 	},
 	__: (text, args) => (Array.isArray(args) ? args.reduce((out, v, i) => out.replace(`{${i}}`, v), text) : text),
 	console,
@@ -47,6 +48,11 @@ assert.equal(applied.item_name, undefined, "columns without a configured width s
 assert.equal(buttons.length, 2);
 assert(buttons[0].label, "刷新库存与售价");
 assert(buttons[1].label, "批量修改物料价格");
+buttons[1].action();
+assert.equal(dialog.fields.find((field) => field.fieldname === "item_code").get_query().query,
+	"solua_home.api.item_price_bulk.item_query", "bulk prices must bypass ERPNext's template-excluding Item query");
+assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017.js"'),
+	"Item list must load the versioned selector fix");
 buttons[0].action();
 assert.equal(calls.at(-1).method, "solua_home.item_metrics.refresh_all_item_metrics");
 return Promise.resolve().then(() => {
