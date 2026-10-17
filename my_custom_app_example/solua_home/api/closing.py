@@ -22,7 +22,7 @@ def get_today_closing(pos_profile=None):
             closing_name: str,       # 交班单名称（如有）
             closing_status: str,     # Draft/Submitted
             invoice_count: int,      # 当日 POS 发票数
-            total_amount: float,     # 当日总销售额
+            total_amount: float,     # 当日销售净额（退货发票以负数计入）
             payments: [...],         # 各支付方式汇总
             period_start: str,       # 班次开始时间
         }

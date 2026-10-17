@@ -758,6 +758,8 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 ["parent", "attribute_value"], limit=0,
             )}
     result = []
+    from solua_home.api.color_card import get_item_color_image
+
     for template_doc in templates:
         template_order_code = template_doc.get("custom_order_code") or template_doc.item_code
         variant_rows = _list(
@@ -774,7 +776,7 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 "item_code": row.item_code,
                 "item_name": row.item_name,
                 "stock_uom": row.stock_uom,
-                "image": row.get("custom_swatch_image") or row.get("image") or "",
+                "image": get_item_color_image(row) or "",
                 "color": attributes.get(row.name, ""),
                 # Native Cor is current; custom_color_code is legacy-only compatibility.
                 "color_code": attributes.get(row.name) or row.get("custom_color_code") or "",

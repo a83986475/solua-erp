@@ -71,7 +71,7 @@ def get_solua_print_css(with_logo=True):
 .print-format .col-traceability {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 .print-format .col-sku {{ min-width: 24mm; width: 24mm; }}
 .print-format .col-barcode {{ min-width: 30mm; width: 30mm; }}
-.print-format .col-qty {{ min-width: 17mm; width: 17mm; }}
+.print-format .col-qty, .print-format .col-picked {{ min-width: 17mm; width: 17mm; white-space: nowrap; }}
 .print-format .col-uom {{ min-width: 10mm; width: 10mm; }}
 .print-format .col-rate, .print-format .col-amount {{ min-width: 22mm; width: 22mm; }}
 .print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}
@@ -112,6 +112,15 @@ def _clean_item_text(value):
     return " ".join(html.unescape(text).split())
 
 
+
+
+CHINESE_BARCODE_NOTE = "厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。"
+
+def _clean_chinese_print_description(value):
+    text = _clean_item_text(value).replace(CHINESE_BARCODE_NOTE, "")
+    return re.sub(r"；{2,}", "；", text).strip("； ")
+
+
 def _usable_barcode(value, item_code):
     value = str(value or "").strip()
     return value if value and value != str(item_code or "").strip() else ""
@@ -122,7 +131,7 @@ def _item_master(item_code):
         return {}
     fields = ["variant_of", "description"]
     meta = frappe.get_meta("Item")
-    for field in ("custom_item_description_pt", "custom_label_barcode", "image", "custom_swatch_image"):
+    for field in ("custom_item_description_pt", "custom_chinese_name", "custom_label_barcode", "image", "custom_swatch_image"):
         if meta.has_field(field):
             fields.append(field)
     data = frappe.db.get_value("Item", item_code, fields, as_dict=True) or {}
@@ -137,17 +146,20 @@ def _absolute_print_image(value):
     return get_url(value) if callable(get_url) else value
 
 
-def _template_customer_display(source):
+def _template_customer_display(source, color_language="pt"):
     """Use only the template's image and description for merged customer rows."""
     template_code = str(source.get("template_code") or "").strip()
     if not template_code:
         item = _item_master(source.get("item_code"))
         template_code = str(item.get("variant_of") or source.get("item_code") or "").strip()
     template = _item_master(template_code)
+    description = (_clean_chinese_print_description(template.get("description"))
+                   if color_language == "zh"
+                   else (_clean_item_text(template.get("custom_item_description_pt"))
+                         or _clean_item_text(template.get("description"))))
     return {
         "image": _absolute_print_image(template.get("custom_swatch_image") or template.get("image")),
-        "description": (_clean_item_text(template.get("custom_item_description_pt"))
-                        or _clean_item_text(template.get("description"))),
+        "description": description,
     }
 
 
@@ -351,16 +363,23 @@ def _add_print_numbers(left, right):
         return left if right in (None, "") else right
 
 
-def _merge_customer_print_items(items):
+def _merge_customer_print_items(items, rod_color_boxes=False, color_language="pt"):
     """Merge customer-facing rows while keeping the transaction rows untouched."""
     merged = []
     positions = {}
+    color_boxes = {}
     for source in items or []:
         order_code = str(source.get("order_code") or "").strip()
         if not order_code:
             merged.append(dict(source))
             continue
         key = (order_code, str(source.get("uom") or ""), _print_number_key(source.get("rate")))
+        if (rod_color_boxes and source.get("uom") == PACK_UOM
+                and frappe.get_cached_value("Item", source.get("template_code") or source.get("item_code"),
+                                            "item_group") == "窗帘杆"):
+            color = source.get("color_code") or source.get("color") or source.get("item_code")
+            colors = color_boxes.setdefault(key, {})
+            colors[color] = _add_print_numbers(colors.get(color), source.get("qty"))
         position = positions.get(key)
         if position is None:
             row = dict(source)
@@ -372,13 +391,22 @@ def _merge_customer_print_items(items):
         target = merged[position]
         if not target.get("customer_merged"):
             target["item_name"] = target.get("template_name") or target.get("item_name")
-            target.update(_template_customer_display(target))
+            target.update(_template_customer_display(target, color_language=color_language))
             target["customer_merged"] = True
         for fieldname in ("qty", "amount", "ordered_qty", "delivered_before_qty", "remaining_qty"):
             value = source.get(fieldname)
             if value is None:
                 continue
             target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
+    for key, colors in color_boxes.items():
+        target = merged[positions[key]]
+        if target.get("customer_merged"):
+            if color_language == "zh":
+                detail = "；".join(f"{color}：{qty:g}箱" for color, qty in colors.items())
+                target["description"] = f"{target.get('description') or ''}；颜色：{detail}".lstrip("；")
+            else:
+                detail = "; ".join(f"{color}: {qty:g} Cx" for color, qty in colors.items())
+                target["description"] = f"{target.get('description') or ''}; Cores: {detail}".lstrip("; ")
     return merged
 
 
@@ -440,6 +468,13 @@ def format_print_money(value, currency=None, precision=0):
                                   precision=0 if precision is None else precision)
 
 
+def _cash_discount_excluded(doc):
+    if doc.get("selling_price_list") == "Wholesale Selling 3":
+        return True
+    customer = doc.get("customer")
+    return bool(customer and frappe.db.get_value("Customer", customer, "default_price_list") == "Wholesale Selling 3")
+
+
 def get_cash_discount_info(doc):
     """Read a submitted cash discount for a Sales Invoice without changing it."""
     if doc.doctype != "Sales Invoice" or not doc.get("name"):
@@ -475,7 +510,17 @@ def get_cash_discount_info(doc):
                 "rate": round(amount / total * 100, 3),
                 "amount": amount,
                 "cash_paid": round(total - amount, 2),
+                "is_estimate": False,
             }
+    if doc.get("payment_terms_template") == "PRONTO PAGAMENTO" and not _cash_discount_excluded(doc):
+        amount = round(total * 0.03, 2)
+        return {
+            "enabled": True,
+            "rate": 3,
+            "amount": amount,
+            "cash_paid": round(total - amount, 2),
+            "is_estimate": True,
+        }
     return {"enabled": False}
 
 
@@ -763,7 +808,7 @@ def _recover_delivery_quantities(doc, data):
     )
 
 
-def get_wholesale_print_data(doc, live=False):
+def get_wholesale_print_data(doc, live=False, color_language="pt"):
     frozen = None if live else _snapshot(doc)
     # Legacy prints are visibly identified; never write/backfill while printing.
     data = frozen or _collect(doc, use_snapshot=not live)
@@ -791,9 +836,25 @@ def get_wholesale_print_data(doc, live=False):
     customer_print = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
     if customer_print:
         _refresh_customer_item_images(data)
+        data["customer_merged"] = False
+    if color_language == "zh":
+        for item in data.get("items") or []:
+            master = _item_master(item.get("item_code"))
+            item["item_name"] = (_clean_item_text(master.get("custom_chinese_name"))
+                                  or item.get("item_name") or item.get("item_code"))
+            item["description"] = _clean_chinese_print_description(
+                master.get("description") or item.get("description") or ""
+            )
+            if frappe.get_cached_value("Item", item.get("template_code") or item.get("item_code"), "item_group") == "窗帘杆":
+                color = frappe.get_cached_value("Item", item.get("item_code"), "custom_pos_short_name") or item.get("color")
+                if color:
+                    item["color_code"] = item["color"] = color
+                    item["description"] = f"{item['description']}；颜色：{color}".lstrip("；")
     if customer_print and doc.get("custom_print_merge_order_code"):
-        data["items"] = _merge_customer_print_items(data.get("items"))
-        data["customer_merged"] = any(item.get("customer_merged") for item in data.get("items") or [])
+        original_count = len(data.get("items") or [])
+        data["items"] = _merge_customer_print_items(data.get("items"), rod_color_boxes=doc.doctype == "Sales Order",
+                                                  color_language=color_language)
+        data["customer_merged"] = len(data["items"]) < original_count
     if doc.doctype == "Delivery Note":
         _recover_delivery_quantities(doc, data)
         data["has_traceability"] = any(

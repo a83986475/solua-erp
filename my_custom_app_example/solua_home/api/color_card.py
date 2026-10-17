@@ -117,12 +117,15 @@ def get_item_color_image(item):
                 "attached_to_name": item.get("name") or item_code,
                 "is_private": 0,
             },
-            fields=["file_url", "file_name"],
+            fields=["file_url", "file_name", "attached_to_field"],
             order_by="creation asc",
             limit_page_length=50,
         ):
             file_name = str(file_row.get("file_name") or file_row.get("file_url") or "")
-            if item_code.casefold() in file_name.casefold() and file_name.lower().split("?")[0].endswith(image_extensions):
+            is_image = file_name.lower().split("?")[0].endswith(image_extensions)
+            if is_image and file_row.get("attached_to_field") == "custom_swatch_image":
+                return file_row.get("file_url") or ""
+            if is_image and item_code.casefold() in file_name.casefold():
                 return file_row.get("file_url") or ""
 
         return template_image or item_image

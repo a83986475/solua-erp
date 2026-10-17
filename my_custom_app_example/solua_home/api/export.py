@@ -31,8 +31,8 @@ SOLUA_PDF_MARGINS = {
     "margin-right": "8mm",
 }
 SOLUA_PDF_ZOOM = "1.00"
-SOLUA_MOBILE_PDF_ZOOM = "0.85"
-SOLUA_MOBILE_PDF_ZOOM_BY_DOCTYPE = {"Sales Invoice": "0.90"}
+SOLUA_MOBILE_PDF_ZOOM = SOLUA_PDF_ZOOM
+SOLUA_MOBILE_PDF_ZOOM_BY_DOCTYPE = {}
 
 
 def _mobile_pdf_zoom(doctype):
@@ -327,6 +327,30 @@ def _safe_sales_order_filename(value):
     return value[:100] or "未命名"
 
 
+_CUSTOMER_GENERIC_NAME_RE = re.compile(
+    r"(?<!\w)(?:L\.?\s*D\.?\s*A\.?|SU|SUPERMERCADO|SUPERMARKET|SUPER\s+MARKET)(?!\w)",
+    re.IGNORECASE,
+)
+
+
+def _sales_order_customer_stem(value):
+    original = str(value or "").strip()
+    generic_match = re.search(r"(?<!\w)(?:SUPERMERCADO|SUPERMARKET|SUPER\s+MARKET)(?!\w)", original, re.IGNORECASE)
+    cleaned = _CUSTOMER_GENERIC_NAME_RE.sub(" ", original)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,.-")
+    if len(re.findall(r"[^\W_]", cleaned, re.UNICODE)) < 3 and generic_match:
+        cleaned = f"{generic_match.group(0)} {cleaned}".strip()
+    cleaned = re.sub(r"[^\w]+", "_", cleaned, flags=re.UNICODE).strip("_")
+    return cleaned[:100] or "未命名"
+
+
+def _sales_order_customer_pdf_filename(doc):
+    customer = _sales_order_customer_stem(doc.get("customer_name") or doc.get("customer"))
+    order_tail = _safe_sales_order_filename(doc.name)[-4:]
+    date = _document_date(doc, "transaction_date")
+    return f"{customer}_{order_tail}_{date[4:6]}-{date[6:8]}.pdf"
+
+
 PDF_EXPORT_CONFIG = {
     "Sales Order": ("transaction_date", "客户确认单"),
     "Delivery Note": ("posting_date", "交货单"),
@@ -431,6 +455,9 @@ def _render_document_html(doc, print_format, merge_customer=False, doctype=None)
     from copy import copy
 
     doctype = doctype or doc.doctype
+    if merge_customer and doctype == "Sales Order":
+        from solua_home.api.a4_designer import _customer_print_format
+        print_format = _customer_print_format(doctype, doc.get("customer"))
     print_doc = doc
     if merge_customer and doctype in ("Sales Order", "Delivery Note"):
         print_doc = copy(doc)
@@ -459,10 +486,8 @@ def _render_document_pdf(doc, print_format, merge_customer=False, doctype=None, 
 
     doctype = doctype or doc.doctype
     html = _render_document_html(doc, print_format, merge_customer=merge_customer, doctype=doctype)
-    options = {"page-size": "A4", **SOLUA_PDF_MARGINS, "zoom": SOLUA_PDF_ZOOM}
-    if cint(mobile):
-        options["zoom"] = _mobile_pdf_zoom(doctype)
-    return get_pdf(html, options)
+    options = _solua_pdf_options(doctype, print_format, mobile=mobile)
+    return get_pdf(html, options, smart_shrinking=True)
 
 
 def _document_date(doc, date_field):
@@ -562,8 +587,12 @@ def _with_solua_bulk_pdf_margins(doctype, print_format, options):
     parsed = frappe.parse_json(options) if options else {}
     if not isinstance(parsed, dict) or parsed.get("page-size") not in (None, "A4"):
         return options
-    for key, value in SOLUA_PDF_MARGINS.items():
-        parsed.setdefault(key, value)
+    if _is_designer_print_format(print_format):
+        for key in SOLUA_PDF_MARGINS:
+            parsed[key] = "0mm"
+    else:
+        for key, value in SOLUA_PDF_MARGINS.items():
+            parsed.setdefault(key, value)
     parsed.setdefault("zoom", SOLUA_PDF_ZOOM)
     return frappe.as_json(parsed)
 
@@ -573,11 +602,23 @@ def _is_solua_bulk_format(doctype, print_format):
     return bool(doctypes & SOLUA_BULK_PDF_DOCTYPES)
 
 
+def _is_designer_print_format(print_format):
+    if not print_format:
+        return False
+    html = frappe.db.get_value("Print Format", print_format, "html") or ""
+    return "SOLUA_A4_DESIGNER:v1:" in html
+
+
 def _solua_pdf_options(doctype, print_format, mobile=False):
     """Return A4 page parameters while leaving the selected print format unchanged."""
     if doctype not in SOLUA_BULK_PDF_DOCTYPES:
         return {}
-    options = {"page-size": "A4", **SOLUA_PDF_MARGINS, "zoom": SOLUA_PDF_ZOOM}
+    margins = (
+        {key: "0mm" for key in SOLUA_PDF_MARGINS}
+        if _is_designer_print_format(print_format)
+        else SOLUA_PDF_MARGINS
+    )
+    options = {"page-size": "A4", **margins, "zoom": SOLUA_PDF_ZOOM}
     if cint(mobile):
         options["zoom"] = _mobile_pdf_zoom(doctype)
     return options
@@ -596,6 +637,9 @@ def download_pdf(
         pdf_generator = "wkhtmltopdf"
     doc = doc or frappe.get_doc(doctype, name)
     validate_print_permission(doc)
+    if doctype == "Sales Order" and (not format or format in ("ORDER CONFIRMACAO(PT）", "客户订单确认单（中文颜色版）")):
+        from solua_home.api.a4_designer import _customer_print_format
+        format = _customer_print_format(doctype, doc.get("customer"))
     pdf_options = _solua_pdf_options(doctype, format, mobile=mobile)
     with print_language(language):
         if pdf_options and pdf_generator == "wkhtmltopdf":
@@ -610,7 +654,7 @@ def download_pdf(
                 letterhead=letterhead,
                 no_letterhead=no_letterhead,
             )
-            pdf_file = get_pdf(_optimize_pdf_images(html), pdf_options)
+            pdf_file = get_pdf(_optimize_pdf_images(html), pdf_options, smart_shrinking=True)
         else:
             pdf_file = frappe.get_print(
                 doctype,
@@ -623,7 +667,9 @@ def download_pdf(
                 pdf_generator=pdf_generator,
                 pdf_options=pdf_options,
             )
-    frappe.local.response.filename = f"{name}.pdf"
+    frappe.local.response.filename = (
+        _sales_order_customer_pdf_filename(doc) if doctype == "Sales Order" else f"{name}.pdf"
+    )
     frappe.local.response.filecontent = pdf_file
     frappe.local.response.type = "pdf"
 
@@ -665,7 +711,12 @@ def _render_multi_pdf(
                 no_letterhead=no_letterhead,
                 letterhead=letterhead,
             )
-            get_pdf(_optimize_pdf_images(html), options=dict(pdf_options), output=pdf_writer)
+            get_pdf(
+                _optimize_pdf_images(html),
+                options=dict(pdf_options),
+                output=pdf_writer,
+                smart_shrinking=True,
+            )
         except Exception:
             if task_id:
                 frappe.publish_realtime(task_id=task_id, message={"message": "Failed"})
@@ -797,8 +848,12 @@ def download_document_pdfs(doctype, names):
                 doctype=doctype,
             )
             date = _document_date(doc, date_field)
-            customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
-            filename = f"{date}_{_safe_sales_order_filename(doc.name)}_{customer}_{document_label}.pdf"
+            filename = (
+                _sales_order_customer_pdf_filename(doc)
+                if doctype == "Sales Order"
+                else f"{date}_{_safe_sales_order_filename(doc.name)}_"
+                f"{_safe_sales_order_filename(doc.get('customer_name') or doc.get('customer'))}_{document_label}.pdf"
+            )
             if filename in used_names:
                 filename = filename.replace(".pdf", f"_{len(used_names) + 1}.pdf")
             used_names.add(filename)
@@ -819,8 +874,7 @@ def download_sales_order_customer_pdf(name, mobile=0):
     if not print_format:
         frappe.throw(_("销售订单没有可用的打印格式"))
     pdf = _render_document_pdf(doc, print_format, merge_customer=True, mobile=mobile)
-    customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
-    filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户订单.pdf"
+    filename = _sales_order_customer_pdf_filename(doc)
     frappe.local.response.filename = filename
     frappe.local.response.filecontent = pdf
     frappe.local.response.type = "pdf"
@@ -863,7 +917,7 @@ def download_sales_order_package(names, merge_customer=1):
             _write_unique(
                 output,
                 used_names,
-                f"{folder}/01_销售订单_{_safe_sales_order_filename(sales_order.name)}.pdf",
+                f"{folder}/01_{_sales_order_customer_pdf_filename(sales_order)}",
                 _render_document_pdf(sales_order, print_formats["Sales Order"], merge_customer=True),
             )
             customer_suffix = "合并" if merge_customer else "不合并"

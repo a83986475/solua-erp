@@ -3,7 +3,7 @@ import json
 
 import frappe
 
-PICK_LIST_PRINT_FORMAT = "拣货单（简版）"
+PICK_LIST_PRINT_FORMAT = "拣货单"
 SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
 WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
@@ -106,9 +106,10 @@ def install_wholesale_only():
         ensure_wholesale_module()
         add_wholesale_fields(commit=False)
         base = os.path.dirname(__file__)
-        for folder in ("sales_order_wholesale_color", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
+        for folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
             import_file_by_path(os.path.join(base, "print_format", folder, folder + ".json"),
                                 force=True, ignore_version=True)
+        _lock_customer_sku_print_format()
         import_file_by_path(os.path.join(base, "solua_wholesale", "page", "solua_home", "solua_home.json"),
                             force=True, ignore_version=True)
         page = frappe.get_doc("Page", "solua-home")
@@ -131,7 +132,7 @@ def install_wholesale_only():
             if not callable(frappe.get_attr(method)):
                 raise RuntimeError("Invalid hook: " + method)
         for name, expected_module in (
-            ("客户订单确认单（颜色版）", "Solua Wholesale"),
+            ("ORDER CONFIRMACAO(PT）", "Solua Wholesale"),
             ("批发销售单（颜色版）", "Solua Home 定制"),
             ("Guia de Remessa", "Solua Wholesale"),
         ):
@@ -207,15 +208,22 @@ def sync_cash_discount_print_formats():
         html = doc.html or ""
         original = html
         html = html.replace("{{ _('批发销售单') }}", "Factura / 销售单").replace("Venda por atacado / 批发销售单", "Factura / 销售单")
+        html = html.replace(
+            "现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)",
+            "{{ '现金付款折扣参考 / Desconto pronto pagamento de referência' if cd.get('is_estimate') else '现金付款折扣 / Desconto pronto pagamento' }} ({{ cd.rate }}%)",
+        ).replace(
+            "现金实收 / Valor recebido em numerário",
+            "{{ '现金实收参考 / Valor de referência em numerário' if cd.get('is_estimate') else '现金实收 / Valor recebido em numerário' }}",
+        )
         if "wholesale-cash-summary" not in html:
             start = html.find("\n{% set cd = p.get('cash_discount') or {} %}")
             end = html.find("\n{% if doc.get('custom_print_color_qr') %}", start)
             if start >= 0 and end >= 0:
                 html = html[:start] + html[end:]
             cash_rows = ("{% set cd = p.get('cash_discount') or {} %}{% if cd.get('enabled') %}"
-                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>现金付款折扣 / Desconto pronto pagamento ({{ cd.rate }}%)</td><td style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr>"
-                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9'>现金实收 / Valor recebido em numerário</td><td style='text-align:right;background:#f5f1e9'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}")
-            marker = "</tfoot>\n</table>"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>{{ '现金付款折扣参考 / Desconto pronto pagamento de referência' if cd.get('is_estimate') else '现金付款折扣 / Desconto pronto pagamento' }} ({{ cd.rate }}%)</td><td style='text-align:right;background:#f5f1e9;border-top:2px solid #d8c49b'>-{{ format_print_money(cd.amount, currency=doc.currency) }}</td></tr>"
+                         "<tr class='wholesale-cash-summary'><td colspan='{{ " + colspan + " }}' style='text-align:right;background:#f5f1e9'>{{ '现金实收参考 / Valor de referência em numerário' if cd.get('is_estimate') else '现金实收 / Valor recebido em numerário' }}</td><td style='text-align:right;background:#f5f1e9'><b>{{ format_print_money(cd.cash_paid, currency=doc.currency) }}</b></td></tr>{% endif %}")
+            marker = "</tfoot>"
             if marker in html:
                 html = html.replace(marker, cash_rows + marker, 1)
         if "wholesale-title" in html and ".wholesale-cash-summary" not in html:
@@ -277,7 +285,7 @@ def configure_sales_invoice_printing():
 def configure_pick_list_printing():
     """拣货单默认打印格式 + 单据单位下拉只列已维护换算关系的单位
 
-    2026-09-26：现场拣货用「拣货单（简版）」（SPU/SKU/数量 + 拣货人/司机双列确认）。
+    2026-09-26：现场拣货用「拣货单」（SPU/SKU/数量 + 拣货人/司机双列确认）。
     Stock Settings 的 allow_uom_with_conversion_rate_defined_in_item 打开后，
     单据行的单位下拉只列出该货号 UOM Conversion Detail 里已维护的单位（ERPNext
     保证每个物料至少有一行本位单位），避免选到没有换算关系的单位而被按 1:1 算错数量。
@@ -326,13 +334,61 @@ def sync_standard_print_formats():
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
+    _sync_pdf_page_margins()
+
+
+def _sync_pdf_page_margins():
+    """Make the three active A4 formats repeat the page margin on every page."""
+    marker = "/* SOLUA_PDF_PAGE_MARGIN_V4 */"
+    css = (
+        "\n" + marker + "\n"
+        "@page{size:A4!important;}"
+        ".print-format{margin-top:12mm!important;margin-right:0!important;margin-bottom:0!important;margin-left:0!important;padding:0 8mm 8mm!important;max-width:none!important;width:100%!important;box-sizing:border-box!important;}"
+    )
+    invoice_name = "FACTURA A4（8mm边距） v2 v3"
+    for name in ("Guia de Remessa", "拣货单", invoice_name):
+        if not frappe.db.exists("Print Format", name):
+            continue
+        doc = frappe.get_doc("Print Format", name)
+        if name == invoice_name:
+            html = doc.html or ""
+            invoice_css = css + ".print-format{min-height:285mm!important;} .print-format table.items{table-layout:fixed!important;}"
+            if marker in html:
+                continue
+            closing = html.rfind("</style>")
+            if closing < 0:
+                raise RuntimeError("Active invoice Print Format has no style block")
+            doc.html = html[:closing] + invoice_css + html[closing:]
+        else:
+            if marker in (doc.css or ""):
+                continue
+            format_css = css
+            if name == "Guia de Remessa":
+                format_css += (
+                    ".print-format table.items{table-layout:fixed!important;width:100%!important;font-size:8pt!important;}"
+                    ".print-format table.items th,.print-format table.items td{min-width:0!important;overflow-wrap:break-word!important;word-break:normal!important;white-space:normal!important;}"
+                    ".print-format .col-sku,.print-format .col-barcode{white-space:nowrap!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(1),.print-format table.items tbody tr>:nth-child(1){width:5%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(2),.print-format table.items tbody tr>:nth-child(2){width:8%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(3),.print-format table.items tbody tr>:nth-child(3){width:8%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(4),.print-format table.items tbody tr>:nth-child(4){width:9%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(5),.print-format table.items tbody tr>:nth-child(5){width:13%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(6),.print-format table.items tbody tr>:nth-child(6){width:18%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(7),.print-format table.items tbody tr>:nth-child(7){width:10%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(8),.print-format table.items tbody tr>:nth-child(8){width:9%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(9),.print-format table.items tbody tr>:nth-child(9){width:6%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(10),.print-format table.items tbody tr>:nth-child(10){width:7%!important;}"
+                    ".print-format table.items tr:nth-child(2)>:nth-child(11),.print-format table.items tbody tr>:nth-child(11){width:7%!important;}"
+                )
+            doc.css = (doc.css or "") + format_css
+        doc.save(ignore_permissions=True)
 
 
 def _sync_additional_notes_print_format(folder):
     """保持三种批发单据的补充说明开关和输出幂等。"""
     specs = {
         "sales_order_wholesale_color": (
-            "客户订单确认单（颜色版）",
+            "ORDER CONFIRMACAO(PT）",
             "{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else 1 %}",
             "{% if doc.get('custom_print_color_qr') %}",
         ),
@@ -342,7 +398,7 @@ def _sync_additional_notes_print_format(folder):
             "{% if doc.get('custom_print_color_qr') %}",
         ),
         "pick_list_simple": (
-            "拣货单（简版）",
+            "拣货单",
             "{% set p = get_pick_list_print_data(doc) %}",
             '<div id="footer-html"',
         ),
@@ -352,7 +408,95 @@ def _sync_additional_notes_print_format(folder):
         return
     name, set_marker, output_marker = spec
     doc = frappe.get_doc("Print Format", name) if frappe.db.exists("Print Format", name) else None
-    if not doc or "custom_print_additional_notes" in doc.html:
+    if not doc:
+        return
+    if folder == "sales_order_wholesale_color":
+        fit_marker = "/* SOLUA_PDF_FIT_V6 */"
+        fit_css = (
+            "\n" + fit_marker + "\n"
+            "@page{size:A4!important;}"
+            ".print-format{margin-top:12mm!important;margin-right:0!important;margin-bottom:0!important;margin-left:0!important;padding:0 8mm 8mm!important;max-width:none!important;width:100%!important;box-sizing:border-box!important;}"
+            ".print-format .solua-brand .solua-global-logo{top:0!important;}"
+            ".print-format table.items{table-layout:auto!important;width:100%!important;}"
+            ".print-format table.items th,.print-format table.items td{min-width:0!important;}"
+            ".print-format table.items .col-item{width:24mm!important;}"
+            ".print-format table.items .col-sku{width:27mm!important;}"
+            ".print-format table.items .col-barcode{width:31mm!important;}"
+            ".print-format table.items .col-description{width:50mm!important;}"
+            ".print-format table.items .col-qty{width:17mm!important;}"
+            ".print-format table.items .col-uom{width:10mm!important;}"
+            ".print-format table.items .col-rate,.print-format table.items .col-amount{width:22mm!important;}"
+            ".print-format table.items .col-color-code,.print-format table.items .col-cor{display:none!important;}"
+            ".print-format table.items .col-sku,.print-format table.items .col-barcode{"
+            "overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;}"
+        )
+        html = doc.html or ""
+        changed = False
+        if fit_marker not in (doc.css or ""):
+            doc.css = (doc.css or "") + fit_css
+            changed = True
+        replacements = (
+            (
+                "{% set show_color_code = doc.get('custom_print_color_code') if doc.get('custom_print_color_code') is not none else 1 %}",
+                "{% set show_color_code = 0 %}",
+            ),
+            (
+                "{% set show_cor = doc.get('custom_print_cor') if doc.get('custom_print_cor') is not none else 0 %}",
+                "{% set show_cor = 0 %}",
+            ),
+            (
+                "{% if doc.get('custom_print_color_images') and item.image %}",
+                "{% if item.image %}",
+            ),
+            (
+                "{% if show_item_name %}<td>{% if doc.get('custom_print_color_images')",
+                "{% if show_item_name %}<td class=\"col-item\">{% if item.image %}",
+            ),
+            (
+                "{% if show_item_name %}<td class=\"col-item\">{% if doc.get('custom_print_color_images')",
+                "{% if show_item_name %}<td class=\"col-item\">{% if item.image %}",
+            ),
+            ("<th>Qt/数量</th>", "<th class=\"col-qty\">Qt/数量</th>"),
+            (
+                '<th class="col-barcode">条码 / Código de barras</th>',
+                '<th class="col-barcode">EAN</th>',
+            ),
+            (
+                '<td class="num">{{ format_print_money(item.rate, currency=doc.currency) }}</td><td class="num">{{ format_print_money(item.amount, currency=doc.currency) }}</td>',
+                '<td class="col-rate num">{{ format_print_money(item.rate, currency=doc.currency) }}</td><td class="col-amount num">{{ format_print_money(item.amount, currency=doc.currency) }}</td>',
+            ),
+        )
+        for old, new in replacements:
+            updated = html.replace(old, new, 1)
+            if updated != html:
+                html = updated
+                changed = True
+        if html != doc.html:
+            doc.html = html
+        if changed:
+            doc.save(ignore_permissions=True)
+    if folder == "sales_order_wholesale_color":
+        variant_codes = (
+            "{% if not p.get('customer_merged') and item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+            "{% if item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+        )
+        html = doc.html or ""
+        payment_marker = '<div class="block">Plano de pagamento / 付款安排:'
+        payment_start = html.find(payment_marker)
+        if payment_start >= 0:
+            payment_end = html.find("</div>", payment_start)
+            if payment_end >= 0:
+                html = html[:payment_start] + html[payment_end + len("</div>"):]
+        for variant_code in variant_codes:
+            html = html.replace(variant_code, "")
+        html = html.replace(
+            "{{ (item.order_code or item.item_code) | e }}",
+            "{{ (item.order_code if p.get('customer_merged') else item.item_code) | e }}",
+        )
+        if html != doc.html:
+            doc.html = html
+            doc.save(ignore_permissions=True)
+    if "custom_print_additional_notes" in doc.html:
         return
     show_set = "{% set show_additional_notes = doc.get('custom_print_additional_notes') if doc.get('custom_print_additional_notes') is not none else 1 %}"
     note = "{% if show_additional_notes and doc.get('custom_additional_notes') %}<div class=\"block\">补充说明 / Observações: {{ doc.get('custom_additional_notes') | e }}</div>{% endif %}"
@@ -360,6 +504,30 @@ def _sync_additional_notes_print_format(folder):
     html = html.replace(output_marker, note + output_marker, 1)
     doc.html = html
     doc.save(ignore_permissions=True)
+
+
+def _lock_customer_sku_print_format():
+    """Keep customer SKU output canonical after force-importing print-format JSON."""
+    name = "ORDER CONFIRMACAO(PT）"
+    try:
+        doc = frappe.get_doc("Print Format", name)
+    except Exception:
+        return
+    html = doc.html or ""
+    old = "{{ (item.order_code or item.item_code) | e }}"
+    new = "{{ (item.order_code if p.get('customer_merged') else item.item_code) | e }}"
+    html = html.replace(old, new)
+    html = html.replace(
+        "{% if not p.get('customer_merged') and item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+        "",
+    )
+    html = html.replace(
+        "{% if item.order_code and item.item_code and item.order_code != item.item_code %}<br><small>{{ item.item_code | e }}</small>{% endif %}",
+        "",
+    )
+    if html != doc.html:
+        doc.html = html
+        doc.save(ignore_permissions=True)
 
 
 def sync_standard_pages():
@@ -1174,8 +1342,14 @@ def add_wholesale_fields(commit=True):
         {"dt": "Delivery Note Item", "fieldname": "custom_ordered_qty", "label": "订购数量", "fieldtype": "Float", "read_only": 1, "insert_after": "qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_delivered_before_qty", "label": "此前累计送货", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_ordered_qty"},
         {"dt": "Delivery Note Item", "fieldname": "custom_remaining_qty", "label": "本次后剩余", "fieldtype": "Float", "read_only": 1, "insert_after": "custom_delivered_before_qty"},
-        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "purpose"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order", "label": "销售订单", "fieldtype": "Link", "options": "Sales Order", "read_only": 1, "in_list_view": 1, "insert_after": "customer", "description": "记录本拣货单的销售订单来源，即使库存不足导致拣货行未生成。"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order_comparison_data", "label": "销售订单对比快照", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "no_copy": 1, "insert_after": "custom_sales_order"},
+        {"dt": "Pick List", "fieldname": "custom_pick_result", "label": "拣货结果", "fieldtype": "Select", "options": "待拣货\n已拣齐\n部分拣货\n缺货待补", "default": "待拣货", "insert_after": "purpose", "in_list_view": 1, "description": "打印后按实际拣货结果填写；部分拣货或缺货待补不会自动补齐数量。"},
+        {"dt": "Pick List", "fieldname": "custom_shortage_note", "label": "缺货说明", "fieldtype": "Small Text", "insert_after": "custom_pick_result", "description": "选择缺货待补时必填，记录缺货物料/数量及后续处理。"},
+        {"dt": "Pick List", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "insert_after": "custom_shortage_note"},
         {"dt": "Pick List", "fieldname": "custom_print_additional_notes", "label": "拣货单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_additional_notes"},
+        {"dt": "Pick List", "fieldname": "custom_order_comparison_tab", "label": "订单对比区", "fieldtype": "Tab Break", "insert_after": "locations"},
+        {"dt": "Pick List", "fieldname": "custom_sales_order_comparison", "label": "订单对比明细", "fieldtype": "HTML", "insert_after": "custom_order_comparison_tab"},
         {"dt": "Pick List Item", "fieldname": "custom_additional_notes", "label": "补充说明", "fieldtype": "Small Text", "read_only": 1, "in_list_view": 1, "insert_after": "description"},
     ]
     for field in fields:
@@ -1187,7 +1361,7 @@ def add_wholesale_fields(commit=True):
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] in {"Pick List", "Pick List Item"}:
-            updates = {key: field[key] for key in ("insert_after", "label", "read_only", "in_list_view") if key in field}
+            updates = {key: field[key] for key in ("insert_after", "label", "options", "default", "read_only", "hidden", "no_copy", "in_list_view", "description") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] == "Sales Order" and field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:

@@ -1,5 +1,5 @@
 (() => {
- const metrics = {orders: "总订单金额", invoices: "总开票金额", receivable: "总应收款", paid: "总已付金额", unbilled: "未开票金额"};
+ const metrics = {orders: "净订单金额", pending_delivery: "待交付订单金额", invoices: "开票净额", receivable: "净应收款", paid: "实际收款金额", delivered: "净送货金额", unbilled: "已交货未开票金额", returns: "退货核对"};
  const periods = {"本周": "week", "本月": "month", "本季度": "quarter", "本年": "year", "今天": "today", "自定义": "custom"};
  let restoring = false;
  const storageKey = metric => `solua-business-period:${frappe.session.user}:${metric}`;
@@ -11,7 +11,7 @@
    let saved = {};
    try { saved = JSON.parse(localStorage.getItem(storageKey(metric)) || "{}"); } catch (_) {}
    restoring = true;
-   return Promise.resolve(report.set_filter_value({period: saved.period || (metric === "unbilled" ? "本年" : "本月"), from_date: saved.from_date || "", to_date: saved.to_date || ""}))
+   return Promise.resolve(report.set_filter_value({period: saved.period || (["unbilled", "pending_delivery", "returns"].includes(metric) ? "本年" : "本月"), from_date: saved.from_date || "", to_date: saved.to_date || ""}))
     .finally(() => { restoring = false; if (!report._no_refresh) report.refresh(); });
    return;
   }
@@ -33,6 +33,16 @@
       if (result.invoice) { frappe.model.sync(result.invoice); frappe.set_route("Form", "Sales Invoice", result.invoice.name); }
      }).finally(() => { button.disabled = false; });
    });
+   report.page.main.off("click.solua-return-credit").on("click.solua-return-credit", "[data-return-delivery]", function () {
+    const button = this;
+    button.disabled = true;
+    frappe.call({method: "solua_home.api.return_reconciliation.prepare_return_invoice", args: {delivery_note: button.dataset.returnDelivery}, freeze: true, freeze_message: __("正在核对退货发票明细…")})
+     .then(response => {
+      const result = response.message || {};
+      if (result.draft_invoices?.length === 1) return frappe.set_route("Form", "Sales Invoice", result.draft_invoices[0]);
+      if (result.draft_invoices?.length) { frappe.route_options = {name: ["in", result.draft_invoices]}; return frappe.set_route("List", "Sales Invoice"); }
+     }).finally(() => { button.disabled = false; });
+   });
    // Explicit homepage ranges take priority for this visit; independent saved
    // metric settings remain available when the user returns without an override.
    if (report.get_filter_value("use_route_period")) {
@@ -41,7 +51,10 @@
    return changed(report, true);
   },
   formatter: (value, row, column, data, default_formatter) => {
-   if (column.fieldname === "action" && data?.name && data.doctype === "Delivery Note" && (data.can_invoice || data.draft_invoices?.length)) {
+   if (column.fieldname === "action" && data?.name && data.doctype === "Delivery Note" && data.is_return && (data.can_prepare_return || data.draft_invoices?.length)) {
+    return `<button type="button" class="btn btn-xs btn-primary" data-return-delivery="${frappe.utils.escape_html(data.name)}">${frappe.utils.escape_html(data.action)}</button>`;
+   }
+   if (column.fieldname === "action" && data?.name && data.doctype === "Delivery Note" && !data.is_return && (data.can_invoice || data.draft_invoices?.length)) {
     return `<button type="button" class="btn btn-xs btn-primary" data-bill-delivery="${frappe.utils.escape_html(data.name)}">${frappe.utils.escape_html(data.action)}</button>`;
    }
    return default_formatter(value, row, column, data);

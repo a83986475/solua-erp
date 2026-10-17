@@ -18,16 +18,18 @@ def pending_qty(row, invoiced_qty=0, returned_qty=0):
     return max(0, flt(row.get("qty")) - flt(invoiced_qty) - flt(returned_qty))
 
 
-def price_adjustment(row, returned_qty=0, covered_qty=0):
+def price_adjustment(row, returned_qty=0, covered_qty=0, invoice_amount=0):
     """Return a net rate/credit difference only after the physical quantity is covered."""
     qty = flt(row.get("qty"))
     returned_qty = flt(returned_qty)
     if covered_qty + returned_qty + 0.000001 < qty:
         return 0
-    billed = flt(row.get("billed_amt"))
-    if abs(billed - qty * flt(row.get("rate"))) <= 0.005:
+    if covered_qty <= 0:
         return 0
-    expected = max(0, qty - returned_qty) * flt(row.get("rate"))
+    expected = max(0, qty - returned_qty) * flt(row.get("base_rate", row.get("rate")))
+    # Credits can contain full negative item amounts plus a header discount.
+    # Use positive invoice lines, prorated for physical returns, not billed_amt.
+    billed = flt(invoice_amount) * min(1, max(0, qty - returned_qty) / covered_qty)
     return expected - billed
 
 
@@ -48,8 +50,8 @@ def _submitted_invoice_rows(company):
     if not _can_read("Sales Invoice"):
         return []
     return frappe.db.sql(
-        """SELECT sii.dn_detail, sii.delivery_note, sii.sales_order, sii.so_detail,
-                   sii.qty, sii.amount, si.is_return
+        """SELECT sii.name, sii.dn_detail, sii.delivery_note, sii.sales_order, sii.so_detail,
+                   sii.qty, sii.amount, sii.base_net_amount, si.is_return
              FROM `tabSales Invoice Item` sii
              JOIN `tabSales Invoice` si ON si.name = sii.parent
             WHERE si.company = %(company)s AND si.docstatus = 1""",
@@ -78,35 +80,53 @@ def _delivery_rows_by_so_detail(company, so_details):
     return result
 
 
-def invoice_qty_map(company, docs):
+def invoice_qty_map(company, docs, with_amounts=False):
     """Map each delivery row to submitted, non-credit-note invoice quantity."""
     invoice_rows = _submitted_invoice_rows(company)
     direct = {}
+    direct_amounts = {}
+    by_invoice_detail = {}
     so_totals = {}
+    so_amounts = {}
     for row in invoice_rows:
         if row.get("is_return"):
             continue
+        by_invoice_detail[row.get("name")] = row
         if row.get("dn_detail"):
             direct[row.get("dn_detail")] = direct.get(row.get("dn_detail"), 0) + flt(row.get("qty"))
+            direct_amounts[row.get("dn_detail")] = direct_amounts.get(row.get("dn_detail"), 0) + flt(row.get("base_net_amount"))
         elif row.get("so_detail"):
             so_totals[row.get("so_detail")] = so_totals.get(row.get("so_detail"), 0) + flt(row.get("qty"))
+            so_amounts[row.get("so_detail")] = so_amounts.get(row.get("so_detail"), 0) + flt(row.get("base_net_amount"))
 
     so_details = set(so_totals)
     delivery_rows = _delivery_rows_by_so_detail(company, so_details)
     so_allocated = {}
+    so_allocated_amounts = {}
     for detail, rows in delivery_rows.items():
-        so_allocated.update(allocate_sales_order_qty(
+        allocated = allocate_sales_order_qty(
             [dict(row, direct_invoiced_qty=direct.get(row.get("name"), 0)) for row in rows],
             so_totals.get(detail, 0),
-        ))
+        )
+        so_allocated.update(allocated)
+        rate = so_amounts.get(detail, 0) / so_totals[detail] if so_totals[detail] else 0
+        so_allocated_amounts.update({name: qty * rate for name, qty in allocated.items()})
 
     result = {}
+    amounts = {}
     for doc in docs:
         result[doc.name] = {
             row.name: direct.get(row.name, 0) + so_allocated.get(row.name, 0)
             for row in doc.items
         }
-    return result
+        amounts[doc.name] = {row.name: direct_amounts.get(row.name, 0) + so_allocated_amounts.get(row.name, 0)
+                             for row in doc.items}
+        for row in doc.items:
+            invoice = by_invoice_detail.get(row.si_detail) if getattr(row, "si_detail", None) else None
+            if invoice and flt(invoice.get("qty")) > 0:
+                result[doc.name][row.name] = flt(row.qty)
+                amounts[doc.name][row.name] = flt(invoice.get("base_net_amount")) * flt(row.qty) / flt(invoice.get("qty"))
+    return (result, amounts) if with_amounts else result
 
 
 def linked_drafts(company, notes, so_note_map=None):
@@ -124,6 +144,47 @@ def linked_drafts(company, notes, so_note_map=None):
     return result
 
 
+def _draft_sales_invoices_for_source(fieldname, source_name):
+    rows = frappe.get_all(
+        "Sales Invoice Item",
+        filters={fieldname: source_name, "parenttype": "Sales Invoice"},
+        pluck="parent",
+        limit_page_length=100,
+    )
+    if not rows:
+        return []
+    return [
+        row.name
+        for row in frappe.get_all(
+            "Sales Invoice",
+            filters={"name": ["in", list(dict.fromkeys(rows))], "docstatus": 0},
+            fields=["name"],
+            order_by="modified desc",
+            limit_page_length=100,
+        )
+    ]
+
+
+@frappe.whitelist()
+def make_sales_invoice(source_name, target_doc=None, args=None):
+    """Reuse a Delivery Note invoice draft before invoking the native mapper."""
+    drafts = _draft_sales_invoices_for_source("delivery_note", source_name)
+    if drafts:
+        return frappe.get_doc("Sales Invoice", drafts[0])
+    return billing_module().make_sales_invoice(source_name, target_doc, args=args)
+
+
+@frappe.whitelist()
+def make_sales_invoice_from_sales_order(source_name, target_doc=None, ignore_permissions=False, args=None):
+    """Reuse a Sales Order invoice draft before invoking the native mapper."""
+    drafts = _draft_sales_invoices_for_source("sales_order", source_name)
+    if drafts:
+        return frappe.get_doc("Sales Invoice", drafts[0])
+    from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice as native_make_sales_invoice
+
+    return native_make_sales_invoice(source_name, target_doc, ignore_permissions, args)
+
+
 def get_rows(company, start, end, customer=None):
     billing = billing_module()
     filters = {"company": company, "docstatus": 1, "is_return": 0,
@@ -139,7 +200,7 @@ def get_rows(company, start, end, customer=None):
             if row.so_detail:
                 so_note_map.setdefault(row.so_detail, []).append(doc.name)
     drafts = linked_drafts(company, {doc.name for doc in docs}, so_note_map)
-    invoiced_qty = invoice_qty_map(company, docs)
+    invoiced_qty, invoiced_amounts = invoice_qty_map(company, docs, with_amounts=True)
     rows = []
     for doc in docs:
         returned = billing.get_returned_qty_map(doc.name)
@@ -147,9 +208,11 @@ def get_rows(company, start, end, customer=None):
                       for row in doc.items}
         qty_amount = sum(quantities[row.name] * flt(row.base_rate) for row in doc.items)
         adjustment = sum(price_adjustment(row, returned.get(row.name, 0),
-                                          flt(row.qty) - quantities[row.name] - flt(returned.get(row.name, 0)))
+                                          invoiced_qty[doc.name].get(row.name, 0),
+                                          invoiced_amounts[doc.name].get(row.name, 0))
                           for row in doc.items)
-        amount = qty_amount + adjustment
+        # The report's main amount is invoiceable quantity only; price differences stay separate.
+        amount = qty_amount
         if amount <= 0.005 and abs(adjustment) <= 0.005:
             continue
         draft_names = drafts.get(doc.name, [])
