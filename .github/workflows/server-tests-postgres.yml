@@ -1,9 +1,6 @@
 name: Server (Postgres)
 
 on:
-  schedule:
-    # 03:00 AM IST daily (21:30 UTC the previous day)
-    - cron: "30 21 * * *"
   pull_request:
     # 'labeled' so adding the 'postgres' label to an already-open PR re-triggers the run.
     types: [opened, reopened, synchronize, labeled]
