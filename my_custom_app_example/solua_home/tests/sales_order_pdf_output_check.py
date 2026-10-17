@@ -27,6 +27,7 @@ docs = {
     "SI-1": Doc(name="SI-1", posting_date="2026-09-30", customer_name="发票客人"),
 }
 pdf_options = []
+pdf_smart_shrinking = []
 print_calls = []
 multi_rendered_html = []
 
@@ -46,7 +47,7 @@ frappe.concurrent_limit = lambda *args, **kwargs: (lambda function: function)
 frappe.parse_json = json.loads
 frappe.as_json = json.dumps
 frappe.db = types.SimpleNamespace(get_value=lambda doctype, name, field: "Solua Wholesale")
-frappe.get_meta = lambda doctype: types.SimpleNamespace(default_print_format="客户订单确认单（颜色版）")
+frappe.get_meta = lambda doctype: types.SimpleNamespace(default_print_format="ORDER CONFIRMACAO(PT）")
 frappe.get_doc = lambda doctype, name: docs[name]
 frappe.has_permission = lambda *args, **kwargs: True
 frappe.get_print = lambda doctype, name, *args, **kwargs: (
@@ -61,8 +62,9 @@ frappe.utils.nowdate = lambda: "2026-09-30"
 pdf = types.ModuleType("frappe.utils.pdf")
 
 
-def get_pdf(html, options, output=None):
+def get_pdf(html, options, output=None, smart_shrinking=False):
     pdf_options.append(options)
+    pdf_smart_shrinking.append(smart_shrinking)
     if output is not None:
         multi_rendered_html.append(html)
         output.parts.append(html.encode("utf-8"))
@@ -94,8 +96,9 @@ print_format.validate_print_permission = lambda doc: None
 sys.modules["frappe.utils.print_format"] = print_format
 
 designer = types.ModuleType("solua_home.api.a4_designer")
+designer._customer_print_format = lambda doctype, customer=None: "客户订单确认单（中文颜色版）" if doctype == "Sales Order" and customer else designer._active_print_format(doctype)
 designer._active_print_format = lambda doctype: {
-    "Sales Order": "客户订单确认单（颜色版）",
+    "Sales Order": "ORDER CONFIRMACAO(PT）",
     "Delivery Note": "Guia de Remessa",
     "Pick List": "拣货单",
     "Sales Invoice": "FACTURA A4",
@@ -105,6 +108,14 @@ sys.modules["solua_home.api.a4_designer"] = designer
 spec = importlib.util.spec_from_file_location("export_candidate", ROOT / "api/export.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+original_db_get_value = frappe.db.get_value
+frappe.db.get_value = lambda doctype, name, field: (
+    "<!--SOLUA_A4_DESIGNER:v1:-->" if name == "FACTURA A4" else "Solua Wholesale"
+)
+designer_options = module._solua_pdf_options("Sales Invoice", "FACTURA A4")
+assert all(designer_options[key] == "0mm" for key in ("margin-top", "margin-bottom", "margin-left", "margin-right"))
+frappe.db.get_value = original_db_get_value
 
 source_image = io.BytesIO()
 Image.effect_noise((1600, 1600), 100).save(source_image, format="PNG")
@@ -118,40 +129,50 @@ with Image.open(io.BytesIO(optimized_payload)) as optimized_image:
 assert len(optimized_payload) < len(source_image.getvalue())
 
 bulk_options = module._with_solua_bulk_pdf_margins(
-    "Sales Order", "客户订单确认单（颜色版）", json.dumps({"page-size": "A4"})
+    "Sales Order", "ORDER CONFIRMACAO(PT）", json.dumps({"page-size": "A4"})
 )
 assert all(json.loads(bulk_options)[key] == "8mm" for key in ("margin-top", "margin-bottom", "margin-left", "margin-right"))
-module.download_pdf("Sales Order", "SO-1", format="客户订单确认单（颜色版）")
+module.download_pdf("Sales Order", "SO-1", format="ORDER CONFIRMACAO(PT）")
 assert all(pdf_options[-1][key] == "8mm" for key in ("margin-top", "margin-bottom", "margin-left", "margin-right"))
 assert pdf_options[-1]["zoom"] == module.SOLUA_PDF_ZOOM
-assert frappe.local.response.filename == "SO-1.pdf"
-module.download_pdf("Sales Order", "SO-1", format="客户订单确认单（颜色版）", mobile=1)
-assert pdf_options[-1]["zoom"] == module.SOLUA_MOBILE_PDF_ZOOM
+assert pdf_smart_shrinking[-1] is True
+assert frappe.local.response.filename == "客人_一_SO-1_09-30.pdf"
+assert module._sales_order_customer_stem("AN LAN SUPERMERCADO, LDA") == "AN_LAN"
+assert module._sales_order_customer_stem("SUPERMERCADO LI, LDA") == "SUPERMERCADO_LI"
+assert module._sales_order_customer_stem("SUPERMARKET LI, LDA") == "SUPERMARKET_LI"
+assert module._sales_order_customer_stem("SUPER MARKET AB") == "SUPER_MARKET_AB"
+assert module._sales_order_customer_stem("SUPER MARKET RIO VERDE") == "RIO_VERDE"
+assert module._sales_order_customer_stem("YOU GOR COMERCIAL, SU, LDA (SUCURSAL)") == "YOU_GOR_COMERCIAL_SUCURSAL"
+module.download_pdf("Sales Order", "SO-1", format="ORDER CONFIRMACAO(PT）", mobile=1)
+assert pdf_options[-1]["zoom"] == module.SOLUA_PDF_ZOOM
 module.download_pdf("Sales Invoice", "SI-1", mobile=1)
-assert pdf_options[-1]["zoom"] == "0.90"
+assert pdf_options[-1]["zoom"] == module.SOLUA_PDF_ZOOM
+assert pdf_smart_shrinking[-1] is True
 original_get_print = frappe.get_print
 frappe.get_print = lambda doctype, name, *args, **kwargs: (
     print_calls.append(kwargs) or '<table class="items"></table>'
 )
 mobile_pdf = module._render_document_pdf(
-    docs["SO-1"], "客户订单确认单（颜色版）", merge_customer=True, doctype="Sales Order", mobile=True
+    docs["SO-1"], "ORDER CONFIRMACAO(PT）", merge_customer=True, doctype="Sales Order", mobile=True
 )
 assert b"table-layout:fixed" not in mobile_pdf
 assert b"<colgroup>" not in mobile_pdf
 assert print_calls[-1]["doc"]["custom_print_color_images"] == 1
-assert pdf_options[-1]["zoom"] == module.SOLUA_MOBILE_PDF_ZOOM
+assert pdf_options[-1]["zoom"] == module.SOLUA_PDF_ZOOM
+assert pdf_smart_shrinking[-1] is True
 desktop_pdf = module._render_document_pdf(
-    docs["SO-1"], "客户订单确认单（颜色版）", merge_customer=False, doctype="Sales Order"
+    docs["SO-1"], "ORDER CONFIRMACAO(PT）", merge_customer=False, doctype="Sales Order"
 )
 frappe.get_print = original_get_print
 assert b"table-layout:fixed" not in desktop_pdf
+assert pdf_smart_shrinking[-1] is True
 module.download_sales_order_pdfs(json.dumps(["SO-1", "SO-2"], ensure_ascii=False))
 
 assert all(pdf_options[0][key] == "8mm" for key in ("margin-top", "margin-bottom", "margin-left", "margin-right"))
 with ZipFile(io.BytesIO(frappe.local.response.filecontent)) as archive:
     assert archive.namelist() == [
-        "20260930_SO-1_客人_一_客户确认单.pdf",
-        "20260930_SO-2_客人二_客户确认单.pdf",
+        "客人_一_SO-1_09-30.pdf",
+        "客人二_SO-2_09-30.pdf",
     ]
     first_pdf = archive.read(archive.namelist()[0])
     assert first_pdf.startswith(b"<html>SO-1</html>")
@@ -169,11 +190,12 @@ frappe.get_print = lambda doctype, name, *args, **kwargs: f'<html><img src="{sou
 module.download_multi_pdf(
     "Sales Order",
     json.dumps(["SO-1", "SO-2"], ensure_ascii=False),
-    format="客户订单确认单（颜色版）",
+    format="ORDER CONFIRMACAO(PT）",
 )
 frappe.get_print = original_get_print
 assert len(multi_rendered_html) == 2
 assert all("data:image/jpeg;base64," in html for html in multi_rendered_html)
+assert all(pdf_smart_shrinking[-2:])
 assert b"data:image/jpeg;base64," in frappe.local.response.filecontent
 
 core_multi_calls = []

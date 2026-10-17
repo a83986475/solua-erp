@@ -28,7 +28,7 @@ frappe_utils.flt = lambda value: float(value or 0)
 frappe.throw = lambda message: (_ for _ in ()).throw(ValueError(str(message)))
 
 masters = {
-    "GOOD": Dict(name="GOOD", item_name="Good item", item_group="Curtains", variant_of="TPL", has_variants=0, disabled=0, is_stock_item=1),
+    "GOOD": Dict(name="GOOD", item_name="Good item", item_group="Curtains", variant_of="TPL", has_variants=0, disabled=0, is_stock_item=1, custom_label_barcode="LABEL-GOOD"),
     "DISABLED": Dict(name="DISABLED", item_name="Disabled", item_group="Curtains", has_variants=0, disabled=1, is_stock_item=1),
     "TEMPLATE": Dict(name="TEMPLATE", item_name="Template", item_group="Curtains", has_variants=1, disabled=0, is_stock_item=1),
     "NO-PRICE": Dict(name="NO-PRICE", item_name="No price", item_group="Curtains", has_variants=0, disabled=0, is_stock_item=1),
@@ -111,10 +111,32 @@ def native_details(item_code, context, qty=1, warehouse=None, price_list=None):
 
 module._native_sales_item_details = native_details
 module._display_price = lambda _code, _context, price_list, warehouse=None: 480 if price_list == "Wholesale Selling" else 430
-frappe.get_all = lambda doctype, **kwargs: (
-    [masters["GOOD"]] if doctype == "Item" else
-    [Dict(parent=name) for name in addresses] if doctype == "Dynamic Link" and kwargs.get("filters", {}).get("link_name") == "Customer A" else []
-)
+def fake_get_all(doctype, **kwargs):
+    if doctype == "Item Barcode":
+        query = kwargs.get("filters", {}).get("barcode")
+        return [Dict(parent="GOOD")] if query == "EAN-GOOD" else []
+    if doctype == "Item":
+        filters = kwargs.get("filters", {})
+        rows = list(masters.values())
+        if filters.get("disabled") is not None:
+            rows = [row for row in rows if row.disabled == filters["disabled"]]
+        if filters.get("has_variants") is not None:
+            rows = [row for row in rows if row.has_variants == filters["has_variants"]]
+        if isinstance(filters.get("name"), (list, tuple)) and filters["name"][0] == "in":
+            rows = [row for row in rows if row.name in filters["name"][1]]
+        or_filters = kwargs.get("or_filters") or []
+        if or_filters:
+            def matches(row, item_filter):
+                field, operator, value = item_filter
+                if operator == "in":
+                    return row.get(field) in value
+                return row.get(field) == value
+            rows = [row for row in rows if any(matches(row, item_filter) for item_filter in or_filters)]
+        return rows
+    if doctype == "Dynamic Link" and kwargs.get("filters", {}).get("link_name") == "Customer A":
+        return [Dict(parent=name) for name in addresses]
+    return []
+frappe.get_all = fake_get_all
 frappe.get_list = lambda doctype, **kwargs: list(addresses.values()) if doctype == "Address" else []
 
 home_api = types.ModuleType("solua_home.api.home")
@@ -177,6 +199,14 @@ assert native_calls[0][1:5] == ("Solua Home, Lda", "Customer A", "Wholesale Sell
 stock_result = module._resolve_sales_rows([{"item_code": "NO-PRICE", "qty": 1}], {"company": "Solua Home, Lda", "posting_date": "2026-09-22", "stock_entry": 1})
 assert stock_result["summary"] == {"valid": 1, "errors": 0}
 
+reconciliation_context = {"company": "Solua Home, Lda", "posting_date": "2026-09-22", "set_warehouse": "Receiving - SH", "stock_reconciliation": 1}
+reconciliation_table, reconciliation_parse_errors = module._parse_table_rows([["货号", "数量"], ["GOOD", "0"]], allow_zero=True)
+assert not reconciliation_parse_errors and reconciliation_table[0]["qty"] == 0
+reconciliation_result = module._resolve_sales_rows([{"item_code": "NO-PRICE", "qty": 0}], reconciliation_context)
+assert reconciliation_result["summary"] == {"valid": 1, "errors": 0} and reconciliation_result["rows"][0]["qty"] == 0
+reconciliation_paste = module.preview_sales_order_paste("货号\t数量\nGOOD\t0", json.dumps(reconciliation_context))
+assert reconciliation_paste["summary"] == {"valid": 1, "errors": 0} and reconciliation_paste["rows"][0]["qty"] == 0
+
 bad = module._resolve_sales_rows([
     {"item_code": "MISSING", "qty": 1}, {"item_code": "TEMPLATE", "qty": 1},
     {"item_code": "DISABLED", "qty": 1}, {"item_code": "NO-PRICE", "qty": 1},
@@ -198,6 +228,12 @@ assert len(search["items"]) == 1 and search["items"][0]["available_qty"] == 7
 color_rows = module.get_sales_order_color_variants("TPL-BAR", json.dumps(context))
 assert color_rows["has_template"] and [row["color_code"] for row in color_rows["variants"]] == ["01", "02"]
 assert color_rows["variants"][0]["rate"] == 100 and "当前销售价格表" in color_rows["variants"][1]["status"]
+exact_color = module.get_sales_order_color_variants("GOOD", json.dumps(context))
+assert [row["item_code"] for row in exact_color["variants"]] == ["GOOD"]
+label_barcode_color = module.get_sales_order_color_variants("LABEL-GOOD", json.dumps(context))
+assert [row["item_code"] for row in label_barcode_color["variants"]] == ["GOOD"]
+item_barcode_color = module.get_sales_order_color_variants("EAN-GOOD", json.dumps(context))
+assert [row["item_code"] for row in item_barcode_color["variants"]] == ["GOOD"]
 
 default_order = Dict(docstatus=0, customer="Customer A", shipping_address_name="", customer_address="", custom_store_name="", items=[])
 module.validate_sales_order(default_order)

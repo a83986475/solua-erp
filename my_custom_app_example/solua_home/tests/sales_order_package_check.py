@@ -46,6 +46,7 @@ frappe.whitelist = lambda *args, **kwargs: (lambda function: function)
 frappe.concurrent_limit = lambda *args, **kwargs: (lambda function: function)
 frappe.parse_json = json.loads
 frappe.as_json = json.dumps
+frappe.db = types.SimpleNamespace(get_value=lambda doctype, name, field: "")
 frappe.get_doc = lambda doctype, name: docs[name]
 frappe.has_permission = lambda *args, **kwargs: True
 frappe.get_all = lambda doctype, **kwargs: (
@@ -70,7 +71,7 @@ sys.modules["frappe.utils"] = frappe.utils
 sys.modules["frappe.utils.xlsxutils"] = frappe.utils.xlsxutils
 
 pdf = types.ModuleType("frappe.utils.pdf")
-pdf.get_pdf = lambda html, options: html.encode("utf-8")
+pdf.get_pdf = lambda html, options, **kwargs: html.encode("utf-8")
 sys.modules["frappe.utils.pdf"] = pdf
 
 wholesale = types.ModuleType("solua_home.printing.wholesale")
@@ -103,6 +104,7 @@ sys.modules["solua_home.printing.wholesale"] = wholesale
 
 designer = types.ModuleType("solua_home.api.a4_designer")
 designer._active_print_format = lambda doctype: f"{doctype} format"
+designer._customer_print_format = lambda doctype, customer=None: f"{doctype} format"
 sys.modules["solua_home.api.a4_designer"] = designer
 
 spec = importlib.util.spec_from_file_location("export_candidate", ROOT / "api/export.py")
@@ -116,7 +118,7 @@ module.download_sales_order_package(json.dumps(["SO-1"], ensure_ascii=False))
 with ZipFile(io.BytesIO(frappe.local.response.filecontent)) as archive:
     names = archive.namelist()
     assert names == [
-        "SO-1_客人一/01_销售订单_SO-1.pdf",
+        "SO-1_客人一/01_客人一_SO-1_09-30.pdf",
         "SO-1_客人一/02_客户导入表_合并.xlsx",
         "SO-1_客人一/03_交货单_1_DN-1.pdf",
         "SO-1_客人一/04_拣货单_1_PL-1.pdf",

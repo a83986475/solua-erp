@@ -99,7 +99,19 @@ wholesale = types.ModuleType("solua_home.printing.wholesale")
 
 
 def get_wholesale_print_data(doc):
-    return doc["print_data"]
+    data = {"items": [dict(item) for item in doc["print_data"].get("items", [])]}
+    if not doc.get("custom_print_merge_order_code"):
+        return data
+    merged = {}
+    for item in data["items"]:
+        key = (item.get("order_code") or item.get("item_code"), item.get("uom"), item.get("rate"))
+        if key not in merged:
+            merged[key] = item
+        else:
+            merged[key]["qty"] += item.get("qty") or 0
+            merged[key]["amount"] += item.get("amount") or 0
+    data["items"] = list(merged.values())
+    return data
 
 
 wholesale.get_wholesale_print_data = get_wholesale_print_data
@@ -249,6 +261,16 @@ assert module.build_table(unmerged_invoice, "item_code,order_code", 0, 0) == [
     ["货号", "订货货号"],
     ["STYLE-RED", "STYLE"],
 ]
+customer_table = module._customer_sales_order_table(wholesale_doc(
+    "Sales Order",
+    [{"item_code": "STYLE-RED", "order_code": "STYLE", "item_name": "商品", "barcode": "111",
+      "description": "红色", "qty": 2, "uom": "箱", "rate": 100, "amount": 200},
+     {"item_code": "STYLE-BLUE", "order_code": "STYLE", "item_name": "商品", "barcode": "222",
+      "description": "蓝色", "qty": 3, "uom": "箱", "rate": 100, "amount": 300}],
+))
+assert customer_table[-3] == ["商品名称", "货号", "条码", "描述", "数量", "单位", "单价", "金额"]
+assert customer_table[-2] == ["商品", "STYLE", "111", "红色", 5, "箱/CTN", 100, 500]
+assert customer_table[-1] == ["合计", "", "", "", 5, "", "", 500]
 module.export_document_table("Sales Invoice", "DOC-1", "item_code", "csv", 0, 0, 1)
 assert pdf_calls[-1]["content"].decode("utf-8").endswith("STYLE\r\n"), pdf_calls[-1]["content"]
 assert unmerged_invoice["custom_print_merge_order_code"] == "0", "per-export merge must not mutate the document"

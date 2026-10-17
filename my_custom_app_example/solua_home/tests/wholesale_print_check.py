@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Doc(dict):
-    __getattr__ = dict.__getitem__
+    __getattr__ = dict.get
     __setattr__ = dict.__setitem__
 
     def is_new(self):
@@ -35,6 +35,8 @@ def get_doc(dt, name):
 frappe = types.ModuleType("frappe")
 frappe._ = lambda text: text
 frappe.throw = fail
+frappe.whitelist = lambda *args, **kwargs: (args[0] if args and callable(args[0]) else (lambda fn: fn))
+frappe.get_cached_value = lambda *args: 1
 frappe.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda field: field != "phone")
 def db_get_value(dt, name, field, **kwargs):
     if dt == "Sales Order":
@@ -62,7 +64,11 @@ def db_set_value(dt, name, fields):
     set_value_calls.append((dt, name, dict(fields)))
     if dt == "Sales Order":
         order.update(fields)
-frappe.db = types.SimpleNamespace(get_value=db_get_value, set_value=db_set_value)
+frappe.db = types.SimpleNamespace(
+    get_value=db_get_value,
+    set_value=db_set_value,
+    sql=lambda query, *args, **kwargs: [] if "JOIN `tabPick List` p" in query else [[0]],
+)
 frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
 unique_delivery_defaults = {}
@@ -188,6 +194,41 @@ merged_customer_rows = module._merge_customer_print_items([
     {"item_code": "STYLE-2", "order_code": "STYLE", "template_code": "STYLE", "template_name": "Curtain rod", "image": "/blue.png", "description": "Blue description", "qty": 5, "rate": 100, "amount": 500, "uom": "根"},
     {"item_code": "STYLE-3", "order_code": "STYLE", "template_code": "STYLE", "template_name": "Curtain rod", "image": "/green.png", "description": "Green description", "qty": 2, "rate": 120, "amount": 240, "uom": "根"},
 ])
+# Sales Order box sales retain exact per-color quantities inside merged rod descriptions.
+saved_cached_value = getattr(frappe, "get_cached_value", lambda *args: None)
+frappe.get_cached_value = lambda dt, code, field: "窗帘杆" if code == "STYLE" else "窗帘"
+rod_rows = [
+    {"item_code": "STYLE-1", "order_code": "STYLE", "template_code": "STYLE", "color_code": "1",
+     "description": "Red description", "qty": 2, "rate": 100, "amount": 200, "uom": "箱/Caixa"},
+    {"item_code": "STYLE-2", "order_code": "STYLE", "template_code": "STYLE", "color_code": "2",
+     "description": "Blue description", "qty": 3, "rate": 100, "amount": 300, "uom": "箱/Caixa"},
+    {"item_code": "STYLE-1", "order_code": "STYLE", "template_code": "STYLE", "color_code": "1",
+     "description": "Red description", "qty": 4, "rate": 100, "amount": 400, "uom": "箱/Caixa"},
+    {"item_code": "STYLE-3", "order_code": "STYLE", "template_code": "STYLE", "color_code": "3",
+     "description": "Green description", "qty": 1, "rate": 120, "amount": 120, "uom": "箱/Caixa"},
+]
+rod_rows_before = json.dumps(rod_rows)
+box_print = module._merge_customer_print_items(rod_rows, rod_color_boxes=True)
+assert len(box_print) == 2 and box_print[0]["qty"] == 9 and box_print[0]["amount"] == 900
+assert box_print[0]["description"] == "Template description; Cores: 1: 6 Cx; 2: 3 Cx"
+zh_box_print = module._merge_customer_print_items(rod_rows, rod_color_boxes=True, color_language="zh")
+assert module._clean_chinese_print_description("窗帘杆；厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。；颜色：黑色") == "窗帘杆；颜色：黑色"
+assert zh_box_print[0]["description"] == "Template description；颜色：1：6箱；2：3箱", "Chinese color version must show per-color boxes"
+assert box_print[1]["description"] == "Green description", "different prices stay separate"
+assert json.dumps(rod_rows) == rod_rows_before, "printing must not mutate source rows"
+assert module._merge_customer_print_items(rod_rows)[0]["description"] == "Template description"
+assert "Cores:" not in module._merge_customer_print_items([
+    {**row, "template_code": "CURTAIN"} for row in rod_rows
+], rod_color_boxes=True)[0]["description"], "curtains retain the existing merged description"
+assert "Cores:" not in module._merge_customer_print_items([
+    {**row, "uom": "根"} for row in rod_rows
+], rod_color_boxes=True)[0]["description"], "never label piece quantities as boxes"
+fallback_colors = module._merge_customer_print_items([
+    {**row, "color_code": "", "color": "Red" if row["color_code"] == "1" else "Blue"}
+    for row in rod_rows[:2]
+], rod_color_boxes=True)
+assert fallback_colors[0]["description"].endswith("Cores: Red: 2 Cx; Blue: 3 Cx")
+frappe.get_cached_value = saved_cached_value
 module._item_master = saved_item_master
 assert len(merged_customer_rows) == 2
 assert merged_customer_rows[0]["qty"] == 15 and merged_customer_rows[0]["amount"] == 1500
@@ -202,6 +243,20 @@ unmerged_customer_rows = module._merge_customer_print_items([
      "image": "/red.png", "description": "Red description", "qty": 1, "rate": 100, "amount": 100, "uom": "根"},
 ])
 assert len(unmerged_customer_rows) == 1 and unmerged_customer_rows[0]["image"] == "/red.png"
+unmerged_print_data = module.get_wholesale_print_data(fixture("Sales Order"))
+assert unmerged_print_data["customer_merged"] is False, "unmerged customer rows must keep variant display"
+install_source = (ROOT / "install.py").read_text(encoding="utf-8")
+assert "def _lock_customer_sku_print_format" in install_source
+assert "item.order_code if p.get('customer_merged') else item.item_code" in install_source
+assert "SOLUA_PDF_FIT_V6" in install_source
+assert "margin-top:12mm!important" in install_source
+assert "padding:0 8mm 8mm!important" in install_source
+assert "table.items{table-layout:auto!important;width:100%!important;}" in install_source
+assert "col-sku{width:27mm!important;}" in install_source
+assert "col-barcode{width:31mm!important;}" in install_source
+assert "col-description{width:50mm!important;}" in install_source
+assert "show_color_code = 0" in install_source and "show_cor = 0" in install_source
+assert "col-item" in install_source and "col-rate num" in install_source
 assert module.get_print_total_qty({"items": [{"qty": "3"}, {}]}) == 3
 assert module.get_print_total_qty({"items": []}) == 0 and module.get_print_total_qty(None) == 0
 
@@ -383,6 +438,7 @@ assert 'class="solua-global-logo"' in rendered_pick and 'src="888"' in rendered_
 for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "补充说明 / Observações", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick
+assert '<td class="num"></td>' in rendered_pick, "zero picked quantity must print blank in the color format"
 # 合计必须带单位：行改以箱为主位后，裸数字会被读成箱（两行都是「条」→ total_uom=条/pc）
 assert "<b>4 \u6761/pc</b>" in rendered_pick and "<b>2 \u6761/pc</b>" in rendered_pick
 assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
@@ -391,28 +447,29 @@ assert "(= 1 \u7bb1/CTN)" in rendered_pick  # 颜色版：有整箱换算的行�
 assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=2))
-# 拣货单（简版）：只保留 SPU/SKU/数量 + 双列确认框（拣货人/司机），适合现场拣货
+# 拣货单：只保留 SPU/SKU/数量 + 双列确认框（拣货人/司机），适合现场拣货
 simple_fmt = json.loads((ROOT / "print_format/pick_list_simple/pick_list_simple.json").read_text(encoding="utf-8"))
 assert simple_fmt["doc_type"] == "Pick List" and simple_fmt["module"] == "Solua Wholesale"
-assert simple_fmt["name"] == "拣货单（简版）" and simple_fmt["custom_format"] == 1 and simple_fmt["standard"] == "No"
+assert simple_fmt["name"] == "拣货单" and simple_fmt["custom_format"] == 1 and simple_fmt["standard"] == "No"
 assert simple_fmt["html"] and simple_fmt["raw_printing"] == 0 and not simple_fmt["raw_commands"]
 rendered_simple = env.from_string(simple_fmt["html"]).render(doc=pick)
-assert "{%" not in rendered_simple and "Pick List / 拣货单（简版）" in rendered_simple
+assert "{%" not in rendered_simple and "Pick List / 拣货单" in rendered_simple
 assert 'class="solua-global-logo"' in rendered_simple and 'src="888"' in rendered_simple
 assert "Cliente / 客户: Customer" in rendered_simple
-for header in ("SPU", "SKU / 货号", "补充说明 / Observações", "Quantidade / 数量"):
+for header in ("SPU", "SKU / 货号", "补充说明 / Observações", "Quantidade / 数量", "实际已拣数量"):
     assert header in rendered_simple, header
 for dropped in ("Foto / 图片", "Código de barras", "Código de cor", "Armazém / 仓库", "Separado / 已拣", "Preço"):
     assert dropped not in rendered_simple, dropped
 assert "Separado por / 拣货人" in rendered_simple and "Motorista / 司机" in rendered_simple
-assert rendered_simple.count("<th") == 9  # 2 个 <thead> + 5 个商品列 + 2 个确认列
+assert rendered_simple.count("<th") == 10  # 2 个 <thead> + 6 个商品列 + 2 个确认列
 assert "Total Qty / 总数量" in rendered_simple and "<b>4 \u6761/pc</b>" in rendered_simple
 assert "SPU-RED" in rendered_simple
 assert "员工备注" in rendered_simple
+assert '<td class="col-picked num"></td>' in rendered_simple, "zero picked quantity must print blank in the simple format"
 # 数量列：有整箱换算的行把「箱」放主位（拣货按箱数），本位数量退到括号里；没换算的行仍是「数量 单位」
 assert "<b>1 \u7bb1/CTN</b>" in rendered_simple, rendered_simple
 assert "(= 2 \u6761/pc)" in rendered_simple  # 主位是箱，本位单位数量只在括号里出现一次
-assert rendered_simple.count(">2 \u6761/pc<") == 1, rendered_simple
+assert rendered_simple.count("2 \u6761/pc</td>") == 1, rendered_simple
 assert "非正式凭证" not in rendered_simple
 assert "非正式凭证" in env.from_string(simple_fmt["html"]).render(doc=Doc(pick, docstatus=0))
 module.get_item_spu = saved_get_item_spu
@@ -470,6 +527,8 @@ sys.modules["frappe.utils"] = utils
 stock_spec = importlib.util.spec_from_file_location("stock_candidate", ROOT / "api/stock.py")
 stock = importlib.util.module_from_spec(stock_spec);stock_spec.loader.exec_module(stock)
 sys.modules["solua_home.api.stock"] = stock
+# This print-focused fixture does not emulate ERPNext's Bin/query-builder layer.
+stock.validate_stock_requirements = lambda *args, **kwargs: None
 
 # Delivery Notes created from one Sales Order inherit the editable store phone;
 # a value already entered on the Delivery Note wins.
@@ -819,7 +878,7 @@ installer=importlib.util.module_from_spec(install_spec);install_spec.loader.exec
 installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
-assert len(imports)==8 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
+assert len(imports)==10 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()

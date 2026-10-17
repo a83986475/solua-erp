@@ -6,7 +6,7 @@ const context = {module: {exports: {}}, flt: value => Number(value || 0), __: va
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(require.resolve("../public/js/payment_entry_labels_v20261004.js"), "utf8"), context);
 context.frappe = {call: async () => ({message: {eligible}})};
-const {apply_pronto_pagamento, calculate_pronto_pagamento} = context.module.exports;
+const {apply_pronto_pagamento, calculate_pronto_pagamento, restore_cash_discount_allocation} = context.module.exports;
 function form() {
   return {doc: {docstatus: 0, party_type: "Customer", party: "AN LAN", custom_payment_term: "PRONTO PAGAMENTO", mode_of_payment: "Cash",
     references: [{reference_doctype: "Sales Invoice", reference_name: "invoice", allocated_amount: 100}], deductions: [], paid_amount: 100, received_amount: 100},
@@ -51,5 +51,12 @@ function form() {
   assert.equal(kept.doc.paid_amount, 111394);
   assert.equal(kept.doc.received_amount, 111394);
   assert.deepEqual(kept.doc.deductions.map(row => row.amount), [3446]);
+  kept.__solua_cash_discount_applied = true;
+  kept.__solua_cash_discount_allocations = [{reference_name: "invoice", allocated_amount: 100}];
+  kept.doc.paid_amount = 96;
+  kept.doc.references[0].allocated_amount = 95;
+  restore_cash_discount_allocation(kept);
+  assert.equal(kept.doc.references[0].allocated_amount, 100);
+  assert.equal(kept.doc.total_allocated_amount, 100);
   console.log("PASS: excluded/ordinary customers, clearing, submitted guard, stale response, refresh keeps manual amounts");
 })().catch(error => {console.error(error); process.exitCode = 1;});

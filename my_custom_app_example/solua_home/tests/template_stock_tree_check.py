@@ -5,9 +5,10 @@ from pathlib import Path
 
 source = Path(__file__).parents[1] / "solua_wholesale/report/template_stock_tree/template_stock_tree.py"
 tree = ast.parse(source.read_text(encoding="utf-8"))
-functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_filter_items", "_report_values", "group_rows"}]
+functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_filter_items", "_report_values", "group_rows", "_sum_sales_order_items", "add_totals"}]
 namespace = {"json": json, "flt": float}
 namespace["cint"] = int
+namespace["_"] = lambda value: value
 exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
 items = {
     "TPL": dict(name="TPL", item_name="Template", has_variants=1, stock_uom="条"),
@@ -26,9 +27,16 @@ assert (rows[0]["actual_qty"], rows[0]["reserved_qty"], rows[0]["available_qty"]
 opening_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34})
 assert next(row for row in opening_rows if row["item_code"] == "TPL")["opening_qty"] == 54
 assert next(row for row in opening_rows if row["item_code"] == "RED")["opening_qty"] == 20
-sales_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, sold_quantities={"RED": 4, "BLUE": 12})
+sales_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, sold_quantities={"RED": 4, "BLUE": 12}, delivered_quantities={"RED": 3, "BLUE": 8})
 assert next(row for row in sales_rows if row["item_code"] == "TPL")["sold_qty"] == 16
 assert next(row for row in sales_rows if row["item_code"] == "RED")["sold_qty"] == 4
+assert next(row for row in sales_rows if row["item_code"] == "TPL")["delivered_qty"] == 11
+assert namespace["_sum_sales_order_items"]([
+    dict(item_code="RED", stock_qty=24, qty=2, conversion_factor=12),
+    dict(item_code="RED", stock_qty=0, qty=3, conversion_factor=12),
+]) == {"RED": 60}
+totals = namespace["add_totals"](rows.copy())
+assert next(row for row in totals if row["item_code"] == "")["actual_qty"] == 56
 assert rows[1]["parent_id"] == rows[0]["node_id"] and rows[1]["indent"] == 1
 assert namespace["group_rows"](items, [bins[2]])[2]["available_qty"] == -1
 assert len({row["node_id"] for row in rows}) == len(rows)
@@ -40,7 +48,8 @@ items["PLAIN"] = dict(name="PLAIN", item_name="Ordinary", stock_uom="条")
 items["EMPTY"] = dict(name="EMPTY", item_name="Empty template", stock_uom="条", has_variants=1)
 rows = namespace["group_rows"](items, [])
 assert {r["item_code"] for r in rows if r["indent"] == 0} == {"TPL", "PLAIN", "EMPTY"}
-assert all(r["actual_qty"] == r["reserved_qty"] == r["available_qty"] == 0 for r in rows)
+assert next(r for r in rows if r["item_code"] == "PLAIN")["actual_qty"] == 0
+assert next(r for r in rows if r["item_code"] == "EMPTY")["actual_qty"] == 0
 plain = namespace["group_rows"](items, [dict(item_code="PLAIN", warehouse="A", actual_qty=5, reserved_qty=1),
                                          dict(item_code="PLAIN", warehouse="B", actual_qty=7, reserved_qty=2)])
 assert next(r for r in plain if r["item_code"] == "PLAIN")["available_qty"] == 9

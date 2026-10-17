@@ -26,9 +26,11 @@ assert m.pending_qty({**row,'billed_amt':1200},0,1)==9
 assert m.pending_qty({**row,'si_detail':'invoice-item'})==0
 assert m.pending_qty(row,0,10)==0
 assert m.pending_qty({**row,'rate':0})==10
-assert m.price_adjustment({**row,'billed_amt':600},covered_qty=10)==400
-assert m.price_adjustment({**row,'billed_amt':700},covered_qty=10)==300  # credit-note price adjustment stays separate
-assert m.price_adjustment({**row,'billed_amt':1000},returned_qty=2,covered_qty=10)==0  # physical return is not a price adjustment
+assert m.price_adjustment({**row,'billed_amt':600},covered_qty=10,invoice_amount=600)==400
+assert m.price_adjustment({**row,'billed_amt':0},covered_qty=10,invoice_amount=1000)==0  # credit or stale billed_amt cannot erase the positive invoice
+assert m.price_adjustment(row,returned_qty=2,covered_qty=10,invoice_amount=1000)==0
+assert m.price_adjustment(row,returned_qty=2,covered_qty=8,invoice_amount=800)==0
+assert m.price_adjustment(row,covered_qty=4,invoice_amount=240)==0  # only fully covered lines become price-only adjustments
 assert m.allocate_sales_order_qty([
     {'name':'DN2','parent':'DN2','qty':6,'posting_date':'2026-10-02','direct_invoiced_qty':0},
     {'name':'DN1','parent':'DN1','qty':4,'posting_date':'2026-10-01','direct_invoiced_qty':0},
@@ -39,11 +41,12 @@ print('PASS: quantity billing, direct-SO FIFO, price changes, returns, pre-invoi
 class Doc:
     name='DN'; company='Co'; items=[types.SimpleNamespace(name='DN-ROW', so_detail='SO-ROW')]
 m._submitted_invoice_rows=lambda company:[
-    {'so_detail':'SO-ROW','qty':10,'is_return':0},
-    {'so_detail':'SO-ROW','qty':-2,'is_return':1},
+    {'name':'SI-ROW','so_detail':'SO-ROW','qty':10,'base_net_amount':1000,'is_return':0},
+    {'name':'CREDIT-ROW','so_detail':'SO-ROW','qty':-10,'base_net_amount':-1000,'is_return':1},
 ]
 m._delivery_rows_by_so_detail=lambda company, details:{'SO-ROW':[{'name':'DN-ROW','parent':'DN','so_detail':'SO-ROW','qty':10,'posting_date':'2026-10-01'}]}
 assert m.invoice_qty_map('Co',[Doc()])=={'DN':{'DN-ROW':10}}
+assert m.invoice_qty_map('Co',[Doc()],with_amounts=True)==({'DN':{'DN-ROW':10}}, {'DN':{'DN-ROW':1000}})
 print('PASS: submitted Sales Order invoice chain ignores credit-note quantity')
 
 draft_item=types.SimpleNamespace(delivery_note='', so_detail='SO-ROW')

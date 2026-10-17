@@ -81,9 +81,9 @@ setImmediate(async()=>{
  assert(quickActions.includes("送货中心")&&quickActions.includes("/mobile?view=delivery&desktop=1"),"missing desktop delivery center link");
  assert(!actions.includes('data-workspace="Buying"'));
  assert(!actions.includes("新建采购订单"));
- for (const label of ["销售","新建销售订单","销售订单分析报表","物料销售明细","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台"])
+ for (const label of ["销售","新建销售订单","销售订单分析报表","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台","首页常用功能设置"])
   assert(actions.includes(label),"missing homepage action: "+label);
- assert(actions.includes('data-report="Item-wise Sales History"')&&actions.includes('"from_date":"2026-09-04"'),"item-wise sales history must default to the last calendar month");
+ assert(!actions.includes('data-report="Item-wise Sales History"'),"item-wise sales history is only shown in wholesale reports");
  assert(actions.includes("Item Price")&&actions.includes("sales-invoice-approval"),"price list and invoice-submit check entry points are present");
  assert((quickActions.match(/data-feature-key=/g)||[]).length===5,"manual plus frequent shortcuts are rendered once");
  assert(quickActions.indexOf('data-feature-key="销售订单"')<quickActions.indexOf('data-feature-key="新建物料"'));
@@ -150,7 +150,7 @@ setImmediate(async()=>{
  assert.equal(JSON.stringify(orderFilters.per_delivered),JSON.stringify(["<",100]));
  assert.equal(orderFilters.docstatus,1);
  dialogs.at(-1).primary_action({sales_order:"SO-CHECK"});
- assert.equal(docCalls.at(-1).method,"erpnext.selling.doctype.sales_order.sales_order.make_delivery_note");
+ assert.equal(docCalls.at(-1).method,"solua_home.api.stock.make_delivery_note");
  assert.equal(docCalls.at(-1).args.source_name,"SO-CHECK");
  assert.deepEqual(synced.at(-1),{doctype:"Delivery Note",name:"MAT-DN-CHECK"});
  assert.deepEqual(routes.pop(),["Form","Delivery Note","MAT-DN-CHECK"]);
@@ -161,10 +161,22 @@ setImmediate(async()=>{
  const commonHandler=root.handlers.find(h=>h.selector==="[data-common-enabled]").handler;
  const periodHandler=root.handlers.find(h=>h.selector==="[data-common-period]").handler;
  const dateHandler=root.handlers.find(h=>h.selector==="[data-common-from], [data-common-to]").handler;
- const totalCalls=[];frappe.call=opts=>{totalCalls.push(opts);return Promise.resolve({message:{state:"ok",amount:0,from_date:"2026-10-01",to_date:"2026-10-03"}});};
+ const totalCalls=[];frappe.call=opts=>{totalCalls.push(opts);return Promise.resolve({message:{state:"ok",amount:42,unallocated_amount:6,currency:"MZN",from_date:"2026-10-01",to_date:"2026-10-03",groups:[{label:"退货",amount:42,items:[{doctype:"Delivery Note",name:"RETURN-DN",date:"2026-10-02",customer:"C",amount:42}]}]}});};
  commonHandler.call({checked:true});await new Promise(resolve=>setImmediate(resolve));
- assert.equal(totalCalls.filter(call=>call.method.endsWith("business_totals.get_total")).length,5);
+ assert.equal(totalCalls.filter(call=>call.method.endsWith("business_totals.get_total")).length,6);
  assert(totalCalls.filter(call=>call.method.endsWith("business_totals.get_total")).every(call=>call.args.period==="本月"));
+ assert(totalCalls.some(call=>call.method.endsWith("get_reconciliation") && call.args.period==="本月"));
+ const breakdown=node('[data-role="reconciliation"]').content;
+ assert(breakdown.includes('data-reconciliation') && breakdown.includes('RETURN-DN') && breakdown.includes('退货'));
+ assert(!/<details[^>]*\bopen\b/.test(breakdown),"summary and category details are collapsed by default");
+ const paymentSummary=node('[data-role="payment-reconciliation"]').content;
+ assert(paymentSummary.includes("收款对账") && paymentSummary.includes("未分配") && paymentSummary.includes("其他结算调整"),"payment reconciliation must be compact");
+ assert(node('[data-role="totals"]').content.includes('data-total-extra="paid"'),"actual receipts card must show unallocated receipts");
+ const totalsMarkup=node('[data-role="totals"]').content;
+ assert(totalsMarkup.includes('data-total="pending_delivery"'));
+ for (const label of ["净订单金额","待交付订单金额","开票净额","净应收款","实际收款金额","已交货未开票金额"])
+  assert(totalsMarkup.includes(label),"missing totals label: "+label);
+ assert(!totalsMarkup.includes("总订单金额")&&!totalsMarkup.includes("总开票金额")&&!totalsMarkup.includes("总应收款")&&!totalsMarkup.includes("总已付金额"));
  const totalHandler=root.handlers.find(h=>h.selector==="[data-report], [data-total]").handler;
  totalHandler.call({dataset:{total:"paid"}});assert.equal(frappe.route_options.period,"本月");assert.equal(frappe.route_options.use_route_period,1);
  periodHandler.call({value:"自定义"});dateHandler.call({value:"2026-10-03",dataset:{commonFrom:""}});dateHandler.call({value:"2026-10-01",dataset:{commonTo:""}});

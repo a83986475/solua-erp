@@ -6,18 +6,32 @@ const path = require("node:path");
 // Check the real loading entrypoint as well as the form implementation.
 const appRoot = path.resolve(__dirname, "..");
 const hooksSource = fs.readFileSync(path.join(appRoot, "hooks.py"), "utf8");
-const loaderPath = "public/js/wholesale_forms_additional_notes_loader_v17.js";
+const loaderPath = "public/js/wholesale_forms_additional_notes_loader_v19.js";
+const pickListReconciliationPath = "public/js/pick_list_order_reconciliation_v20261009d.js";
 const salesInvoicePrintPath = "public/js/sales_invoice_print_options_v20261005.js";
 for (const doctype of ["Sales Order", "Delivery Note", "Pick List"]) {
   const line = hooksSource.split("\n").find(line => line.trim().startsWith(`"${doctype}": [` ) && line.includes("public/js/"));
   assert.ok(line && line.includes(loaderPath), `${doctype}: loading entrypoint regressed; review loader changes before release`);
 }
+const stockReconciliationLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Stock Reconciliation": ') && line.includes("public/js/"));
+assert.ok(stockReconciliationLine && stockReconciliationLine.includes(loaderPath), "Stock Reconciliation loading entrypoint regressed");
 const salesInvoiceLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Sales Invoice": ['));
 assert.ok(salesInvoiceLine && salesInvoiceLine.includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
 const loaderSource = fs.readFileSync(path.join(appRoot, loaderPath), "utf8");
-assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261006.js?v=stock-entry-tools-20261006a"), "Wholesale script cache version regressed");
+assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261017a"), "Wholesale script cache version regressed");
 const releaseFiles = fs.readFileSync(path.join(__dirname, "release_whitelist.txt"), "utf8");
 assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${loaderPath}`), "Active loader missing from release whitelist");
+assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${pickListReconciliationPath}`), "Pick List reconciliation script missing from release whitelist");
+const pickListLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Pick List": ['));
+assert.ok(pickListLine && pickListLine.includes(pickListReconciliationPath), "Pick List reconciliation entrypoint missing");
+const reconciliationSource = fs.readFileSync(path.join(appRoot, pickListReconciliationPath), "utf8");
+assert.ok(reconciliationSource.includes("white-space:nowrap"), "Pick List comparison table must keep key columns readable");
+assert.ok(reconciliationSource.includes("100%"), "Pick List comparison layout must use the available width");
+  assert.ok(reconciliationSource.includes("拣货明细（填写实际已拣数量）"), "Pick List must expose the actual picked quantity area");
+  assert.ok(reconciliationSource.includes('update_docfield_property?.("picked_qty"'), "Pick List picked quantity column must remain editable in draft");
+  assert.ok(reconciliationSource.includes("按订单数量填充已拣"), "Pick List must expose the bulk picked quantity action");
+  assert.ok(reconciliationSource.includes("row.stock_qty"), "Bulk picked quantity action must use stock-UOM planned quantity");
+  assert.ok(reconciliationSource.includes("frappe.confirm"), "Bulk picked quantity action must confirm before overwriting values");
 const handlers = {}, requests = [], dialogs = [];
 const storage = new Map();
 const defaultLists = new Map();
@@ -65,6 +79,10 @@ const frappe = {
       {name:"客户A-门店1",title:"客户A门店一",phone:"999"},
       {name:"客户A-门店2",title:"客户A门店二",phone:"998"},
     ]});
+    if (options?.method === "solua_home.api.order_status.get_order_statuses") {
+      const names = JSON.parse(options.args.names);
+      return Promise.resolve({message:Object.fromEntries(names.map(name => [name, {billing_label:"已开票", payment_label:"关联发票已结清"}]))});
+    }
     return new Promise((resolve,reject)=>requests.push({resolve,reject}));
   },
   db:{
@@ -84,13 +102,16 @@ const frappe = {
 const browser = {open(){},localStorage};
 const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser, document};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/document_table_export_v20260930c.js"),"utf8"), script_scope);
-const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261006.js"),"utf8");
+const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261008.js"),"utf8");
 vm.runInNewContext(wholesaleSource, script_scope);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options_v20261005.js"),"utf8"), script_scope);
 const salesTools = browser.solua_home_sales_order_tools;
 const flush = () => new Promise(resolve=>setImmediate(resolve));
 function form(dt,status=0,purpose){
- const frm={doctype:dt,doc:{docstatus:status,company:"Solua Home, Lda",items:[],set_warehouse:"W1",from_warehouse:dt==="Stock Entry"?"W0":undefined,to_warehouse:dt==="Stock Entry"?"W2":undefined,purpose:purpose || (dt==="Stock Entry"?"Material Receipt":undefined)},fields_dict:{custom_store_name:{$input:input()}},buttons:[],dirty(){},
+ const billing={value:"",html(value){this.value=value;},off(){return this;},on(){return this;}};
+ const frm={doctype:dt,doc:{docstatus:status,company:"Solua Home, Lda",items:[],set_warehouse:"W1",from_warehouse:dt==="Stock Entry"?"W0":undefined,to_warehouse:dt==="Stock Entry"?"W2":undefined,purpose:purpose || (dt==="Stock Entry"?"Material Receipt":undefined)},fields_dict:{custom_store_name:{$input:input()},custom_delivery_billing_info:{$wrapper:billing},custom_delivery_missing_summary:{$wrapper:billing}},buttons:[],df_properties:{},dirty(){},
+  set_df_property(field,property,value){this.df_properties[field] ||= {};this.df_properties[field][property]=value;},
+  page:{indicator:[],set_indicator(...value){this.indicator=value;}},
   set_value(key,value){this.doc[key]=value;return Promise.resolve(value);},
   add_custom_button(label,fn){this.buttons.push({label,fn});},refresh_field(){},
   add_child(){const row={doctype:"Row",name:String(rows.size+1)};rows.set(row.name,row);this.doc.items.push(row);return row;},
@@ -201,6 +222,16 @@ async function query(d,code="A"){
 	manualDelivery.doc.vehicle_no = "手工车辆";
 	await flush();
 	assert.equal(manualDelivery.doc.vehicle_no, "手工车辆");
+	const billedDelivery = form("Delivery Note", 1);
+	billedDelivery.is_new = () => false;
+	billedDelivery.doc.name = "DN-1";
+	billedDelivery.doc.modified = "1";
+	billedDelivery.doc.items = [{against_sales_order: "SO-1"}];
+	handlers["Delivery Note"].refresh(billedDelivery);
+	await flush();
+	assert(billedDelivery.fields_dict.custom_delivery_billing_info.$wrapper.value.includes("已由销售订单发票结清"));
+	assert.deepEqual(billedDelivery.page.indicator, ["已由销售订单发票结清", "green"]);
+	assert.equal(billedDelivery.df_properties.per_billed.hidden, 1);
 	delivery.doc.custom_store_name = "手工门店";
 	delivery.doc.customer_address = "另一个地址";
 	handlers["Delivery Note"].refresh(delivery);
@@ -306,10 +337,33 @@ async function query(d,code="A"){
  recent.resolve(data);await newer;old.resolve({message:{templates:[]}});await p;
  assert.equal(d.label,"加入单据");assert.equal(d.fields_dict.variant.options.length,3);
  d.values.barcode="changed";d.fields_dict.barcode.$input.events.input();assert.equal(d.values.variant,"");assert.equal(d.label,"查询颜色");
- const count=form("Stock Reconciliation");count.buttons[0].fn();const c=dialogs.at(-1);
+ const count=form("Stock Reconciliation");
+ assert.equal(count.buttons.length,7);
+ for(const label of ["手机扫码盘点","按款式条码选颜色","上传盘点表格","批量添加物料","粘贴货号 + 数量","刷新库存","批量修改数量"]) assert(count.buttons.some(button=>button.label===label),label+" missing");
+ count.buttons.find(button=>button.label==="按款式条码选颜色").fn();const c=dialogs.at(-1);
  await query(c);c.values.variant="red";
  for(const invalid of ["","1.5","-1"]){c.values.qty=invalid;await c.action();assert.equal(count.doc.items.length,0);}
  c.values.qty="0";await c.action();assert.equal(count.doc.items.length,1);assert.equal(count.doc.items[0].qty,0);
+ const upload=count.buttons.find(button=>button.label==="上传盘点表格");upload.fn();const uploadDialog=dialogs.at(-1);uploadDialog.values.file_url="/files/count.csv";
+ const uploadAction=uploadDialog.action(uploadDialog.values);requests.at(-1).resolve({message:{rows:[{item_code:"count-blue",item_name:"Count Blue",warehouse:"W1",qty:0,stock_uom:"条"}]}});await uploadAction;
+ const uploadPreview=dialogs.at(-1);uploadPreview.fields_dict.items.df.data[0].__checked=1;
+ const uploadAdd=uploadPreview.action();requests.at(-1).resolve({message:{rows:[{item_code:"count-blue",item_name:"Count Blue",warehouse:"W1",qty:0,stock_uom:"条"}]}});await flush();
+ requests.at(-1).resolve({message:{qty:5,rate:2}});await uploadAdd;
+ assert.equal(count.doc.items.find(row=>row.item_code==="count-blue").qty,0);
+ assert.equal(count.doc.items.find(row=>row.item_code==="count-blue").current_qty,5);
+ const bulkCount=count.buttons.find(button=>button.label==="批量添加物料");bulkCount.fn();const countPicker=dialogs.at(-1);
+ requests.at(-1).resolve({message:{items:[{item_code:"count-green",item_name:"Count Green",warehouse:"W1",actual_qty:4}]}});await flush();
+ countPicker.values.default_qty=0;countPicker.fields_dict.default_qty.$input.events["change.solua"]();countPicker.fields_dict.results.df.data[0].__checked=1;
+ const countBulkAdd=countPicker.action();requests.at(-1).resolve({message:{rows:[{item_code:"count-green",item_name:"Count Green",warehouse:"W1",qty:0,stock_uom:"条"}]}});await flush();
+ requests.at(-1).resolve({message:{qty:4,rate:2}});await countBulkAdd;
+ assert.equal(count.doc.items.find(row=>row.item_code==="count-green").qty,0);
+ const refreshCount=count.buttons.find(button=>button.label==="刷新库存").fn();
+ for(const row of count.doc.items){requests.at(-1).resolve({message:{qty:6,rate:3}});await flush();}
+ await refreshCount;
+ assert.equal(count.doc.items.find(row=>row.item_code==="count-blue").current_qty,6);
+ const countQuantity=count.buttons.find(button=>button.label==="批量修改数量");countQuantity.fn();const countQuantityDialog=dialogs.at(-1);
+ countQuantityDialog.fields_dict.select_all.$input.events.click();countQuantityDialog.values.new_qty=0;await countQuantityDialog.action();
+ assert.equal(count.doc.items.find(row=>row.item_code==="count-blue").qty,0);
  async function assert_print_switches(dt) {
   const submitted=form(dt,1);submitted.is_new=()=>false;
  submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_current_remaining:{},custom_print_quantity:{},custom_print_traceability:{}} : {}),...(dt !== "Sales Invoice" ? {custom_print_additional_notes:{}} : {})};

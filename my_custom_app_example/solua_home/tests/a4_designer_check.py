@@ -35,7 +35,7 @@ def config_for(doctype):
 		"visible": visible,
 		"widths": {key: 100 / visible_count if visible[key] else 1 for key in keys},
 		"settings": {"fontSize": 9, "titleSize": 18, "headSize": 9, "lineHeight": 1.35,
-		             "cellPadding": 1.5, "pageMargin": 12, "titleColor": "#99732c", "headBg": "#f5f1e9", "itemBorders": True},
+	             "cellPadding": 1.5, "pageMargin": 8, "titleColor": "#99732c", "headBg": "#f5f1e9", "itemBorders": True},
 	}
 
 
@@ -73,6 +73,8 @@ assert 'frappe.get_print(doctype, name, print_format=format_doc.name, as_pdf=Fal
 assert '"legacy_preview"' in api_source and '"legacy_importable"' in api_source
 assert "company-logo" in api_source and "item_border" in api_source
 assert "tbody tr{break-inside:avoid;page-break-inside:avoid}" in api_source
+assert "width:100%;max-width:none" in api_source and "margin-top:{page_margin}!important" in api_source
+assert "min-height:calc(297mm - {page_margin})" in api_source
 
 assert "cor" not in api.BASE_COLUMNS and "cor" not in api.COLUMN_LABELS
 assert api.COLUMN_LABELS["color_code"] == "Cor"
@@ -135,8 +137,8 @@ assert "tbody tr td{break-inside:avoid;page-break-inside:avoid}" in page
 assert '"Delivery Note": ["ordered", "remaining", "qty", "uom"' in page
 
 hooks = (BASE / "hooks.py").read_text(encoding="utf-8")
-assert '"a4-print-designer": "public/js/a4_print_designer_title_notes_v6.js"' in hooks
-live_page = (BASE / "public" / "js" / "a4_print_designer_title_notes_v6.js").read_text(encoding="utf-8")
+assert '"a4-print-designer": "public/js/a4_print_designer_title_notes_v7.js"' in hooks
+live_page = (BASE / "public" / "js" / "a4_print_designer_title_notes_v7.js").read_text(encoding="utf-8")
 assert 'load-live-preview' in live_page and 'live: 1' in live_page and 'live: 0' in live_page
 assert 'print_data_refresh_v20261005.js' in hooks
 

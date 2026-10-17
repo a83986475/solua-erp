@@ -22,10 +22,18 @@ frappe.db = types.SimpleNamespace(exists=lambda *_args, **_kwargs: True)
 frappe.has_permission = lambda *_args, **_kwargs: True
 frappe.get_meta = lambda _doctype: types.SimpleNamespace(has_field=lambda _field: True)
 frappe.utils = types.ModuleType("frappe.utils")
+frappe.utils.cint = lambda value: int(value or 0)
 frappe.utils.flt = lambda value: float(value or 0)
+frappe.utils.now_datetime = lambda: "2026-09-29 00:00:00"
 frappe.utils.nowdate = lambda: "2026-09-29"
 sys.modules["frappe"] = frappe
 sys.modules["frappe.utils"] = frappe.utils
+
+color_card = types.ModuleType("solua_home.api.color_card")
+color_card.get_item_color_image = lambda item: f"/files/{item.item_code}.png"
+sys.modules["solua_home"] = types.ModuleType("solua_home")
+sys.modules["solua_home.api"] = types.ModuleType("solua_home.api")
+sys.modules["solua_home.api.color_card"] = color_card
 
 spec = importlib.util.spec_from_file_location("home_candidate", ROOT / "api/home.py")
 home = importlib.util.module_from_spec(spec)
@@ -72,5 +80,6 @@ home._list = fake_list
 fuzzy = home.get_color_variants(barcode="151060", barcode_only=False)
 assert fuzzy["state"] == "ok"
 assert fuzzy["templates"][0]["variants"][0]["item_code"] == "STYLE-151060-01"
+assert fuzzy["templates"][0]["variants"][0]["image"] == "/files/STYLE-151060-01.png"
 assert home.get_color_variants(barcode="151060", barcode_only=True)["state"] == "no_data"
 print("PASS: Sales Order SKU/item-name lookup supports partial matching while strict barcode lookup stays exact")
