@@ -26,6 +26,7 @@ my_custom_app_example/solua_home/public/js/doctype_module_filter.js
 my_custom_app_example/solua_home/public/js/document_table_export.js
 my_custom_app_example/solua_home/public/js/item_list_metrics.js
 my_custom_app_example/solua_home/public/js/item_list_metrics_v20261017.js
+my_custom_app_example/solua_home/public/js/item_list_metrics_v20261017b.js
 my_custom_app_example/solua_home/api/item_price_bulk.py
 my_custom_app_example/solua_home/tests/item_price_bulk_query_check.py
 my_custom_app_example/solua_home/public/js/sales_order_list_tools.js

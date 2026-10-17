@@ -1,7 +1,7 @@
 // Item list script: column widths are pinned and the refresh button stays wired.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
 const base = path.join(__dirname, "..");
-const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017.js"), "utf8");
+const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017b.js"), "utf8");
 
 const calls = [], alerts = [], buttons = [];
 let loaded = 0, inherited = 0, dialog;
@@ -13,7 +13,7 @@ const sandbox = {
 		listview_settings: { Item: { inherited_key: 1, onload() { inherited += 1; } } },
 		call: (options) => { calls.push(options); return Promise.resolve({ message: { updated: 93 } }); },
 		show_alert: (alert) => alerts.push(alert),
-		ui: { Dialog: class { constructor(options) { dialog = options; } show() {} } },
+		ui: { Dialog: class { constructor(options) { dialog = options; this.options = options; } show() {} } },
 	},
 	__: (text, args) => (Array.isArray(args) ? args.reduce((out, v, i) => out.replace(`{${i}}`, v), text) : text),
 	console,
@@ -51,7 +51,10 @@ assert(buttons[1].label, "批量修改物料价格");
 buttons[1].action();
 assert.equal(dialog.fields.find((field) => field.fieldname === "item_code").get_query().query,
 	"solua_home.api.item_price_bulk.item_query", "bulk prices must bypass ERPNext's template-excluding Item query");
-assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017.js"'),
+assert.equal(dialog.secondary_action_label, undefined, "cancel is added after a preview so the initial dialog stays simple");
+assert(!source.includes('dialog.set_value("item_code", "")'), "successful updates must retain the selected Item");
+assert(source.includes('dialog.set_secondary_action(__("取消")'), "preview must expose a cancel action");
+assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017b.js"'),
 	"Item list must load the versioned selector fix");
 buttons[0].action();
 assert.equal(calls.at(-1).method, "solua_home.item_metrics.refresh_all_item_metrics");
