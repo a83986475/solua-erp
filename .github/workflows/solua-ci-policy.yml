@@ -47,7 +47,7 @@ jobs:
             fi
           done
 
-          if grep -R -n -E '^[[:space:]]*schedule:[[:space:]]*$|cron:[[:space:]]*' .github/workflows --include='*.yml' --include='*.yaml'; then
+          if grep -R -n -E '^[[:space:]]*schedule:[[:space:]]*$|cron:[[:space:]]*' .github/workflows --include='*.yml' --include='*.yaml' --exclude='solua-ci-policy.yml'; then
             echo "::error::Scheduled GitHub Actions are disabled for this repository. Review the workflow manually before adding a schedule."
             failed=1
           fi
