@@ -1,0 +1,60 @@
+name: SOLUA CI Policy Guard
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Reject upstream maintenance workflows and cron schedules
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          forbidden_files=(
+            ".github/workflows/lock.yml"
+            ".github/workflows/generate-pot-file.yml"
+            ".github/workflows/initiate_release.yml"
+            ".github/workflows/backport.yml"
+            ".github/workflows/build-and-commit-assets.yml"
+            ".github/workflows/docker-release.yml"
+            ".github/workflows/release.yml"
+            ".github/workflows/release_notes.yml"
+            ".github/workflows/run-hotfix-translation-sync.yml"
+            ".github/workflows/sync-hotfix-translations.yml"
+          )
+
+          failed=0
+
+          for file in "${forbidden_files[@]}"; do
+            if [[ -e "$file" ]]; then
+              echo "::error file=$file::Forbidden ERPNext/Frappe upstream maintenance workflow restored."
+              failed=1
+            fi
+          done
+
+          if grep -R -n -E '^[[:space:]]*schedule:[[:space:]]*$|cron:[[:space:]]*' .github/workflows --include='*.yml' --include='*.yaml'; then
+            echo "::error::Scheduled GitHub Actions are disabled for this repository. Review the workflow manually before adding a schedule."
+            failed=1
+          fi
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo "SOLUA CI policy check failed."
+            exit 1
+          fi
+
+          echo "SOLUA CI policy check passed."
