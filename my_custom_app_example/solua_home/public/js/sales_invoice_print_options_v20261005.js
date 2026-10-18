@@ -37,6 +37,9 @@ const invoice_max_discount = (doc) => {
 	for (const row of doc.items || []) {
 		pct = Math.max(pct, Number(row.discount_percentage || 0));
 		if (row.discount_amount && row.amount) pct = Math.max(pct, Number(row.discount_amount) / Number(row.amount) * 100);
+		const list_rate = Number(row.price_list_rate || 0);
+		const rate = Number(row.rate || 0);
+		if (list_rate > 0 && rate >= 0 && rate < list_rate) pct = Math.max(pct, (list_rate - rate) / list_rate * 100);
 	}
 	return Number.isFinite(pct) ? pct : 0;
 };
@@ -174,9 +177,7 @@ frappe.ui.form.on("Sales Invoice", {
 						custom_print_color_images: values.show_images ? 1 : 0,
 						custom_print_color_qr: values.show_qr ? 1 : 0,
 					};
-					const save = frm.doc.docstatus === 1
-						? frappe.call({ method: "frappe.client.set_value", args: { doctype: frm.doctype, name: frm.doc.name, fieldname: print_values } }).then(() => frm.reload_doc())
-						: frm.set_value(print_values).then(() => frm.save());
+					const save = frm.set_value(print_values).then(() => frm.save(frm.doc.docstatus === 1 ? "Update" : undefined));
 					save.then(() => {
 						const params = new URLSearchParams({
 							doctype: "Sales Invoice",
