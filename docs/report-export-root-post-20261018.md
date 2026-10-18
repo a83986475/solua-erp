@@ -24,3 +24,11 @@
 - 浏览器下载事件等待超时，未取得本地文件路径；未打开 Excel 检查文件内容。没有修改报表计算逻辑或业务数据。
 
 回滚时只恢复上述快照中的 `erp-ssl.conf.before` 到准确配置路径，通过 `nginx -t` 后 reload。回滚会恢复旧的根路径 POST 重定向问题。
+
+## 后续全量入口审计
+
+- 扫描了 Frappe、ERPNext 和 `solua_home` 的前端/后端导出、打印、下载调用。标准 Query Report、Report View、Data Import、文件打包、联系人 vCard、ERPNext 银行/生产计划等少数旧式 `open_url_post` 调用中，向 `/` 提交的 POST 均被本次 Nginx 修复覆盖；自定义单据表格、PDF、订单资料包均使用 `/api/method/...`，没有第二个根路径调用。
+- 扫描了生产 `Client Script` 和 `Report` 数据库记录；没有发现自定义脚本包含 `open_url_post`、`frappe.request.url` 或 `/` 根路径导出调用。当前启用报表统计为 Script Report 191、Custom Report 1、Report Builder 7、Query Report 13；Solua 相关 Query Report 为 `Solua Business Totals`、`Template Stock Tree`、`Solua Delivery Summary`。
+- 线上只读路由矩阵：ERP `/` 的 GET/HEAD 仍为 302 到 `/app`，POST/OPTIONS 已进入 Frappe；`/api/method/frappe.ping` 的 GET/POST 均为 200；自定义下载 API 未登录时返回权限/参数错误而不是主页跳转；`printview` 和 `/mobile` 均正常返回 200。
+- 发现一个未被当前代码触发的潜在边界：Nginx 通用 `rewrite ^(.+)/$ $1 permanent` 会把任意带尾斜杠的 POST API 变成 301。现有前端扫描未发现带尾斜杠的 API URL，因此本次不扩大修改；如未来新增此类 URL，应直接去掉尾斜杠或把该 rewrite 限制为 GET/HEAD。
+- `www.solua.one` 到 `home.solua.one` 的 301 是公开站点的规范域名跳转，不是 ERP 导出入口；ERP 前端使用 `erp.solua.one` 和相对 `/api/method/...` 地址。
