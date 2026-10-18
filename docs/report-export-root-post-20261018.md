@@ -56,3 +56,12 @@
 根路径 GET/HEAD 仍跳转 `/app`，根路径 POST 仍交给 Frappe；尾斜杠 GET/HEAD 规范化仍保留，POST 不重定向。修改前快照和 manifest 位于 `/home/frappe/frappe-bench/sites/erp.solua.one/private/deployment_snapshots/20261019-desk-restore/`；可重复补丁为 `my_custom_app_example/solua_home/deployment/nginx_dynamic_proxy_restore.patch`。
 
 验证结果：`nginx -t` 通过，Nginx active；`/login` 200，`/desk` 301 到登录页，`/app` 301 到 `/desk`，Frappe API 200，Solua 自定义 JS 200；POST `/`、`/api/method/frappe.ping/`、`/desk/` 均返回 Frappe JSON 200。
+
+## 2026-10-19 Logo 与色卡静态文件恢复
+
+现场检查发现 Logo `/files/solua-logo.jpg` 和色卡 `/files/SH1510157703dc7703dc.png` 均存在于 `sites/erp.solua.one/public/files/`，但被动态代理交给 Frappe 后返回 404。已在 HTTPS 与 Bench HTTP 配置中增加 `location ^~ /files/`，直接从公开文件目录读取，并禁用旧错误响应缓存。
+
+- 快照：`/home/frappe/frappe-bench/sites/erp.solua.one/private/deployment_snapshots/20261019-image-static/`
+- 可重复补丁：`my_custom_app_example/solua_home/deployment/nginx_files_static_restore.patch`
+- `nginx -t` 通过并 reload；Nginx active。
+- 源站与公网均返回 Logo `200 image/jpeg`（211016 bytes）和色卡 `200 image/png`（565086 bytes）；浏览器新 URL 实测尺寸分别为 2480×3508 与 660×662。

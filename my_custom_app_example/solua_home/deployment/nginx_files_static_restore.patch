@@ -1,0 +1,16 @@
+--- /etc/nginx/conf.d/erp-ssl.conf
++++ /etc/nginx/conf.d/erp-ssl.conf
+@@
++    location ^~ /files/ {
++        try_files /erp.solua.one/public$uri =404;
++        add_header Cache-Control "no-cache, must-revalidate, max-age=0" always;
++    }
++
+--- /etc/nginx/conf.d/frappe-bench.conf
++++ /etc/nginx/conf.d/frappe-bench.conf
+@@
++\tlocation ^~ /files/ {
++\t\ttry_files /erp.solua.one/public$uri =404;
++\t\tadd_header Cache-Control "no-cache, must-revalidate, max-age=0" always;
++\t}
++
