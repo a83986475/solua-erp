@@ -43,3 +43,16 @@
 - 目标文件：`/etc/nginx/conf.d/erp-ssl.conf`（1 个重写区块）和 `/etc/nginx/conf.d/frappe-bench.conf`（2 个重写区块）。未修改应用代码、hooks、数据库或业务数据；未执行 migrate/build/应用服务重启。
 - `nginx -t` 和 reload 均通过，Nginx 为 active。
 - HTTPS 回读：`GET /api/method/frappe.ping/` 和 `GET /desk/` 仍为 301 规范化；`POST /api/method/frappe.ping/`、`POST /desk/` 均不再返回 301；`POST /` 仍为 200 JSON。HTTP 入口只返回预期的 HTTPS 规范化 301。
+
+## 2026-10-19 动态路由恢复
+
+用户反馈 `/desk`、`/app` 和 API 返回 Nginx 404。现场确认 Frappe `127.0.0.1:8000` 正常，但 Nginx 的 `try_files ... @webserver` 没有进入命名代理位置，动态请求被当作 `/home/frappe/frappe-bench/sites/<uri>` 静态文件查找。
+
+已在以下两个生产配置中保留静态资源规则，并将动态请求直接代理到 `frappe-bench-frappe`：
+
+- `/etc/nginx/conf.d/erp-ssl.conf`
+- `/etc/nginx/conf.d/frappe-bench.conf`
+
+根路径 GET/HEAD 仍跳转 `/app`，根路径 POST 仍交给 Frappe；尾斜杠 GET/HEAD 规范化仍保留，POST 不重定向。修改前快照和 manifest 位于 `/home/frappe/frappe-bench/sites/erp.solua.one/private/deployment_snapshots/20261019-desk-restore/`；可重复补丁为 `my_custom_app_example/solua_home/deployment/nginx_dynamic_proxy_restore.patch`。
+
+验证结果：`nginx -t` 通过，Nginx active；`/login` 200，`/desk` 301 到登录页，`/app` 301 到 `/desk`，Frappe API 200，Solua 自定义 JS 200；POST `/`、`/api/method/frappe.ping/`、`/desk/` 均返回 Frappe JSON 200。
