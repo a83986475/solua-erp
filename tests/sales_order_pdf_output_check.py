@@ -12,6 +12,7 @@ from zipfile import ZipFile
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent))
 
 
 class Doc(dict):
@@ -139,6 +140,17 @@ assert all(pdf_options[-1][key] == "8mm" for key in ("margin-top", "margin-left"
 assert pdf_options[-1]["margin-bottom"] == "10mm"
 assert pdf_options[-1]["zoom"] == module.SOLUA_PDF_ZOOM
 assert pdf_smart_shrinking[-1] is True
+
+module._render_document_pdf(docs["SO-1"], "客户订单确认单（颜色版）-紧凑版", merge_customer=True, doctype="Sales Order")
+assert print_calls[-1]["print_format"] == "客户订单确认单（颜色版）-紧凑版"
+assert print_calls[-1]["doc"]["custom_print_merge_order_code"] == 1
+saved_get_print = frappe.get_print
+frappe.get_print = lambda *args, **kwargs: '<html><script src="/print.bundle.js"></script><script src="/assets/valid.js"></script><img src="https://erp.test/photo.png"></html>'
+clean_html = module._render_document_html(docs["SO-1"], "Sales Order with Item Image", doctype="Sales Order")
+assert '/print.bundle.js' not in clean_html and 'https://erp.test/photo.png' in clean_html and '/assets/valid.js' in clean_html
+frappe.get_print = saved_get_print
+reviewed_bulk = json.loads(module._with_solua_bulk_pdf_margins("Sales Invoice", "差价明细 A4 - 销售发票", None))
+assert reviewed_bulk["margin-top"] == "8mm" and reviewed_bulk["margin-bottom"] == "10mm"
 assert frappe.local.response.filename == "客人_一_SO-1_09-30.pdf"
 assert module._sales_order_customer_stem("AN LAN SUPERMERCADO, LDA") == "AN_LAN"
 assert module._sales_order_customer_stem("SUPERMERCADO LI, LDA") == "SUPERMERCADO_LI"

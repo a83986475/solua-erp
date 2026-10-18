@@ -461,7 +461,7 @@ def _render_document_html(
     from copy import copy
 
     doctype = doctype or doc.doctype
-    if merge_customer and doctype == "Sales Order":
+    if merge_customer and doctype == "Sales Order" and print_format in (None, "", "ORDER CONFIRMACAO(PT）", "客户订单确认单（中文颜色版）"):
         from solua_home.api.a4_designer import _customer_print_format
         print_format = _customer_print_format(doctype, doc.get("customer"))
     print_doc = doc
@@ -485,6 +485,8 @@ def _render_document_html(
         letterhead=letterhead,
     )
     html = _optimize_pdf_images(html)
+    # This obsolete preview script returns 404 and makes wkhtmltopdf reject otherwise valid PDFs.
+    html = re.sub(r'<script\b[^>]*\bsrc=["\x27]/print\.bundle\.js["\x27][^>]*>\s*</script>', "", html, flags=re.I)
     return html
 
 
@@ -586,6 +588,8 @@ def _write_unique(output, used_names, filename, content):
 
 def _with_solua_bulk_pdf_margins(doctype, print_format, options):
     """补齐四类业务单据批量 PDF 的 A4 页面参数，不改打印格式内部布局。"""
+    from solua_home.printing.format_retirement import MARGIN_FORMATS
+
     doctypes = set(doctype) if isinstance(doctype, dict) else {doctype}
     if not doctypes & SOLUA_BULK_PDF_DOCTYPES:
         return options
@@ -595,7 +599,7 @@ def _with_solua_bulk_pdf_margins(doctype, print_format, options):
     parsed = frappe.parse_json(options) if options else {}
     if not isinstance(parsed, dict) or parsed.get("page-size") not in (None, "A4"):
         return options
-    if _is_designer_print_format(print_format):
+    if _is_designer_print_format(print_format) and print_format not in MARGIN_FORMATS:
         for key in SOLUA_PDF_MARGINS:
             parsed[key] = "0mm"
     else:

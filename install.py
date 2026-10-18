@@ -4,6 +4,8 @@ import re
 
 import frappe
 
+from solua_home.printing.format_retirement import apply_reviewed_retirements, is_retired_format
+
 PICK_LIST_PRINT_FORMAT = "拣货单"
 SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
@@ -128,7 +130,7 @@ def install_wholesale_only():
         ensure_wholesale_module()
         add_wholesale_fields(commit=False)
         base = os.path.dirname(__file__)
-        for folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
+        for folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh", "sales_invoice_wholesale_color_v2", "delivery_note_guia_remessa"):
             import_file_by_path(os.path.join(base, "print_format", folder, folder + ".json"),
                                 force=True, ignore_version=True)
         _lock_customer_sku_print_format()
@@ -155,7 +157,7 @@ def install_wholesale_only():
                 raise RuntimeError("Invalid hook: " + method)
         for name, expected_module in (
             ("ORDER CONFIRMACAO(PT）", "Solua Wholesale"),
-            ("批发销售单（颜色版）", "Solua Home 定制"),
+            ("批发销售单（颜色版）新版", "Solua Home 定制"),
             ("Guia de Remessa", "Solua Wholesale"),
         ):
             fmt = frappe.get_doc("Print Format", name)
@@ -350,12 +352,16 @@ def sync_standard_print_formats():
         if not os.path.exists(json_path):
             continue
         try:
+            with open(json_path, encoding="utf-8") as source:
+                if is_retired_format(json.load(source).get("name")):
+                    continue
             import_file_by_path(json_path, force=True, ignore_version=True)
             _sync_additional_notes_print_format(folder)
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
     _sync_pdf_page_margins()
+    apply_reviewed_retirements()
 
 
 def _sync_pdf_page_margins():

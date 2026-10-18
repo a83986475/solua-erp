@@ -8,6 +8,7 @@ import types
 from jinja2 import Environment, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent))
 
 
 class Doc(dict):
@@ -854,7 +855,7 @@ class InstallDoc(types.SimpleNamespace):
 def install_get_doc(arg,name=None):
     if isinstance(arg,dict):return InstallDoc(**arg)
     if arg=="Page":return InstallDoc(name="solua-home",module="Solua Wholesale")
-    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）" else "Solua Wholesale")
+    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）新版" else "Solua Wholesale")
     raise AssertionError(arg)
 frappe.get_doc=install_get_doc
 frappe.get_attr=lambda name:lambda:None
@@ -883,6 +884,8 @@ installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
 assert len(imports)==10 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
+assert any("sales_invoice_wholesale_color_v2" in path for path in imports)
+assert not any("sales_invoice_wholesale_color/sales_invoice_wholesale_color.json" in path.replace("\\", "/") for path in imports)
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()

@@ -1,5 +1,16 @@
 // Render Print Designer formats with the PDF.js bundle already used by the designer.
 (() => {
+	if (frappe.meta?.get_print_formats && !frappe.meta.get_print_formats.__solua_reviewed) {
+		const original = frappe.meta.get_print_formats;
+		frappe.meta.get_print_formats = function (doctype) {
+			const formats = original.call(this, doctype);
+			return ["Sales Order", "Pick List", "Delivery Note", "Sales Invoice"].includes(doctype)
+				? formats.filter((name) => name !== "Standard")
+				: formats;
+		};
+		frappe.meta.get_print_formats.__solua_reviewed = true;
+	}
+
 	const patchPrintView = () => {
 		const prototype = frappe.ui.form.PrintView?.prototype;
 		if (!prototype || typeof prototype.designer_pdf !== "function" || prototype.__solua_pdfjs) {
