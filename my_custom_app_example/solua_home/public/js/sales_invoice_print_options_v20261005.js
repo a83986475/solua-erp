@@ -37,9 +37,6 @@ const invoice_max_discount = (doc) => {
 	for (const row of doc.items || []) {
 		pct = Math.max(pct, Number(row.discount_percentage || 0));
 		if (row.discount_amount && row.amount) pct = Math.max(pct, Number(row.discount_amount) / Number(row.amount) * 100);
-		const list_rate = Number(row.price_list_rate || 0);
-		const rate = Number(row.rate || 0);
-		if (list_rate > 0 && rate >= 0 && rate < list_rate) pct = Math.max(pct, (list_rate - rate) / list_rate * 100);
 	}
 	return Number.isFinite(pct) ? pct : 0;
 };
