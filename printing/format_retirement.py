@@ -57,6 +57,9 @@ MARGIN_FORMATS = frozenset({
 MARGIN_CSS = (
     "/* SOLUA_REVIEWED_MARGINS_20261018 */"
     "@page{size:A4!important;margin:8mm 8mm 10mm!important;}"
+    # Frappe reads only plain .print-format margin rules into wkhtmltopdf options.
+    ".print-format{margin-top:8mm!important;margin-bottom:10mm!important;"
+    "margin-left:8mm!important;margin-right:8mm!important;}"
     ".print-format.print-format{width:100%!important;max-width:none!important;"
     "min-height:0!important;margin:0!important;padding:0 0 2mm!important;"
     "box-sizing:border-box!important;zoom:1!important;}"
