@@ -1,0 +1,42 @@
+--- /etc/nginx/conf.d/erp-ssl.conf
++++ /etc/nginx/conf.d/erp-ssl.conf
+@@ -63,9 +63,11 @@
+     }
+ 
+     location / {
+-        rewrite ^(.+)/$ $1 permanent;
+-        rewrite ^(.+)/index\.html$ $1 permanent;
+-        rewrite ^(.+)\.html$ $1 permanent;
++        if ($request_method ~ ^(GET|HEAD)$) {
++            rewrite ^(.+)/$ $1 permanent;
++            rewrite ^(.+)/index\.html$ $1 permanent;
++            rewrite ^(.+)\.html$ $1 permanent;
++        }
+ 
+         location ~* ^/files/.*.(htm|html|svg|xml) {
+--- /etc/nginx/conf.d/frappe-bench.conf
++++ /etc/nginx/conf.d/frappe-bench.conf
+@@ -66,9 +66,11 @@
+ 	location / {
+ 
+- 		rewrite ^(.+)/$ $1 permanent;
+-  		rewrite ^(.+)/index\.html$ $1 permanent;
+-  		rewrite ^(.+)\.html$ $1 permanent;
++ 		if ($request_method ~ ^(GET|HEAD)$) {
++ 		    rewrite ^(.+)/$ $1 permanent;
++ 		    rewrite ^(.+)/index\.html$ $1 permanent;
++ 		    rewrite ^(.+)\.html$ $1 permanent;
++ 		}
+ 
+@@ -187,9 +189,11 @@
+ 	location / {
+ 
+- 		rewrite ^(.+)/$ $1 permanent;
+-  		rewrite ^(.+)/index\.html$ $1 permanent;
+-  		rewrite ^(.+)\.html$ $1 permanent;
++ 		if ($request_method ~ ^(GET|HEAD)$) {
++ 		    rewrite ^(.+)/$ $1 permanent;
++ 		    rewrite ^(.+)/index\.html$ $1 permanent;
++ 		    rewrite ^(.+)\.html$ $1 permanent;
++ 		}
+ 

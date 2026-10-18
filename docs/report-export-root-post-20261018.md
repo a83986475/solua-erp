@@ -31,4 +31,15 @@
 - 扫描了生产 `Client Script` 和 `Report` 数据库记录；没有发现自定义脚本包含 `open_url_post`、`frappe.request.url` 或 `/` 根路径导出调用。当前启用报表统计为 Script Report 191、Custom Report 1、Report Builder 7、Query Report 13；Solua 相关 Query Report 为 `Solua Business Totals`、`Template Stock Tree`、`Solua Delivery Summary`。
 - 线上只读路由矩阵：ERP `/` 的 GET/HEAD 仍为 302 到 `/app`，POST/OPTIONS 已进入 Frappe；`/api/method/frappe.ping` 的 GET/POST 均为 200；自定义下载 API 未登录时返回权限/参数错误而不是主页跳转；`printview` 和 `/mobile` 均正常返回 200。
 - 发现一个未被当前代码触发的潜在边界：Nginx 通用 `rewrite ^(.+)/$ $1 permanent` 会把任意带尾斜杠的 POST API 变成 301。现有前端扫描未发现带尾斜杠的 API URL，因此本次不扩大修改；如未来新增此类 URL，应直接去掉尾斜杠或把该 rewrite 限制为 GET/HEAD。
+@@
 - `www.solua.one` 到 `home.solua.one` 的 301 是公开站点的规范域名跳转，不是 ERP 导出入口；ERP 前端使用 `erp.solua.one` 和相对 `/api/method/...` 地址。
+
+## 尾斜杠 POST 加固
+
+用户确认后，于 2026-10-18 对 Nginx 的规范化规则做了第二个窄范围发布。HTTPS 配置和 Bench 生成的 HTTP 配置中的尾斜杠、`index.html`、`.html` 重写现在只对 GET/HEAD 生效；POST/OPTIONS 直接交给 Frappe。补丁见 `my_custom_app_example/solua_home/deployment/nginx_export_method_hardening.patch`。
+
+- 四部分 Bench 备份：`/home/frappe/frappe-bench/sites/erp.solua.one/private/backups/20261018_220016-erp_solua_one-*`；四个文件均已核验非空。
+- 手动快照：`/home/frappe/frappe-bench/sites/erp.solua.one/private/deployment_snapshots/20261018-report-export-method-hardening/`，包含两份变更前配置和 `release.json`。
+- 目标文件：`/etc/nginx/conf.d/erp-ssl.conf`（1 个重写区块）和 `/etc/nginx/conf.d/frappe-bench.conf`（2 个重写区块）。未修改应用代码、hooks、数据库或业务数据；未执行 migrate/build/应用服务重启。
+- `nginx -t` 和 reload 均通过，Nginx 为 active。
+- HTTPS 回读：`GET /api/method/frappe.ping/` 和 `GET /desk/` 仍为 301 规范化；`POST /api/method/frappe.ping/`、`POST /desk/` 均不再返回 301；`POST /` 仍为 200 JSON。HTTP 入口只返回预期的 HTTPS 规范化 301。
