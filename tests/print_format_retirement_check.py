@@ -14,6 +14,8 @@ spec.loader.exec_module(policy)
 assert {dt: len(names) for dt, names in policy.RETIRED_FORMATS.items()} == {
     "Sales Order": 15, "Pick List": 3, "Delivery Note": 4, "Sales Invoice": 13,
 }
+assert policy.is_retired_format("客户订单确认单（颜色版）-紧凑版")
+assert not policy.is_retired_format("差价退款 A4 可编辑版 - 销售订单 v2")
 defaults = {
     "Sales Order": "ORDER CONFIRMACAO(PT）", "Pick List": "拣货单",
     "Delivery Note": "Guia de Remessa", "Sales Invoice": "FACTURA A4（8mm边距） v2 v3",
