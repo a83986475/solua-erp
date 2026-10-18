@@ -1,0 +1,7 @@
+--- /etc/nginx/conf.d/erp-ssl.conf
++++ /etc/nginx/conf.d/erp-ssl.conf
+@@ -61 +61,3 @@
+-        if ($host = erp.solua.one) { return 302 /app; }
++        # Native report exports POST to /; redirect only page visits.
++        set $solua_root_request "$host:$request_method";
++        if ($solua_root_request ~ ^erp[.]solua[.]one:(GET|HEAD)$) { return 302 /app; }
