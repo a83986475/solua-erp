@@ -1,0 +1,872 @@
+"""Submission snapshots and read-only data for the two wholesale prints."""
+
+import html
+import json
+import re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+import frappe
+from frappe import _
+from markupsafe import Markup
+
+COMPANY_NAME = "Solua Home, Lda"
+COMPANY_ADDRESS_LINE = "AV. DO TRABALHO, n.º 231, Cidade de Maputo"
+
+
+def _print_setting(name, default):
+    """Read one global Solua print setting without making printing fragile."""
+    try:
+        value = frappe.db.get_single_value("Print Settings", name)
+    except Exception:
+        value = None
+    return value if value not in (None, "") else default
+
+
+def get_solua_print_css(with_logo=True):
+    """Shared print CSS; settings are read at render time for preview and PDF.
+
+    ``with_logo=False`` 供小纸格式使用（如 50×30mm 价格标签）：公司 logo 是
+    15.4×12.3mm，在标签纸上会盖住商品名，所以由调用方显式关掉。
+    """
+    try:
+        parsed_font_size = int(float(_print_setting("custom_solua_print_font_size", 10)))
+        font_size = 10 if parsed_font_size <= 0 else max(8, min(14, parsed_font_size))
+    except (TypeError, ValueError):
+        font_size = 10
+    density = str(_print_setting("custom_solua_print_density", "紧凑")).strip().lower()
+    compact = density not in {"标准", "standard", "normal"}
+    border_setting = str(_print_setting("custom_solua_print_item_borders", 1)).strip().lower()
+    item_border = "1px solid #d1d8dd" if border_setting not in {"0", "false", "no", "off"} else "0"
+    logo = _company_logo_url(COMPANY_NAME) if with_logo else ""
+    # 公司抬头：logo 与居中标题同一行。
+    # 旧写法把 logo 直接绝对定位在 .print-format 的 left:0/top:0（即容器边框盒的角落），
+    # 而 .print-format 有 padding（屏幕预览 0.2in/0.75in），所以 logo 落在内容区之外、
+    # 贴着容器边捅进标题。改成用一个零高度定位盒（.solua-brand）承载，logo 就从内容区
+    # 左上角开始；随后的标题占满 12.3mm 行高并垂直居中，两者自然对齐。
+    logo_css = (
+        ".print-format{position:relative}"
+        ".print-format .solua-brand{position:relative;height:0;margin:0}"
+        ".print-format .solua-brand .solua-global-logo{position:absolute;left:0;top:0;width:15.4mm;height:12.3mm;object-fit:contain}"
+        ".print-format .company-header{position:relative;min-height:12.3mm;padding:0;background:none;margin:0 0 2mm}"
+        ".print-format > h2:first-of-type,.print-format .company-header h2{min-height:12.3mm;margin:0 0 2mm;"
+        "display:flex;align-items:center;justify-content:center;text-align:center;color:#99732c}"
+    ) if logo else ""
+    logo_html = (f'<div class="solua-brand"><img class="solua-global-logo" '
+                 f'src="{html.escape(logo, quote=True)}" alt="Company Logo"></div>') if logo else ""
+    line_height = "1.12" if compact else "1.35"
+    cell_padding = "3px 4px" if compact else "6px 6px"
+    block_margin = "7px" if compact else "12px"
+    return Markup("""
+<style id="solua-print-shared">
+:root {{ --solua-font-size: {font_size}pt; --solua-line-height: {line_height}; --solua-cell-padding: {cell_padding}; --solua-block-margin: {block_margin}; --solua-item-border: {item_border}; }}
+.print-format, .print-format * {{ box-sizing: border-box; }}
+.print-format {{ font-size: var(--solua-font-size); line-height: var(--solua-line-height); color: #263238; }}
+.print-format h1, .print-format h2, .print-format h3 {{ line-height: 1.15; }}
+.print-format table {{ width: 100%; border-collapse: collapse; table-layout: auto; }}
+.print-format th, .print-format td {{ padding: var(--solua-cell-padding); vertical-align: top; line-height: var(--solua-line-height); overflow-wrap: normal; word-break: normal; }}
+.print-format th {{ white-space: normal; }}
+.print-format .num {{ text-align: right; white-space: nowrap; }}
+.print-format .col-sku, .print-format .col-barcode, .print-format .col-uom,
+.print-format .col-qty, .print-format .col-rate, .print-format .col-amount,
+.print-format .col-traceability {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.print-format .col-sku {{ min-width: 24mm; width: 24mm; }}
+.print-format .col-barcode {{ min-width: 30mm; width: 30mm; }}
+.print-format .col-qty {{ min-width: 17mm; width: 17mm; }}
+.print-format .col-uom {{ min-width: 10mm; width: 10mm; }}
+.print-format .col-rate, .print-format .col-amount {{ min-width: 22mm; width: 22mm; }}
+.print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}
+.print-format .col-traceability {{ min-width: 20mm; width: 20mm; }}
+.print-format .photo {{ max-width: 45px; max-height: 45px; object-fit: contain; }}
+.print-format table.items th, .print-format table.items td, .print-format table.wholesale-items th, .print-format table.wholesale-items td {{ border: var(--solua-item-border) !important; }}
+.print-format table.items > tbody > tr, .print-format table.wholesale-items > tbody > tr {{ break-inside: avoid; page-break-inside: avoid; }}
+.print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
+@media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
+{logo_css}
+</style>
+{logo_html}
+""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html))
+
+
+def validate_print_settings(doc, method=None):
+    """Keep the global print controls inside the supported range."""
+    if doc.doctype != "Print Settings":
+        return
+    try:
+        font_size = int(float(doc.get("custom_solua_print_font_size") or 10))
+    except (TypeError, ValueError):
+        frappe.throw(_("打印基础字号必须是 8 到 14 pt 的整数"))
+    if not 8 <= font_size <= 14:
+        frappe.throw(_("打印基础字号必须在 8 到 14 pt 之间"))
+    if doc.get("custom_solua_print_density") not in (None, "", "紧凑", "标准", "compact", "standard"):
+        frappe.throw(_("打印密度只能选择紧凑或标准"))
+    if doc.get("custom_solua_print_item_borders") not in (None, "", 0, 1, "0", "1", True, False):
+        frappe.throw(_("商品信息边框只能选择开启或关闭"))
+
+
+def _clean_item_text(value):
+    """Return one readable line without HTML or duplicated source fields."""
+    if not value:
+        return ""
+    text = re.sub(r"<br\s*/?>", "\n", str(value), flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return " ".join(html.unescape(text).split())
+
+
+
+
+CHINESE_BARCODE_NOTE = "厂家同款外包装条码已填入模板条码字段，颜色变体复用模板条码。"
+
+def _clean_chinese_print_description(value):
+    text = _clean_item_text(value).replace(CHINESE_BARCODE_NOTE, "")
+    return re.sub(r"；{2,}", "；", text).strip("； ")
+
+
+def _usable_barcode(value, item_code):
+    value = str(value or "").strip()
+    return value if value and value != str(item_code or "").strip() else ""
+
+
+def _item_master(item_code):
+    if not item_code:
+        return {}
+    fields = ["variant_of", "description"]
+    meta = frappe.get_meta("Item")
+    for field in ("custom_item_description_pt", "custom_chinese_name", "custom_label_barcode", "image", "custom_swatch_image"):
+        if meta.has_field(field):
+            fields.append(field)
+    data = frappe.db.get_value("Item", item_code, fields, as_dict=True) or {}
+    return data if hasattr(data, "get") else {}
+
+
+def _absolute_print_image(value):
+    value = str(value or "").strip()
+    if not value or value.startswith(("http://", "https://", "data:")):
+        return value
+    get_url = getattr(getattr(frappe, "utils", None), "get_url", None)
+    return get_url(value) if callable(get_url) else value
+
+
+def _template_customer_display(source, color_language="pt"):
+    """Use only the template's image and description for merged customer rows."""
+    template_code = str(source.get("template_code") or "").strip()
+    if not template_code:
+        item = _item_master(source.get("item_code"))
+        template_code = str(item.get("variant_of") or source.get("item_code") or "").strip()
+    template = _item_master(template_code)
+    description = (_clean_chinese_print_description(template.get("description"))
+                   if color_language == "zh"
+                   else (_clean_item_text(template.get("custom_item_description_pt"))
+                         or _clean_item_text(template.get("description"))))
+    return {
+        "image": _absolute_print_image(template.get("custom_swatch_image") or template.get("image")),
+        "description": description,
+    }
+
+
+
+def get_item_spu(item_code):
+    if not item_code:
+        return ""
+    item = frappe.db.get_value("Item", item_code, ["custom_spu_code", "variant_of"], as_dict=True) or {}
+    spu = item.get("custom_spu_code") if hasattr(item, "get") else ""
+    if not spu and hasattr(item, "get") and item.get("variant_of"):
+        spu = frappe.db.get_value("Item", item.get("variant_of"), "custom_spu_code")
+    return spu or ""
+
+
+def _item_barcodes(item_code):
+    rows = frappe.get_all(
+        "Item Barcode",
+        filters={"parent": item_code},
+        fields=["barcode", "barcode_type"],
+        order_by="idx asc",
+        limit_page_length=20,
+    )
+    return rows or []
+
+
+def get_item_sales_display(item_code, row_description=""):
+    """Resolve the real barcode and the single best sales description.
+
+    Variant item codes are never used as barcodes. A variant may use its own
+    native Item Barcode, otherwise its inherited custom label barcode or the
+    template's native barcode is used.
+    """
+    item = _item_master(item_code)
+    barcode = ""
+    barcode_type = ""
+    for row in _item_barcodes(item_code):
+        barcode = _usable_barcode(row.get("barcode"), item_code)
+        if barcode:
+            barcode_type = row.get("barcode_type") or ""
+            break
+    if not barcode:
+        barcode = _usable_barcode(item.get("custom_label_barcode"), item_code)
+        barcode_type = "code128" if barcode else ""
+    if not barcode and item.get("variant_of"):
+        template_code = item.get("variant_of")
+        template = _item_master(template_code)
+        for row in _item_barcodes(template_code):
+            barcode = _usable_barcode(row.get("barcode"), template_code)
+            if barcode:
+                barcode_type = row.get("barcode_type") or ""
+                break
+        if not barcode:
+            barcode = _usable_barcode(template.get("custom_label_barcode"), template_code)
+            barcode_type = "code128" if barcode else ""
+
+    description = _clean_item_text(item.get("custom_item_description_pt"))
+    if not description:
+        description = _clean_item_text(item.get("description"))
+    if not description:
+        description = _clean_item_text(row_description)
+    return {"barcode": barcode, "barcode_type": barcode_type, "description": description}
+
+
+def _value(doctype, name, field):
+    if name and frappe.get_meta(doctype).has_field(field):
+        return frappe.db.get_value(doctype, name, field) or ""
+    return ""
+
+
+def _company_logo_url(company):
+    try:
+        logo = _value("Company", company, "company_logo")
+    except Exception:
+        return ""
+    if not logo:
+        return ""
+    get_url = getattr(getattr(frappe, "utils", None), "get_url", None)
+    return get_url(logo) if callable(get_url) else logo
+
+
+def _snapshot(doc):
+    raw = doc.get("custom_wholesale_snapshot")
+    if not raw:
+        return None
+    data = json.loads(raw)
+    if data.get("version") != 1:
+        frappe.throw(_("不支持的批发打印快照版本"))
+    return data
+
+
+def get_company_print_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
+    if frozen:
+        company_info = dict(frozen.get("company") or {})
+        company_info.setdefault("logo", _company_logo_url(company_info.get("name") or doc.get("company")))
+        return company_info
+    company = doc.get("company") or ""
+    if not company:
+        defaults = getattr(frappe, "defaults", None)
+        get_default = getattr(defaults, "get_global_default", None)
+        company = get_default("company") if callable(get_default) else ""
+    company = company or COMPANY_NAME
+    own = company == COMPANY_NAME
+    return {
+        "name": company,
+        "nuit": _value("Company", company, "tax_id") or ("402216468" if own else ""),
+        "address": doc.get("company_address_display") or (COMPANY_ADDRESS_LINE if own else ""),
+        "phone": _value("Company", company, "phone_no") or ("860515423" if own else ""),
+        "logo": _company_logo_url(company),
+    }
+
+
+def get_customer_print_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
+    if frozen:
+        return frozen["customer"]
+    address_name = doc.get("shipping_address_name") or doc.get("customer_address") or ""
+    address = doc.get("shipping_address") or ""
+    if address_name:
+        latest = frappe.db.get_value(
+            "Address", address_name,
+            ["address_line1", "address_line2", "city", "state", "pincode", "country"],
+            as_dict=True,
+        ) or {}
+        if not isinstance(latest, dict):
+            latest = {}
+        address_parts = [latest.get(key) for key in ("address_line1", "address_line2")]
+        locality = " ".join(str(latest.get(key) or "").strip() for key in ("city", "state", "pincode", "country")).strip()
+        if locality:
+            address_parts.append(locality)
+        address = "<br>".join(str(value).strip() for value in address_parts if str(value or "").strip()) or address
+    contact_name = doc.get("contact_person") or ""
+    contact = frappe.db.get_value(
+        "Contact", contact_name, ["first_name", "last_name", "phone", "mobile_no", "email_id"], as_dict=True
+    ) if contact_name else None
+    contact = contact if isinstance(contact, dict) else {}
+    contact_display = " ".join(str(value or "").strip() for value in (contact.get("first_name"), contact.get("last_name")) if str(value or "").strip())
+    customer = frappe.db.get_value("Customer", doc.get("customer"), ["customer_name", "tax_id"], as_dict=True) or {}
+    if not isinstance(customer, dict):
+        customer = {}
+    return {
+        "name": customer.get("customer_name") or doc.get("customer_name") or doc.get("customer") or "",
+        "nuit": customer.get("tax_id") or doc.get("tax_id") or "",
+        "address": address,
+        "address_name": address_name,
+        "store": doc.get("custom_store_name") or "",
+        "contact": contact_display or doc.get("contact_display") or "",
+        "phone": contact.get("mobile_no") or contact.get("phone") or doc.get("custom_store_phone") or doc.get("contact_mobile") or doc.get("contact_phone") or "",
+    }
+
+
+def get_driver_phone(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
+    if frozen:
+        return frozen["transport"]["driver_phone"]
+    return doc.get("custom_driver_phone") or _value("Driver", doc.get("driver"), "cell_number")
+
+
+def get_delivery_order_info(doc, use_snapshot=True):
+    frozen = _snapshot(doc) if use_snapshot else None
+    if frozen:
+        return frozen["order"]
+    names = sorted({r.get("against_sales_order") for r in doc.get("items", []) if r.get("against_sales_order")})
+    return {"name": ", ".join(names)}
+
+
+def get_delivery_invoice_names(delivery_note):
+    # Invoice associations can legitimately appear after delivery submission.
+    note = frappe.get_doc("Delivery Note", delivery_note)
+    note.check_permission("print")
+    if not frappe.has_permission("Sales Invoice", ptype="read"):
+        return []
+    parents = frappe.get_all("Sales Invoice Item", filters={"delivery_note": delivery_note}, pluck="parent")
+    if not parents:
+        return []
+    return frappe.get_list("Sales Invoice", filters={"name": ["in", parents], "docstatus": 1},
+                           pluck="name", limit_page_length=0)
+
+
+def _sum_qty(rows, key):
+    """空值安全的数量求和；整数就不带小数点，方便直接打在纸上。"""
+    total = 0.0
+    for row in rows or []:
+        try:
+            total += float(row.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+    return int(total) if float(total).is_integer() else round(total, 6)
+
+
+def _print_number_key(value):
+    try:
+        return Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value or "")
+
+
+def _add_print_numbers(left, right):
+    try:
+        return float(left or 0) + float(right or 0)
+    except (TypeError, ValueError):
+        return left if right in (None, "") else right
+
+
+def _merge_customer_print_items(items, rod_color_boxes=False, color_language="pt"):
+    """Merge customer-facing rows while keeping the transaction rows untouched."""
+    merged = []
+    positions = {}
+    color_boxes = {}
+    for source in items or []:
+        order_code = str(source.get("order_code") or "").strip()
+        if not order_code:
+            merged.append(dict(source))
+            continue
+        key = (order_code, str(source.get("uom") or ""), _print_number_key(source.get("rate")))
+        if (rod_color_boxes and source.get("uom") == PACK_UOM
+                and frappe.get_cached_value("Item", source.get("template_code") or source.get("item_code"),
+                                            "item_group") == "窗帘杆"):
+            color = source.get("color_code") or source.get("color") or source.get("item_code")
+            colors = color_boxes.setdefault(key, {})
+            colors[color] = _add_print_numbers(colors.get(color), source.get("qty"))
+        position = positions.get(key)
+        if position is None:
+            row = dict(source)
+            row["order_code"] = order_code
+            row["customer_merged"] = False
+            merged.append(row)
+            positions[key] = len(merged) - 1
+            continue
+        target = merged[position]
+        if not target.get("customer_merged"):
+            target["item_name"] = target.get("template_name") or target.get("item_name")
+            target.update(_template_customer_display(target, color_language=color_language))
+            target["customer_merged"] = True
+        for fieldname in ("qty", "amount", "ordered_qty", "delivered_before_qty", "remaining_qty"):
+            value = source.get(fieldname)
+            if value is None:
+                continue
+            target[fieldname] = value if target.get(fieldname) is None else _add_print_numbers(target[fieldname], value)
+    for key, colors in color_boxes.items():
+        target = merged[positions[key]]
+        if target.get("customer_merged"):
+            if color_language == "zh":
+                detail = "；".join(f"{color}：{qty:g}箱" for color, qty in colors.items())
+                target["description"] = f"{target.get('description') or ''}；颜色：{detail}".lstrip("；")
+            else:
+                detail = "; ".join(f"{color}: {qty:g} Cx" for color, qty in colors.items())
+                target["description"] = f"{target.get('description') or ''}; Cores: {detail}".lstrip("; ")
+    return merged
+
+
+
+def _refresh_customer_item_images(data):
+    """Refresh color-card images from the current Variant master for old snapshots."""
+    from solua_home.printing.color_card import get_item_color_info
+
+    for item in data.get("items") or []:
+        item_code = str(item.get("item_code") or "").strip()
+        if not item_code:
+            continue
+        image = (get_item_color_info(item_code) or {}).get("image") or ""
+        if image:
+            item["image"] = image
+
+
+def format_print_qty(value):
+    """Render document quantities as whole units; source data remains unchanged."""
+    try:
+        amount = Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0"
+    return format(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP), "f")
+
+
+PRINT_UOM_LABELS = {
+    "条": "条/pc",
+    "根": "根/pc",
+    "卷": "卷/Rolo",
+    "箱": "箱/CTN",
+    "箱/Caixa": "箱/CTN",
+}
+
+
+def format_print_uom(value, item_code=None):
+    """Translate only the unit shown in print/export output; source data stays unchanged."""
+    text = str(value or "").strip()
+    if text == "Nos" and str(item_code or "").strip().startswith("SH-PVC1.0"):
+        return "卷/Rolo"
+    return PRINT_UOM_LABELS.get(text, text)
+
+
+def _format_print_uoms(data):
+    for item in data.get("items") or []:
+        item["uom"] = format_print_uom(item.get("uom"), item.get("item_code"))
+    if data.get("total_uom"):
+        data["total_uom"] = format_print_uom(data["total_uom"])
+    return data
+
+
+def format_print_money(value, currency=None, precision=0):
+    """Render document money with zero decimals while retaining ERP currency formatting.
+
+    打印模板会显式传 ``precision``（如 ``format_print_money(item.rate, precision=0)``）；
+    不接受该参数会让整张格式渲染失败（模板第 6 行抛 TypeError，单据完全打不出来）。
+    默认仍为 0 位小数，保持既有格式的输出不变。
+    """
+    return frappe.utils.fmt_money(value or 0, currency=currency,
+                                  precision=0 if precision is None else precision)
+
+
+def _cash_discount_excluded(doc):
+    if doc.get("selling_price_list") == "Wholesale Selling 3":
+        return True
+    customer = doc.get("customer")
+    return bool(customer and frappe.db.get_value("Customer", customer, "default_price_list") == "Wholesale Selling 3")
+
+
+def get_cash_discount_info(doc):
+    """Read a submitted cash discount for a Sales Invoice without changing it."""
+    if doc.doctype != "Sales Invoice" or not doc.get("name"):
+        return {"enabled": False}
+    total = float(doc.get("grand_total") or 0)
+    if total <= 0:
+        return {"enabled": False}
+    parents = frappe.get_all(
+        "Payment Entry Reference",
+        filters={
+            "reference_doctype": "Sales Invoice",
+            "reference_name": doc.name,
+            "parenttype": "Payment Entry",
+        },
+        pluck="parent",
+    )
+    for parent in dict.fromkeys(parents):
+        if frappe.db.get_value("Payment Entry", parent, "docstatus") != 1:
+            continue
+        if frappe.db.get_value("Payment Entry", parent, "mode_of_payment") != "Cash":
+            continue
+        amount = sum(
+            float(row.amount or 0)
+            for row in frappe.get_all(
+                "Payment Entry Deduction",
+                filters={"parent": parent, "account": "Discount Allowed - SH"},
+                fields=["amount"],
+            )
+        )
+        if amount > 0:
+            return {
+                "enabled": True,
+                "rate": round(amount / total * 100, 3),
+                "amount": amount,
+                "cash_paid": round(total - amount, 2),
+                "is_estimate": False,
+            }
+    if doc.get("payment_terms_template") == "PRONTO PAGAMENTO" and not _cash_discount_excluded(doc):
+        amount = round(total * 0.03, 2)
+        return {
+            "enabled": True,
+            "rate": 3,
+            "amount": amount,
+            "cash_paid": round(total - amount, 2),
+            "is_estimate": True,
+        }
+    return {"enabled": False}
+
+
+def get_print_total_qty(data):
+    """打印表格底部的总数量；快照与实时数据都适用。"""
+    return _sum_qty((data or {}).get("items") or [], "qty")
+
+
+PACK_UOM = "箱/Caixa"
+
+
+def get_item_pack_factor(item_code, uom=PACK_UOM):
+    """1 箱 = N 个本位单位；货号自身没有换算时回退到模板（杆的颜色变体只在模板上维护）。"""
+    if not item_code or not uom:
+        return 0.0
+    codes = [item_code, frappe.db.get_value("Item", item_code, "variant_of")]
+    for code in codes:
+        if not code:
+            continue
+        factor = frappe.db.get_value("UOM Conversion Detail", {"parent": code, "uom": uom},
+                                     "conversion_factor")
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            continue
+        if factor > 1:
+            return factor
+    return 0.0
+
+
+def get_pick_list_row_pack(uom, qty, conversion_factor, stock_qty, item_code):
+    """拣货单行按整箱折算的提示文本；行单位本身就是箱、或没有换算关系时返回空。"""
+    if (uom or "") == PACK_UOM:
+        return ""
+    factor = get_item_pack_factor(item_code)
+    if factor <= 1:
+        return ""
+    try:
+        base_qty = float(stock_qty) if stock_qty not in (None, "") else float(qty or 0) * float(conversion_factor or 1)
+    except (TypeError, ValueError):
+        return ""
+    if not base_qty:
+        return ""
+    boxes = base_qty / factor
+    boxes = int(boxes) if float(boxes).is_integer() else round(boxes, 2)
+    return f"{boxes:g} {format_print_uom(PACK_UOM)}"
+
+
+def get_pick_list_rows(doc):
+    """拣货单的明细在 locations 子表（Pick List Item），并补上色号/条码/描述与整箱提示。"""
+    from solua_home.printing.color_card import get_item_color_info
+
+    rows = []
+    for row in doc.get("locations") or []:
+        item_code = row.get("item_code")
+        color = get_item_color_info(item_code) or {}
+        display = get_item_sales_display(item_code, row.get("description"))
+        rows.append({
+            "item_code": item_code,
+            "item_name": row.get("item_name") or item_code,
+            "spu": get_item_spu(item_code),
+            "order_code": item_code,
+            "color_code": color.get("color_code") or "",
+            "color": color.get("color_name") or "",
+            "barcode": display.get("barcode") or "",
+            "description": display.get("description") or "",
+            "additional_notes": _get_pick_list_additional_notes(row),
+            "image": color.get("image") or "",
+            "template_code": color.get("template_code") or "",
+            "template_name": color.get("template_name") or "",
+            "qty": row.get("qty"),
+            "picked_qty": row.get("picked_qty"),
+            "uom": row.get("uom") or row.get("stock_uom") or "",
+            "pack_uom": get_pick_list_row_pack(row.get("uom") or row.get("stock_uom"), row.get("qty"),
+                                               row.get("conversion_factor"), row.get("stock_qty"), item_code),
+            "warehouse": row.get("warehouse") or "",
+            "sales_order": row.get("sales_order") or "",
+        })
+    return rows
+
+
+def _get_pick_list_additional_notes(row):
+    """优先读拣货单字段；旧拣货单回退到来源销售订单明细。"""
+    note = row.get("custom_additional_notes") or row.get("additional_notes") or row.get("pos_additional_notes")
+    if note:
+        return note
+    sales_order_item = row.get("sales_order_item")
+    if sales_order_item:
+        fields = ["additional_notes"]
+        if frappe.get_meta("Sales Order Item").has_field("pos_additional_notes"):
+            fields.append("pos_additional_notes")
+        source = frappe.db.get_value("Sales Order Item", sales_order_item, fields, as_dict=True) or {}
+        return source.get("additional_notes") or source.get("pos_additional_notes") or ""
+    return ""
+
+
+def get_pick_list_print_data(doc):
+    """拣货单打印数据：行 + 需求数量/已拣数量合计。
+
+    ``total_uom``：所有行单位一致时回填该单位，否则留空。数量列改以「箱」为主位后，
+    合计仍是本位单位的和，不标单位会被误读成箱。
+    """
+    rows = get_pick_list_rows(doc)
+    uoms = {row.get("uom") for row in rows if row.get("uom")}
+    return _format_print_uoms({
+        "items": rows,
+        "total_qty": _sum_qty(rows, "qty"),
+        "total_picked": _sum_qty(rows, "picked_qty"),
+        "total_uom": next(iter(uoms)) if len(uoms) == 1 else "",
+        "company": doc.get("company") or "",
+        "purpose": doc.get("purpose") or "",
+        "customer": doc.get("customer_name") or doc.get("customer") or "",
+        "source": doc.get("work_order") or doc.get("material_request") or "",
+    })
+
+
+def _collect(doc, use_snapshot=True):
+    from solua_home.printing.color_card import get_item_color_info
+
+    items = []
+    for row in doc.get("items", []):
+        color = get_item_color_info(row.item_code)
+        sales_display = get_item_sales_display(row.item_code, row.get("description"))
+        items.append({
+            "item_code": row.item_code, "item_name": row.get("item_name") or row.item_code,
+            "spu": get_item_spu(row.item_code),
+            "order_code": color.get("order_code") or "",
+            "color_code": color.get("color_code") or "", "color": color.get("color_name") or "",
+            "barcode": sales_display["barcode"], "description": sales_display["description"],
+            "additional_notes": row.get("additional_notes") or row.get("pos_additional_notes") or row.get("custom_additional_notes") or "",
+            "image": color.get("image") or "", "template_code": color.get("template_code") or "",
+            "template_name": color.get("template_name") or "",
+            "uom": row.get("uom") or row.get("stock_uom") or "",
+            "qty": row.get("qty"), "rate": row.get("rate"), "amount": row.get("amount"),
+            "ordered_qty": row.get("custom_ordered_qty") if row.get("so_detail") and not doc.get("is_return") else None,
+            "delivered_before_qty": row.get("custom_delivered_before_qty") if row.get("so_detail") and not doc.get("is_return") else None,
+            "remaining_qty": row.get("custom_remaining_qty") if row.get("so_detail") and not doc.get("is_return") else None,
+            "batch_no": row.get("batch_no") or "", "serial_no": row.get("serial_no") or "",
+            "serial_and_batch_bundle": row.get("serial_and_batch_bundle") or "",
+            "warehouse": row.get("warehouse") or "",
+        })
+    return {
+		"version": 1, "company": get_company_print_info(doc, use_snapshot=use_snapshot), "customer": get_customer_print_info(doc, use_snapshot=use_snapshot),
+		"order": get_delivery_order_info(doc, use_snapshot=use_snapshot), "items": items, "total_qty": _sum_qty(items, "qty"),
+        "transport": {
+			"driver_name": doc.get("driver_name") or _value("Driver", doc.get("driver"), "full_name"),
+			"vehicle_no": doc.get("vehicle_no") or "", "driver_phone": get_driver_phone(doc, use_snapshot=use_snapshot),
+            "departure_time": str(doc.get("custom_departure_time") or ""),
+            "source_address": doc.get("custom_source_warehouse_address") or "",
+        },
+        "invoice_plan": doc.get("custom_invoice_plan") or "",
+        "payment_method": doc.get("custom_payment_method") or "",
+        "deposit": doc.get("custom_deposit_amount") or 0,
+        "balance_due_date": str(doc.get("custom_balance_due_date") or ""),
+        "cash_discount": get_cash_discount_info(doc),
+    }
+
+
+def _recover_sales_order_item_display(doc, data):
+    """Fill only missing legacy snapshot display values without writing back."""
+    if doc.doctype != "Sales Order":
+        return
+    for index, row in enumerate(doc.get("items") or []):
+        if index >= len(data.get("items", [])):
+            break
+        item = data["items"][index]
+        display = get_item_sales_display(row.item_code, row.get("description"))
+        if not item.get("barcode"):
+            item["barcode"] = display["barcode"]
+        if not item.get("description"):
+            item["description"] = display["description"]
+
+
+def _recover_item_spu_display(doc, data):
+    """Fill SPU for old snapshots without changing the stored snapshot."""
+    live_rows = doc.get("items") or doc.get("locations") or []
+    for index, item in enumerate(data.get("items") or []):
+        if item.get("spu"):
+            continue
+        item_code = item.get("item_code")
+        if not item_code and index < len(live_rows):
+            item_code = live_rows[index].get("item_code")
+        item["spu"] = get_item_spu(item_code)
+
+
+def prepare_print_snapshot(doc, method=None):
+    """before_submit: validate Guia, set JSON on the document; no DB writes."""
+    if doc.doctype not in ("Sales Order", "Delivery Note"):
+        return
+    address_name = doc.get("shipping_address_name")
+    contact_name = doc.get("contact_person")
+    for doctype, name in (("Address", address_name), ("Contact", contact_name)):
+        if name and not frappe.db.exists("Dynamic Link", {
+            "parenttype": doctype, "parent": name, "link_doctype": "Customer",
+            "link_name": doc.get("customer"),
+        }):
+            frappe.throw(_("所选收货地址/联系人不属于当前客户"))
+    if contact_name and address_name:
+        contact_address = _value("Contact", contact_name, "address")
+        if contact_address and contact_address != address_name:
+            frappe.throw(_("联系人绑定的地址与当前门店不一致"))
+    # Amendments can inherit the old field; always collect fresh on new submit.
+    doc.custom_wholesale_snapshot = None
+    data = _collect(doc)
+    if doc.doctype == "Delivery Note":
+        customer, company, transport = data["customer"], data["company"], data["transport"]
+        required = {
+            "公司名称": company["name"], "公司NUIT": company["nuit"], "公司地址": company["address"],
+            "客户名称": customer["name"], "客户门店": customer["store"],
+            "客户收货地址": customer["address"], "客户收货地址记录": customer["address_name"],
+            "门店联系人": customer["contact"], "门店电话": customer["phone"],
+            "门店联系人记录": contact_name, "司机主档": doc.get("driver"),
+            "车牌": transport["vehicle_no"], "司机姓名": transport["driver_name"], "司机电话": transport["driver_phone"],
+        }
+        missing = [label for label, value in required.items() if not str(value or "").strip()]
+        if missing:
+            frappe.throw(_("Guia 提交前请填写：") + "、".join(missing))
+        names = sorted({r.get("against_sales_order") for r in doc.get("items", []) if r.get("against_sales_order")})
+        if not names:
+            frappe.throw(_("Guia 必须关联销售订单"))
+    doc.custom_wholesale_snapshot = json.dumps(data, ensure_ascii=False, default=str)
+    return data
+
+
+def _has_nonzero(value):
+    try:
+        return abs(float(value or 0)) > 0.000001
+    except (TypeError, ValueError):
+        return False
+
+
+def _recover_delivery_quantities(doc, data):
+    """Read-only compatibility for old/draft delivery notes with zero fields."""
+    if doc.get("is_return"):
+        data["has_order_linkage"] = False
+        data["has_ordered_before"] = False
+        return
+    rows = doc.get("items") or []
+    references = [bool(row.get("against_sales_order") or row.get("so_detail")) for row in rows]
+    data["has_order_linkage"] = any(references)
+    data["has_ordered_before"] = any(
+        index < len(data.get("items", [])) and references[index] and (
+            _has_nonzero(data["items"][index].get("ordered_qty"))
+            or _has_nonzero(data["items"][index].get("delivered_before_qty"))
+        )
+        for index in range(len(rows))
+    )
+    errors = []
+    # A fully populated snapshot is authoritative. Only all-zero linked rows
+    # take the read-only recovery path for legacy/draft documents.
+    stale = data["has_order_linkage"] and not data["has_ordered_before"]
+    incomplete = []
+    for index, row in enumerate(rows):
+        if references[index] and (not row.get("against_sales_order") or not row.get("so_detail")):
+            incomplete.append(index)
+    if stale:
+        from solua_home.api.stock import get_delivery_snapshot_quantities
+
+        resolved = get_delivery_snapshot_quantities(doc, lock=False, strict=False)
+        by_index = {result["index"]: result for result in resolved}
+        for index, item in enumerate(data.get("items", [])):
+            result = by_index.get(index)
+            if result and "error" not in result:
+                item.update({key: result[key] for key in ("ordered_qty", "delivered_before_qty", "remaining_qty")})
+            elif index < len(references) and references[index]:
+                item.update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+                errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    for index in incomplete:
+        if index < len(data.get("items", [])):
+            data["items"][index].update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+            errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    if data["has_order_linkage"]:
+        for index, linked in enumerate(references):
+            if not linked and index < len(data.get("items", [])):
+                data["items"][index].update({"ordered_qty": None, "delivered_before_qty": None, "remaining_qty": None})
+                errors.append(rows[index].get("item_code") or "第 {} 行".format(index + 1))
+    if errors:
+        data["delivery_quantity_error"] = "以下行缺少完整销售订单关联，订购/此前已交付无法可靠恢复：" + "、".join(dict.fromkeys(errors))
+    data["has_ordered_before"] = any(
+        index < len(data.get("items", [])) and references[index] and (
+            _has_nonzero(data["items"][index].get("ordered_qty"))
+            or _has_nonzero(data["items"][index].get("delivered_before_qty"))
+        )
+        for index in range(len(rows))
+    )
+
+
+def get_wholesale_print_data(doc, live=False, color_language="pt"):
+    frozen = None if live else _snapshot(doc)
+    # Legacy prints are visibly identified; never write/backfill while printing.
+    data = frozen or _collect(doc, use_snapshot=not live)
+    if frozen and doc.doctype == "Sales Order":
+        live_rows = doc.get("items") or []
+        snapshot_rows = data.get("items") or []
+        same_rows = len(live_rows) == len(snapshot_rows) and all(
+            live.get("item_code") == saved.get("item_code")
+            for live, saved in zip(live_rows, snapshot_rows)
+        )
+        if live_rows and same_rows:
+            # Snapshot keeps stable display data; transaction values must follow the edited order.
+            for live, saved in zip(live_rows, snapshot_rows):
+                for key in ("uom", "qty", "rate", "amount", "warehouse"):
+                    saved[key] = live.get(key)
+                saved["additional_notes"] = (
+                    live.get("additional_notes") or live.get("pos_additional_notes")
+                    or live.get("custom_additional_notes") or saved.get("additional_notes") or ""
+                )
+            data["total_qty"] = _sum_qty(snapshot_rows, "qty")
+        elif live_rows:
+            data = _collect(doc)
+    _recover_sales_order_item_display(doc, data)
+    _recover_item_spu_display(doc, data)
+    customer_print = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
+    if customer_print:
+        _refresh_customer_item_images(data)
+        data["customer_merged"] = False
+    if color_language == "zh":
+        for item in data.get("items") or []:
+            master = _item_master(item.get("item_code"))
+            item["item_name"] = (_clean_item_text(master.get("custom_chinese_name"))
+                                  or item.get("item_name") or item.get("item_code"))
+            item["description"] = _clean_chinese_print_description(
+                master.get("description") or item.get("description") or ""
+            )
+            if frappe.get_cached_value("Item", item.get("template_code") or item.get("item_code"), "item_group") == "窗帘杆":
+                color = frappe.get_cached_value("Item", item.get("item_code"), "custom_pos_short_name") or item.get("color")
+                if color:
+                    item["color_code"] = item["color"] = color
+                    item["description"] = f"{item['description']}；颜色：{color}".lstrip("；")
+    if customer_print and doc.get("custom_print_merge_order_code"):
+        original_count = len(data.get("items") or [])
+        data["items"] = _merge_customer_print_items(data.get("items"), rod_color_boxes=doc.doctype == "Sales Order",
+                                                  color_language=color_language)
+        data["customer_merged"] = len(data["items"]) < original_count
+    if doc.doctype == "Delivery Note":
+        _recover_delivery_quantities(doc, data)
+        data["has_traceability"] = any(
+            str(item.get(key) or "").strip()
+            for item in data.get("items", [])
+            for key in ("batch_no", "serial_no", "serial_and_batch_bundle")
+        )
+    data["cash_discount"] = get_cash_discount_info(doc)
+    data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
+    if not frozen:
+        data["legacy"] = doc.get("docstatus") != 0
+    return _format_print_uoms(data)
+
