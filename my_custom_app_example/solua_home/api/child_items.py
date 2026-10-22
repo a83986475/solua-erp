@@ -22,6 +22,7 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 
 	after = frappe.get_doc(parent_doctype, parent_doctype_name)
 	after.flags._stock_previous_doc = before
+	after.flags._stock_reservation_persisted = True
 	from solua_home.api.sales import validate_sales_order_stock
 	if after.docstatus == 1:
 		validate_sales_order_stock(after)

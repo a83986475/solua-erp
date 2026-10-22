@@ -45,6 +45,8 @@ assert "销售订单对比未通过" in stock_source
 
 sales_source = sales.read_text(encoding="utf-8-sig")
 assert "get_sales_order_stock_requirements" in sales_source
+assert "_stock_reservation_persisted" in sales_source
+assert "ignore_validate_update_after_submit" in sales_source
 assert "before_update_after_submit" in hooks.read_text(encoding="utf-8-sig")
 assert "remaining = max(_row_stock_qty(item) - delivered_qty * factor, 0)" in stock_source
 
@@ -67,6 +69,7 @@ assert "部分拣货" in install_source and "缺货待补" in install_source
 
 assert "class CustomPickList(PickList)" in pick_list.read_text(encoding="utf-8-sig")
 assert "_stock_previous_doc" in child_items.read_text(encoding="utf-8-sig")
+assert "_stock_reservation_persisted = True" in child_items.read_text(encoding="utf-8-sig")
 
 fake_frappe = types.ModuleType("frappe")
 fake_frappe._ = lambda value: value

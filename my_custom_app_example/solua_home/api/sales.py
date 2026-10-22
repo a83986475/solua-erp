@@ -477,7 +477,11 @@ def validate_sales_order_stock(doc, method=None):
 
     requirements = get_sales_order_stock_requirements(doc)
     self_reserved = {}
-    if doc.get("docstatus") == 1 and doc.get("name"):
+    flags = getattr(doc, "flags", None)
+    if getattr(flags, "_stock_reservation_persisted", False) or getattr(flags, "ignore_validate_update_after_submit", False):
+        # The submitted-child update already wrote this order before validating it.
+        self_reserved = requirements
+    elif doc.get("docstatus") == 1 and doc.get("name"):
         # Updating a submitted order must replace its old reservation, not count
         # the newly edited quantity as its own available stock.
         previous = getattr(getattr(doc, "flags", None), "_stock_previous_doc", None)
