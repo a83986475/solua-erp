@@ -16,9 +16,9 @@ from frappe.utils import cint, flt
 from solua_home.api.stock import validate_transaction_quantities
 
 # 折扣审批改为「密码审批」（2026-08-08）：
-# 任何折扣（幅度 > 公司配置阈值，默认 0 = 任何折扣）都需在发票「审批密码」字段
-# 输入公司配置的审批密码后才能提交。密码存于 设置→公司→Solua Home, Lda，
-# 字段加密存储，界面上不可见；收银员没有自由打折权。
+# 普通账号的折扣（幅度 > 公司配置阈值，默认 0 = 任何折扣）都需在发票「审批密码」字段
+# 输入公司配置的审批密码后才能提交。Administrator 账号免此审批；密码存于
+# 设置→公司→Solua Home, Lda，字段加密存储，界面上不可见；收银员没有自由打折权。
 
 
 def before_validate_sales_invoice(doc, method=None):
@@ -93,6 +93,11 @@ def _get_discount_approval_settings(doc):
         except Exception:
             pwd_hash = ""
     return enabled, threshold, _try_decrypt(pwd_hash)
+
+
+def _discount_approval_exempt():
+    """Administrator账号免折扣审批；售价低于成本的硬拦截不变。"""
+    return frappe.session.user == "Administrator"
 
 
 def requires_large_invoice_approval(doc):
@@ -252,6 +257,7 @@ def validate_sales_invoice(doc, method=None):
         and approval_pwd
         and max_pct > threshold
         and not cint(doc.get("custom_discount_approved"))
+        and not _discount_approval_exempt()
     ):
         entered = _try_decrypt(doc.get("custom_approval_password") or "")
         if entered == approval_pwd:
@@ -306,6 +312,8 @@ def verify_discount_approval_password(password, company=None):
 
     返回 {"ok": True/False}；审批未启用或密码为空时视为通过（由提交时后端门再次把关）。
     """
+    if _discount_approval_exempt():
+        return {"ok": True}
     if not company:
         company = frappe.defaults.get_user_default("company")
     enabled, threshold, approval_pwd = _get_discount_approval_settings(

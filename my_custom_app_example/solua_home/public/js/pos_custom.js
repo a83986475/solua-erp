@@ -219,6 +219,10 @@ frappe.provide("solua_home.pos");
 		return false;
 	}
 
+	function is_discount_approval_exempt() {
+		return frappe.session?.user === "Administrator";
+	}
+
 	// ------------------------------------------------------------------
 	// POS 折扣审批密码对话框：提交时弹窗输入密码，验证通过才继续提交。
 	// 返回 Promise：resolve(密码) 表示通过；resolve(null) 表示取消。
@@ -374,7 +378,7 @@ frappe.provide("solua_home.pos");
 			const doc = me.doc;
 			const is_pos =
 				window.cur_pos && window.cur_pos.frm === me && doc && doc.is_pos;
-			if (is_pos && has_unapproved_discount(doc)) {
+			if (is_pos && has_unapproved_discount(doc) && !is_discount_approval_exempt()) {
 				return show_pos_discount_approval(me).then((password) => {
 					if (password) doc.custom_approval_password = password;
 					return original_form_savesubmit.call(me, btn, callback, on_error);
