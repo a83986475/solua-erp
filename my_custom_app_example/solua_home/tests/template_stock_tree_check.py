@@ -27,6 +27,10 @@ assert (rows[0]["actual_qty"], rows[0]["reserved_qty"], rows[0]["available_qty"]
 opening_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34})
 assert next(row for row in opening_rows if row["item_code"] == "TPL")["opening_qty"] == 54
 assert next(row for row in opening_rows if row["item_code"] == "RED")["opening_qty"] == 20
+legacy_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, legacy_opening_by_group={("TPL", "条"): 700})
+assert next(row for row in legacy_rows if row["item_code"] == "TPL")["opening_qty"] == 754
+legacy_totals = namespace["add_totals"](legacy_rows.copy(), {("TPL", "条"): 700})
+assert next(row for row in legacy_totals if row["item_code"] == "")["opening_qty"] == 754
 sales_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, sold_quantities={"RED": 4, "BLUE": 12}, delivered_quantities={"RED": 3, "BLUE": 8})
 assert next(row for row in sales_rows if row["item_code"] == "TPL")["sold_qty"] == 16
 assert next(row for row in sales_rows if row["item_code"] == "RED")["sold_qty"] == 4
