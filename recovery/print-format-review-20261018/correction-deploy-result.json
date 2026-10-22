@@ -1,0 +1,33 @@
+{
+  "deleted": "客户订单确认单（颜色版）-紧凑版",
+  "restored": "差价退款 A4 可编辑版 - 销售订单 v2",
+  "restored_html_css_exact": true,
+  "default_unchanged": true,
+  "snapshot": "/home/frappe/frappe-bench/sites/erp.solua.one/private/deployment_snapshots/20261018-print-format-correction-so18-220016",
+  "backups": [
+    {
+      "path": "/home/frappe/frappe-bench/sites/erp.solua.one/private/backups/20261018_220016-erp_solua_one-database.sql.gz",
+      "bytes": 5261906,
+      "sha256": "919a703cff9324adb473512a917b8aeafd0123b07b677ebda4379d02b825698e"
+    },
+    {
+      "path": "/home/frappe/frappe-bench/sites/erp.solua.one/private/backups/20261018_220016-erp_solua_one-files.tgz",
+      "bytes": 324141263,
+      "sha256": "58b90c80cd89207a7e35d5495c32f09fb7fcbcf6a0b0d8ce597f17c486fd3d36"
+    },
+    {
+      "path": "/home/frappe/frappe-bench/sites/erp.solua.one/private/backups/20261018_220016-erp_solua_one-private-files.tgz",
+      "bytes": 268056,
+      "sha256": "3829f8c5e70eeed093536becaa213e3553f866b0a40f61cc059ac91935033c0d"
+    },
+    {
+      "path": "/home/frappe/frappe-bench/sites/erp.solua.one/private/backups/20261018_220016-erp_solua_one-site_config_backup.json",
+      "bytes": 1031,
+      "sha256": "e737ba0ff6b0f66d54e5dc22b0c5c1b10b4a7dd076d4cf3de9291b57c19838e7"
+    }
+  ],
+  "source_hashes": {
+    "printing/format_retirement.py": "741993b52aed6f7bf42b2baa58d5b05dc11734885ad4bde412fca849fa9db892",
+    "tests/print_format_retirement_check.py": "c4755bd36a40ba0586f426e41fe59878d04503f299ad3b23c700bfefe73114f0"
+  }
+}
