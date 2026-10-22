@@ -29,6 +29,7 @@ frappe.throw = lambda message: (_ for _ in ()).throw(ValueError(str(message)))
 
 masters = {
     "GOOD": Dict(name="GOOD", item_name="Good item", item_group="Curtains", variant_of="TPL", has_variants=0, disabled=0, is_stock_item=1, custom_label_barcode="LABEL-GOOD"),
+    "PVC-H048": Dict(name="PVC-H048", item_name="PVC H048", item_group="PVC", variant_of="PVC-TPL", has_variants=0, disabled=0, is_stock_item=1),
     "DISABLED": Dict(name="DISABLED", item_name="Disabled", item_group="Curtains", has_variants=0, disabled=1, is_stock_item=1),
     "TEMPLATE": Dict(name="TEMPLATE", item_name="Template", item_group="Curtains", has_variants=1, disabled=0, is_stock_item=1),
     "NO-PRICE": Dict(name="NO-PRICE", item_name="No price", item_group="Curtains", has_variants=0, disabled=0, is_stock_item=1),
@@ -112,6 +113,9 @@ def native_details(item_code, context, qty=1, warehouse=None, price_list=None):
 module._native_sales_item_details = native_details
 module._display_price = lambda _code, _context, price_list, warehouse=None: 480 if price_list == "Wholesale Selling" else 430
 def fake_get_all(doctype, **kwargs):
+    if doctype == "Item Variant Attribute":
+        filters = kwargs.get("filters", {})
+        return [Dict(parent="PVC-H048")] if filters.get("attribute_value") == "H048" else []
     if doctype == "Item Barcode":
         query = kwargs.get("filters", {}).get("barcode")
         return [Dict(parent="GOOD")] if query == "EAN-GOOD" else []
@@ -130,6 +134,8 @@ def fake_get_all(doctype, **kwargs):
                 field, operator, value = item_filter
                 if operator == "in":
                     return row.get(field) in value
+                if operator == "like":
+                    return str(value).strip("%").lower() in str(row.get(field) or "").lower()
                 return row.get(field) == value
             rows = [row for row in rows if any(matches(row, item_filter) for item_filter in or_filters)]
         return rows
@@ -140,12 +146,19 @@ frappe.get_all = fake_get_all
 frappe.get_list = lambda doctype, **kwargs: list(addresses.values()) if doctype == "Address" else []
 
 home_api = types.ModuleType("solua_home.api.home")
-home_api.get_color_variants = lambda **_kwargs: {
-    "state": "ok", "templates": [{"template": {"has_variants": 1}, "variants": [
+def fake_color_variants(**kwargs):
+    if kwargs.get("barcode") == "H048":
+        return {"state": "ok", "templates": [{"template": {"has_variants": 1}, "variants": [
+            {"name": "PVC-H048", "item_code": "PVC-H048", "color_code": "H048", "color": "H048"},
+            {"name": "PVC-OTHER", "item_code": "PVC-OTHER", "color_code": "H049", "color": "H049"},
+        ]}]}
+    return {"state": "ok", "templates": [{"template": {"has_variants": 1}, "variants": [
         {"name": "GOOD", "item_code": "GOOD", "color_code": "01", "color": "Red"},
         {"name": "NO-PRICE", "item_code": "NO-PRICE", "color_code": "02", "color": "Blue"},
-    ]}],
-}
+    ]}]}
+
+
+home_api.get_color_variants = fake_color_variants
 sys.modules["solua_home.api.home"] = home_api
 
 parsed, parse_errors = module._parse_table_rows([
@@ -234,6 +247,8 @@ label_barcode_color = module.get_sales_order_color_variants("LABEL-GOOD", json.d
 assert [row["item_code"] for row in label_barcode_color["variants"]] == ["GOOD"]
 item_barcode_color = module.get_sales_order_color_variants("EAN-GOOD", json.dumps(context))
 assert [row["item_code"] for row in item_barcode_color["variants"]] == ["GOOD"]
+suffix_color = module.get_sales_order_color_variants("H048", json.dumps(context))
+assert [row["item_code"] for row in suffix_color["variants"]] == ["PVC-H048"]
 
 default_order = Dict(docstatus=0, customer="Customer A", shipping_address_name="", customer_address="", custom_store_name="", items=[])
 module.validate_sales_order(default_order)

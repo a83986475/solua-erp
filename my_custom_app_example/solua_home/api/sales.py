@@ -948,9 +948,15 @@ def get_sales_order_color_variants(barcode, context=None):
         ["item_code", "in", list(exact_codes)],
     ]
     item_fields = ["name", "item_code", "variant_of"]
+    if frappe.get_meta("Item").has_field("custom_color_code"):
+        item_fields.append("custom_color_code")
+        exact_item_or_filters.append(["custom_color_code", "=", query])
     if frappe.get_meta("Item").has_field("custom_label_barcode"):
         item_fields.append("custom_label_barcode")
         exact_item_or_filters.append(["custom_label_barcode", "=", query])
+    if query:
+        # A typed color suffix such as H048 is a variant lookup, not a template lookup.
+        exact_item_or_filters.append(["item_code", "like", f"%-{query}"])
     exact_variants = frappe.get_all(
         "Item",
         filters=exact_item_filters,
@@ -969,6 +975,20 @@ def get_sales_order_color_variants(barcode, context=None):
         exact_variants.extend(frappe.get_all(
             "Item",
             filters={"name": ["in", barcode_parent_names], "disabled": 0, "has_variants": 0},
+            fields=item_fields,
+            limit_page_length=20,
+        ))
+    exact_color_variants = frappe.get_all(
+        "Item Variant Attribute",
+        filters={"attribute": "Cor", "attribute_value": query},
+        fields=["parent"],
+        limit_page_length=20,
+    ) if query else []
+    exact_color_names = list({row.get("parent") for row in exact_color_variants if row.get("parent")})
+    if exact_color_names:
+        exact_variants.extend(frappe.get_all(
+            "Item",
+            filters={"name": ["in", exact_color_names], "disabled": 0, "has_variants": 0},
             fields=item_fields,
             limit_page_length=20,
         ))
