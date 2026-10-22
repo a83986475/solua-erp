@@ -85,6 +85,13 @@ def _get_discount_approval_settings(doc):
     enabled = cint(frappe.db.get_value("Company", company, "custom_enable_discount_approval") or 0)
     threshold = flt(frappe.db.get_value("Company", company, "custom_discount_approval_threshold") or 0)
     pwd_hash = frappe.db.get_value("Company", company, "custom_discount_approval_password") or ""
+    if pwd_hash and set(str(pwd_hash)) == {"*"}:
+        try:
+            pwd_hash = frappe.get_doc("Company", company).get_password(
+                "custom_discount_approval_password", raise_exception=False
+            ) or ""
+        except Exception:
+            pwd_hash = ""
     return enabled, threshold, _try_decrypt(pwd_hash)
 
 

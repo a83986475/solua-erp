@@ -89,3 +89,46 @@ def send_sales_order_customer_xlsx_to_wechat(name):
         xlsx,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+@frappe.whitelist()
+def send_document_pdf_to_wechat(doctype, name):
+    """Send a Delivery Note, Pick List, or Sales Invoice PDF to the group bot."""
+    if doctype not in ("Delivery Note", "Pick List", "Sales Invoice"):
+        frappe.throw("只支持发送交货单、拣货单和销售发票")
+    webhook_url, key = _webhook_config()
+
+    from solua_home.api.a4_designer import _active_print_format
+    from solua_home.api.export import _render_document_pdf, get_export_document
+
+    doc = get_export_document(doctype, name)
+    print_format = _active_print_format(doctype)
+    if not print_format:
+        frappe.throw(f"{doctype}没有可用的打印格式")
+    pdf = _render_document_pdf(
+        doc,
+        print_format,
+        merge_customer=doctype == "Delivery Note",
+        doctype=doctype,
+    )
+    return _send_file(webhook_url, key, f"{name}.pdf", pdf, "application/pdf")
+
+
+@frappe.whitelist()
+def send_document_xlsx_to_wechat(doctype, name):
+    """Send the standard item table for a Delivery Note, Pick List, or invoice."""
+    if doctype not in ("Delivery Note", "Pick List", "Sales Invoice"):
+        frappe.throw("只支持发送交货单、拣货单和销售发票")
+    webhook_url, key = _webhook_config()
+
+    from solua_home.api.export import _xlsx_bytes, build_table, get_export_document
+
+    doc = get_export_document(doctype, name)
+    xlsx = _xlsx_bytes(build_table(doc), "单据表格")
+    return _send_file(
+        webhook_url,
+        key,
+        f"{name}.xlsx",
+        xlsx,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )

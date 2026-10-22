@@ -11,12 +11,18 @@ from solua_home.api.sales import (
     _positive_integer,
     get_sales_order_color_variants,
     search_sales_order_items,
+    validate_sales_order_stock,
 )
 
 
 def _require_admin():
     if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
         frappe.throw(_("仅系统管理员可使用移动管理台"), frappe.PermissionError)
+
+
+def _require_sales_order_draft_user():
+    if frappe.session.user == "Guest" or not frappe.has_permission("Sales Order", ptype="create"):
+        frappe.throw(_("没有创建销售订单草稿的权限"), frappe.PermissionError)
 
 
 def _defaults():
@@ -364,6 +370,10 @@ def _customer(customer):
 @frappe.whitelist()
 def search_customers(query):
     _require_admin()
+    return _search_customers(query)
+
+
+def _search_customers(query):
     query = str(query or "").strip()
     if len(query) < 2:
         return []
@@ -380,6 +390,12 @@ def search_customers(query):
         {"customer": row.name, "customer_name": row.customer_name or row.name, "mobile_no": row.mobile_no or ""}
         for row in rows
     ]
+
+
+@frappe.whitelist()
+def search_employee_sales_order_customers(query):
+    _require_sales_order_draft_user()
+    return _search_customers(query)
 
 
 @frappe.whitelist()
@@ -654,6 +670,10 @@ def _apply_order_data(doc, context, address, resolved_rows, notes=""):
 @frappe.whitelist()
 def save_sales_order(customer, rows, warehouse=None, address=None, name=None, submit=0, notes=None):
     _require_admin()
+    return _save_sales_order(customer, rows, warehouse, address, name, submit, notes)
+
+
+def _save_sales_order(customer, rows, warehouse=None, address=None, name=None, submit=0, notes=None, draft_only=False):
     context = _order_context(customer, warehouse)
     address = _validate_order_address(context["customer"], address)
     normalized = _order_rows(rows, context["set_warehouse"])
@@ -665,9 +685,15 @@ def save_sales_order(customer, rows, warehouse=None, address=None, name=None, su
         doc = frappe.get_doc("Sales Order", str(name).strip())
         if doc.docstatus != 0:
             frappe.throw(_("销售订单已经提交，不能重复修改"))
+        if draft_only:
+            doc.check_permission("write")
+            if doc.owner != frappe.session.user:
+                frappe.throw(_("只能修改自己创建的销售订单草稿"), frappe.PermissionError)
     else:
         doc = frappe.new_doc("Sales Order")
     _apply_order_data(doc, context, address, resolved["rows"], notes)
+    if int(submit or 0):
+        validate_sales_order_stock(doc)
     if doc.is_new():
         doc.insert()
     else:
@@ -684,6 +710,14 @@ def save_sales_order(customer, rows, warehouse=None, address=None, name=None, su
         "currency": doc.currency,
         "items": len(doc.items),
     }
+
+
+@frappe.whitelist()
+def save_employee_sales_order_draft(customer, rows, warehouse=None, address=None, name=None, submit=0, notes=None):
+    _require_sales_order_draft_user()
+    if int(submit or 0):
+        frappe.throw(_("员工开单页面只能保存草稿，不能提交销售订单"), frappe.PermissionError)
+    return _save_sales_order(customer, rows, warehouse, address, name, 0, notes, draft_only=True)
 
 
 def _can_create(doctype):
@@ -835,6 +869,141 @@ def _document_summary(doc):
 
 
 @frappe.whitelist()
+@frappe.read_only()
+def list_pick_lists(query=None, limit=20, page=1):
+    """List readable, non-cancelled Pick Lists for the mobile admin page."""
+    _require_admin()
+    try:
+        limit = max(1, min(int(limit or 20), 50))
+    except (TypeError, ValueError):
+        limit = 20
+    try:
+        page = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        page = 1
+
+    meta = frappe.get_meta("Pick List")
+    fields = ["name", "docstatus", "status", "modified", "creation"]
+    for field in ("customer", "custom_sales_order"):
+        if meta.has_field(field):
+            fields.append(field)
+    filters = {"docstatus": ["<", 2]}
+    query = str(query or "").strip()
+    searchable = [field for field in ("name", "customer", "custom_sales_order") if field in fields]
+    or_filters = [[field, "like", f"%{query}%"] for field in searchable] if query else None
+    count = frappe.get_all(
+        "Pick List",
+        filters=filters,
+        or_filters=or_filters,
+        fields=[{"COUNT": "name", "as": "total"}],
+    )[0].total
+    page_count = max(1, (count + limit - 1) // limit)
+    page = min(page, page_count)
+    rows = frappe.get_all(
+        "Pick List",
+        filters=filters,
+        or_filters=or_filters,
+        fields=fields,
+        order_by="modified desc, name desc",
+        limit_start=(page - 1) * limit,
+        limit_page_length=limit,
+    )
+    for row in rows:
+        row["date"] = str(row.modified or row.creation or "")[:10]
+        row["customer"] = row.get("customer") or ""
+        row["sales_order"] = row.get("custom_sales_order") or ""
+    return {
+        "rows": rows,
+        "row_count": count,
+        "page": page,
+        "page_count": page_count,
+        "page_length": limit,
+        "has_prev": page > 1,
+        "has_next": page < page_count,
+    }
+
+
+@frappe.whitelist()
+@frappe.read_only()
+def list_document_center(doctype, query=None, limit=20, page=1):
+    """List one document type for the mobile document center."""
+    _require_admin()
+    definitions = {
+        "Sales Order": {
+            "fields": ["name", "customer", "customer_name", "transaction_date", "status", "docstatus", "grand_total", "currency", "modified", "creation"],
+            "searchable": ["name", "customer", "customer_name"],
+            "date_field": "transaction_date",
+            "order_by": "transaction_date desc, creation desc, name desc",
+        },
+        "Pick List": {
+            "fields": ["name", "customer", "custom_sales_order", "status", "docstatus", "modified", "creation"],
+            "searchable": ["name", "customer", "custom_sales_order"],
+            "date_field": "modified",
+            "order_by": "modified desc, name desc",
+        },
+        "Delivery Note": {
+            "fields": ["name", "customer", "posting_date", "status", "docstatus", "grand_total", "currency", "modified", "creation"],
+            "searchable": ["name", "customer"],
+            "date_field": "posting_date",
+            "order_by": "posting_date desc, creation desc, name desc",
+        },
+        "Sales Invoice": {
+            "fields": ["name", "customer", "posting_date", "status", "docstatus", "grand_total", "currency", "modified", "creation"],
+            "searchable": ["name", "customer"],
+            "date_field": "posting_date",
+            "order_by": "posting_date desc, creation desc, name desc",
+        },
+    }
+    definition = definitions.get(str(doctype or "").strip())
+    if not definition:
+        frappe.throw(_("票据中心不支持此单据类型"))
+    try:
+        limit = max(1, min(int(limit or 20), 50))
+    except (TypeError, ValueError):
+        limit = 20
+    try:
+        page = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        page = 1
+    query = str(query or "").strip()
+    or_filters = None
+    if query:
+        or_filters = [[field, "like", f"%{query}%"] for field in definition["searchable"]]
+    filters = {"docstatus": ["<", 2]}
+    count = frappe.get_all(
+        doctype,
+        filters=filters,
+        or_filters=or_filters,
+        fields=[{"COUNT": "name", "as": "total"}],
+    )[0].total
+    page_count = max(1, (count + limit - 1) // limit)
+    page = min(page, page_count)
+    rows = frappe.get_all(
+        doctype,
+        filters=filters,
+        or_filters=or_filters,
+        fields=definition["fields"],
+        order_by=definition["order_by"],
+        limit_start=(page - 1) * limit,
+        limit_page_length=limit,
+    )
+    for row in rows:
+        row["customer"] = row.get("customer_name") or row.get("customer") or ""
+        row["sales_order"] = row.get("custom_sales_order") or ""
+        row["date"] = str(row.get(definition["date_field"]) or row.get("modified") or row.get("creation") or "")[:10]
+    return {
+        "doctype": doctype,
+        "rows": rows,
+        "row_count": count,
+        "page": page,
+        "page_count": page_count,
+        "page_length": limit,
+        "has_prev": page > 1,
+        "has_next": page < page_count,
+    }
+
+
+@frappe.whitelist()
 def create_delivery_note(sales_order):
     _require_admin()
     if not _can_create("Delivery Note"):
@@ -903,7 +1072,7 @@ def create_pick_list(sales_order):
 
 
 @frappe.whitelist()
-def list_sales_orders(query=None, limit=20, page=1, sort="date_desc", item_query=None):
+def list_sales_orders(query=None, limit=20, page=1, sort="date_desc", item_query=None, docstatus=None):
     """List recent non-cancelled orders for the protected mobile order tab."""
     _require_admin()
     try:
@@ -916,6 +1085,8 @@ def list_sales_orders(query=None, limit=20, page=1, sort="date_desc", item_query
         page = 1
     query = str(query or "").strip()
     filters = {"docstatus": ["<", 2]}
+    if str(docstatus or "").strip() in ("0", "1"):
+        filters["docstatus"] = int(docstatus)
     or_filters = None
     if query:
         like = f"%{query}%"
@@ -983,6 +1154,16 @@ def _decorate_prices(result):
         row.pop("wholesale_rate", None)
         row.pop("standard_selling_rate", None)
     return result
+
+
+def _employee_stock_result(result):
+    fields = ("item_code", "item_name", "uom", "stock_uom", "warehouse", "available_qty", "available_sales_qty", "image", "color", "color_code")
+    return {
+        "state": result.get("state"),
+        "title": result.get("title") or "",
+        "variants": [{key: row.get(key) for key in fields if row.get(key) is not None} for row in result.get("variants") or []],
+        "errors": result.get("errors") or [],
+    }
 
 
 @frappe.whitelist()
@@ -1059,6 +1240,10 @@ def search_item_suggestions(query, limit=8):
 @frappe.whitelist()
 def lookup(barcode, warehouse=None, customer=None):
     _require_admin()
+    return _lookup_sales_order_item(barcode, warehouse, customer)
+
+
+def _lookup_sales_order_item(barcode, warehouse=None, customer=None):
     defaults = _defaults()
     if not defaults["company"]:
         return {"state": "no_permission", "templates": [], "variants": []}
@@ -1091,3 +1276,70 @@ def lookup(barcode, warehouse=None, customer=None):
             "errors": fuzzy.get("errors") or [],
         }
     )
+
+
+@frappe.whitelist()
+def lookup_employee_sales_order_item(barcode, warehouse=None, customer=None):
+    _require_sales_order_draft_user()
+    return _employee_stock_result(_lookup_sales_order_item(barcode, warehouse, customer))
+
+
+@frappe.whitelist()
+@frappe.read_only()
+def list_employee_sales_order_drafts(query=None, limit=20, page=1):
+    _require_sales_order_draft_user()
+    try:
+        limit = max(1, min(int(limit or 20), 50))
+    except (TypeError, ValueError):
+        limit = 20
+    try:
+        page = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        page = 1
+    filters = {"docstatus": 0, "owner": frappe.session.user}
+    query = str(query or "").strip()
+    or_filters = None
+    if query:
+        like = f"%{query}%"
+        or_filters = [[field, "like", like] for field in ("name", "customer", "customer_name")]
+    count = frappe.get_all("Sales Order", filters=filters, or_filters=or_filters,
+                           fields=[{"COUNT": "name", "as": "total"}])[0].total
+    page_count = max(1, (count + limit - 1) // limit)
+    page = min(page, page_count)
+    rows = frappe.get_all(
+        "Sales Order", filters=filters, or_filters=or_filters,
+        fields=["name", "customer", "customer_name", "transaction_date", "modified"],
+        order_by="modified desc, name desc", limit_start=(page - 1) * limit, limit_page_length=limit,
+    )
+    return {"rows": rows, "row_count": count, "page": page, "page_count": page_count,
+            "page_length": limit, "has_prev": page > 1, "has_next": page < page_count}
+
+
+@frappe.whitelist()
+@frappe.read_only()
+def get_employee_sales_order_draft(name):
+    _require_sales_order_draft_user()
+    name = str(name or "").strip()
+    if not name:
+        frappe.throw(_("请提供销售订单号"))
+    doc = frappe.get_doc("Sales Order", name)
+    if doc.docstatus != 0 or doc.owner != frappe.session.user:
+        frappe.throw(_("只能查看自己创建的销售订单草稿"), frappe.PermissionError)
+    return {
+        "name": doc.name,
+        "customer": doc.customer,
+        "customer_name": doc.customer_name,
+        "transaction_date": str(doc.transaction_date or ""),
+        "set_warehouse": doc.set_warehouse,
+        "items": [
+            {
+                "item_code": row.item_code,
+                "item_name": row.item_name,
+                "qty": row.qty,
+                "uom": row.uom,
+                "stock_uom": row.stock_uom,
+                "warehouse": row.warehouse,
+            }
+            for row in doc.items
+        ],
+    }
