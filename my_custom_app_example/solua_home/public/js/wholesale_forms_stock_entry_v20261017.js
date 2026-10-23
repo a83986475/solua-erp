@@ -791,6 +791,8 @@
 					{ fieldname: "show_ordered_before", label: __("显示订购 / 此前已交付"), fieldtype: "Check", default: print_default("show_ordered_before", frm.doc.custom_print_ordered_before == null ? 1 : frm.doc.custom_print_ordered_before) },
 					{ fieldname: "show_current_remaining", label: __("显示本次 / 剩余"), fieldtype: "Check", default: print_default("show_current_remaining", frm.doc.custom_print_current_remaining == null ? 1 : frm.doc.custom_print_current_remaining) },
 					{ fieldname: "show_quantity", label: __("显示数量列"), fieldtype: "Check", default: print_default("show_quantity", frm.doc.custom_print_quantity == null ? 1 : frm.doc.custom_print_quantity) },
+					{ fieldname: "show_rate", label: __("显示单价"), fieldtype: "Check", default: print_default("show_rate", frm.doc.custom_print_rate == null ? 1 : frm.doc.custom_print_rate) },
+					{ fieldname: "show_amount", label: __("显示金额"), fieldtype: "Check", default: print_default("show_amount", frm.doc.custom_print_amount == null ? 1 : frm.doc.custom_print_amount) },
 					{ fieldname: "show_traceability", label: __("显示追溯信息"), fieldtype: "Check", default: print_default("show_traceability", frm.doc.custom_print_traceability == null ? 1 : frm.doc.custom_print_traceability) },
 				] : []),
 				...(has_image_switches ? [
@@ -825,6 +827,12 @@
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_quantity) {
 					changes.custom_print_quantity = values.show_quantity ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_rate) {
+					changes.custom_print_rate = values.show_rate ? 1 : 0;
+				}
+				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_amount) {
+					changes.custom_print_amount = values.show_amount ? 1 : 0;
 				}
 				if (frm.doctype === "Delivery Note" && frm.fields_dict.custom_print_traceability) {
 					changes.custom_print_traceability = values.show_traceability ? 1 : 0;

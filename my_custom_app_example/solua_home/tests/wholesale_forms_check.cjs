@@ -18,7 +18,7 @@ assert.ok(stockReconciliationLine && stockReconciliationLine.includes(loaderPath
 const salesInvoiceLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Sales Invoice": ['));
 assert.ok(salesInvoiceLine && salesInvoiceLine.includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
 const loaderSource = fs.readFileSync(path.join(appRoot, loaderPath), "utf8");
-assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261017a"), "Wholesale script cache version regressed");
+assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261023a"), "Wholesale script cache version regressed");
 const releaseFiles = fs.readFileSync(path.join(__dirname, "release_whitelist.txt"), "utf8");
 assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${loaderPath}`), "Active loader missing from release whitelist");
 assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${pickListReconciliationPath}`), "Pick List reconciliation script missing from release whitelist");
@@ -102,7 +102,7 @@ const frappe = {
 const browser = {open(){},localStorage};
 const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser, document};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/document_table_export_v20260930c.js"),"utf8"), script_scope);
-const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261008.js"),"utf8");
+const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261017.js"),"utf8");
 vm.runInNewContext(wholesaleSource, script_scope);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options_v20261005.js"),"utf8"), script_scope);
 const salesTools = browser.solua_home_sales_order_tools;
@@ -366,13 +366,13 @@ async function query(d,code="A"){
  assert.equal(count.doc.items.find(row=>row.item_code==="count-blue").qty,0);
  async function assert_print_switches(dt) {
   const submitted=form(dt,1);submitted.is_new=()=>false;
- submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_current_remaining:{},custom_print_quantity:{},custom_print_traceability:{}} : {}),...(dt !== "Sales Invoice" ? {custom_print_additional_notes:{}} : {})};
+ submitted.fields_dict={custom_print_item_name:{},custom_print_sku:{},custom_print_color_code:{},custom_print_cor:{},custom_print_description:{},custom_print_color_images:{},custom_print_color_qr:{},...(dt !== "Delivery Note" ? {custom_print_merge_order_code:{}} : {}),...(dt === "Delivery Note" ? {custom_print_ordered_before:{},custom_print_current_remaining:{},custom_print_quantity:{},custom_print_rate:{},custom_print_amount:{},custom_print_traceability:{}} : {}),...(dt !== "Sales Invoice" ? {custom_print_additional_notes:{}} : {})};
   let saved_changes;submitted.set_value=async changes=>{saved_changes=changes;};submitted.is_dirty=()=>true;
   let save_mode;submitted.save=async mode=>{save_mode=mode;};
   handlers[dt].refresh(submitted);
   assert.equal(submitted.buttons.length,1);
   submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
- const selected={show_item_name:0,show_sku:1,show_color:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_current_remaining:0,show_quantity:0,show_traceability:0,show_images:1,show_qr:0,show_additional_notes:0};
+ const selected={show_item_name:0,show_sku:1,show_color:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_current_remaining:0,show_quantity:0,show_rate:0,show_amount:1,show_traceability:0,show_images:1,show_qr:0,show_additional_notes:0};
  const values=Object.fromEntries(Object.keys(print_dialog.values).map(key=>[key,selected[key]]));
  const print_action=print_dialog.action(values);
  if(dt !== "Sales Invoice") { await flush(); requests.at(-1).resolve({message:"TEST FORMAT"}); }
@@ -382,7 +382,7 @@ async function query(d,code="A"){
  if(dt === "Pick List") Object.keys(expected).forEach(key=>{if(key !== "custom_print_additional_notes") delete expected[key];});
  if(dt === "Sales Order" || dt === "Sales Invoice") expected.custom_print_merge_order_code=1;
  if(dt !== "Sales Invoice") expected.custom_print_additional_notes=0;
-  if(dt === "Delivery Note") { expected.custom_print_ordered_before=0; expected.custom_print_current_remaining=0; expected.custom_print_quantity=0; expected.custom_print_traceability=0; }
+  if(dt === "Delivery Note") { expected.custom_print_ordered_before=0; expected.custom_print_current_remaining=0; expected.custom_print_quantity=0; expected.custom_print_rate=0; expected.custom_print_amount=1; expected.custom_print_traceability=0; }
   const stable=value=>JSON.stringify(Object.fromEntries(Object.entries(value).sort()));
   assert.equal(stable(saved_changes),stable(expected));
   const reopened=form(dt,1);reopened.is_new=()=>false;reopened.fields_dict=submitted.fields_dict;
