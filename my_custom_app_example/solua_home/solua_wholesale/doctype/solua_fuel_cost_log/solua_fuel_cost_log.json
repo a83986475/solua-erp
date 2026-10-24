@@ -1,0 +1,20 @@
+{
+  "name": "Solua Fuel Cost Log",
+  "module": "Solua Wholesale",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "fields": [
+    {"fieldname": "vehicle", "fieldtype": "Data", "label": "车辆", "reqd": 1, "length": 80, "index": 1},
+    {"fieldname": "reading_date", "fieldtype": "Date", "label": "加油日期", "reqd": 1, "index": 1},
+    {"fieldname": "odometer_km", "fieldtype": "Float", "label": "里程表（km）", "reqd": 1},
+    {"fieldname": "liters", "fieldtype": "Float", "label": "加油升数（L）", "reqd": 1},
+    {"fieldname": "fuel_price", "fieldtype": "Float", "label": "实际油价（MZN/L）"},
+    {"fieldname": "full_tank", "fieldtype": "Check", "label": "加满油", "default": "1"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1},
+    {"role": "Administrator", "read": 1, "write": 1}
+  ],
+  "sort_field": "reading_date",
+  "sort_order": "ASC"
+}
