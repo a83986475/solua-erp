@@ -60,10 +60,11 @@ home._list = lambda doctype, filters=None, fields=None, **kwargs: []
 assert home._low_stock("Warehouse")["state"] == "unconfigured"
 
 variant = Row(name="SKU-C20", item_code="SKU-C20", item_name="20", variant_of="STYLE", has_variants=0,
-              stock_uom="条", sales_uom="卷", custom_order_code="STYLE", custom_spu_code="", custom_pos_short_name="")
+              stock_uom="条", sales_uom="卷", custom_order_code="STYLE", custom_spu_code="", custom_pos_short_name="",
+              custom_color_code="NEW20")
 template = Row(name="STYLE", item_code="STYLE", item_name="光感绒", has_variants=1,
                variant_of=None, stock_uom="条", sales_uom="卷", custom_order_code="STYLE", custom_spu_code="", custom_pos_short_name="")
-home._has_field = lambda doctype, field: field in {"name", "item_code", "item_name", "custom_order_code", "custom_spu_code", "custom_label_barcode"}
+home._has_field = lambda doctype, field: field in {"name", "item_code", "item_name", "custom_order_code", "custom_spu_code", "custom_label_barcode", "custom_color_code"}
 home._resolve_warehouse = lambda company, warehouse=None: warehouse or "W1"
 def list_items(doctype, filters=None, fields=None, **kwargs):
     if doctype == "Item":
@@ -83,7 +84,7 @@ home._list = list_items
 result = home.search_items("STYLE", warehouse="W1", company="Co")
 assert result["state"] == "ok" and len(result["items"]) == 2
 sku = next(item for item in result["items"] if item["name"] == "SKU-C20")
-assert sku["template_name"] == "光感绒" and sku["color"] == "20"
+assert sku["template_name"] == "光感绒" and sku["color"] == "NEW20" and sku["color_code"] == "NEW20"
 assert sku["actual_qty"] is None and sku["available_qty"] is None
 
 def list_items_with_sales_stock(doctype, filters=None, fields=None, **kwargs):

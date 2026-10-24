@@ -41,7 +41,7 @@ spec.loader.exec_module(home)
 
 items = [
     Row(name="STYLE-151060", item_code="STYLE-151060", item_name="素雅窗帘", has_variants=1, variant_of="", disabled=0, custom_order_code="SH151060"),
-    Row(name="STYLE-151060-01", item_code="STYLE-151060-01", item_name="素雅 1", has_variants=0, variant_of="STYLE-151060", disabled=0, custom_order_code=""),
+    Row(name="STYLE-151060-01", item_code="STYLE-151060-01", item_name="素雅 1", has_variants=0, variant_of="STYLE-151060", disabled=0, custom_order_code="", custom_color_code="NEW-01"),
 ]
 attributes = [Row(parent="STYLE-151060-01", attribute="Cor", attribute_value="01")]
 
@@ -80,6 +80,8 @@ home._list = fake_list
 fuzzy = home.get_color_variants(barcode="151060", barcode_only=False)
 assert fuzzy["state"] == "ok"
 assert fuzzy["templates"][0]["variants"][0]["item_code"] == "STYLE-151060-01"
+assert fuzzy["templates"][0]["variants"][0]["color_code"] == "NEW-01"
+assert fuzzy["templates"][0]["variants"][0]["color"] == "NEW-01"
 assert fuzzy["templates"][0]["variants"][0]["image"] == "/files/STYLE-151060-01.png"
 assert home.get_color_variants(barcode="151060", barcode_only=True)["state"] == "no_data"
 print("PASS: Sales Order SKU/item-name lookup supports partial matching while strict barcode lookup stays exact")

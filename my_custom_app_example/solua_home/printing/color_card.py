@@ -41,7 +41,7 @@ def get_item_color_info(item_code):
         "item_code": item.item_code,
         "order_code": item.get("custom_order_code") or template.get("custom_order_code") or "",
         "color_code": get_item_cor(item.name, item),
-        "color_name": attrs.get("Cor") or item.get("custom_pos_short_name") or "",
+        "color_name": item.get("custom_color_code") or attrs.get("Cor") or item.get("custom_pos_short_name") or "",
         "display_name": item.get("custom_chinese_name") or item.item_name,
         "image": _absolute_image(get_item_color_image(item)),
         "template_code": template.item_code,

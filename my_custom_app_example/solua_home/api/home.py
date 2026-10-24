@@ -22,7 +22,7 @@ HOME_FEATURE_KEYS = (
     "A4 打印设计器", "销售单格式", "标签打印", "POS交班", "公开色卡", "xPos 收银台", "开始收银（xPos）",
     "物料销售明细", "送货汇总", "首页常用功能设置",
 )
-DEFAULT_HOME_FEATURE_KEYS = ("销售订单", "交货单", "送货中心", "销售发票", "新建销售订单", "按订单开交货单", "查库存")
+DEFAULT_HOME_FEATURE_KEYS = ("销售订单", "交货单", "送货中心", "销售发票", "新建销售订单", "按订单开交货单", "查库存", "xPos 收银台")
 HOME_USAGE_THRESHOLD = 3
 HOME_AUTO_FEATURE_LIMIT = 5
 
@@ -678,11 +678,11 @@ def search_items(query=None, warehouse=None, company=None):
     display_units = _sales_display_units(items_by_name)
     return {"state": "ok", "warehouse": resolved_warehouse, "stock_state": stock_state, "items": [{
         "name": row.name, "item_code": row.item_code, "item_name": row.item_name,
-        "variant_of": row.variant_of, "color": colors.get(row.name),
+        "variant_of": row.variant_of, "color": row.get("custom_color_code") or colors.get(row.name),
         "template_name": templates.get(row.variant_of) or row.item_name,
         "order_code": row.get("custom_order_code") or "", "spu_code": row.get("custom_spu_code") or "",
-        # Native Cor is current; custom_color_code is legacy-only compatibility.
-        "color_code": colors.get(row.name) or row.get("custom_color_code") or "", "pos_short_name": row.get("custom_pos_short_name") or "",
+        # custom_color_code is the current display code; native Cor is the legacy fallback.
+        "color_code": row.get("custom_color_code") or colors.get(row.name) or "", "pos_short_name": row.get("custom_pos_short_name") or "",
         "stock_uom": row.stock_uom,
         "display_uom": display_units.get(row.name, (row.stock_uom, 1))[0],
         "has_variants": int(row.get("has_variants") or 0),
@@ -777,9 +777,9 @@ def get_color_variants(barcode=None, template=None, barcode_only=False):
                 "item_name": row.item_name,
                 "stock_uom": row.stock_uom,
                 "image": get_item_color_image(row) or "",
-                "color": attributes.get(row.name, ""),
-                # Native Cor is current; custom_color_code is legacy-only compatibility.
-                "color_code": attributes.get(row.name) or row.get("custom_color_code") or "",
+                "color": row.get("custom_color_code") or attributes.get(row.name, ""),
+                # custom_color_code is the current display code; native Cor is the legacy fallback.
+                "color_code": row.get("custom_color_code") or attributes.get(row.name) or "",
                 "order_code": row.get("custom_order_code") or template_order_code,
             } for row in variant_rows],
         })
