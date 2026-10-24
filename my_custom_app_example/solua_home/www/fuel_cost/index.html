@@ -102,16 +102,16 @@
     </div>
 
     <section class="fuel-hero" aria-labelledby="fuel-title">
-        <p class="fuel-eyebrow">TRANSPORT COST · 运输成本工具</p>
-        <h1 id="fuel-title">一趟运输，<em>到底花多少钱？</em></h1>
-        <p class="fuel-lede">先记录真实加油数据，得到车辆自己的平均油耗；再用最新公布油价估算当前运输成本和报价。</p>
+        <p class="fuel-eyebrow">FLEET · 车辆数据</p>
+        <h1 id="fuel-title">车辆油耗与运输成本</h1>
+        <p class="fuel-lede">选择系统中的车辆，连续记录每次加油；系统按相邻的加满油记录计算实测油耗，再用于运输成本估算。</p>
     </section>
 
     <section class="fuel-log-section" aria-labelledby="log-title">
         <div class="fuel-log-header">
             <div>
                 <p class="fuel-eyebrow">FUEL LOG · 加油记录</p>
-                <h2 id="log-title">先记录加油，得到真实油耗</h2>
+                <h2 id="log-title">车辆加油记录</h2>
             </div>
             <div class="fuel-price-source">
                 <select id="fuel-city" aria-label="油价城市">
@@ -129,7 +129,7 @@
             </div>
         </div>
         <div class="fuel-log-form">
-            <div class="fuel-field"><label for="log-vehicle">车辆</label><input id="log-vehicle" data-log-input="vehicle" placeholder="例如：货车 01"></div>
+            <div class="fuel-field"><label for="log-vehicle">车辆（系统资料）</label><select id="log-vehicle" data-log-input="vehicle"><option value="">读取车辆…</option></select></div>
             <div class="fuel-field"><label for="log-date">加油日期</label><input id="log-date" data-log-input="date" type="date"></div>
             <div class="fuel-field"><label for="log-odometer">当前里程表（km）</label><input id="log-odometer" data-log-input="odometer" type="number" min="0" step="0.1"></div>
             <div class="fuel-field"><label for="log-liters">本次加油（L）</label><input id="log-liters" data-log-input="liters" type="number" min="0" step="0.01"></div>
@@ -143,8 +143,8 @@
             <div class="fuel-log-stat"><span>累计里程</span><strong data-log-output="distance">0 km</strong></div>
             <div class="fuel-log-stat"><span>燃油成本/公里</span><strong data-log-output="costPerKm">等待记录</strong></div>
         </div>
-        <div class="fuel-record-list" id="fuel-record-list"><div class="fuel-record-empty">还没有加油记录。建议连续记录 3～5 次“加满油”，结果会更稳定。</div></div>
-        <p class="fuel-log-note" id="record-status" role="status">登录后记录会保存到服务器，并随账号同步。</p>
+        <div class="fuel-record-list" id="fuel-record-list"><div class="fuel-record-empty">还没有加油记录。选择车辆后保存第一条记录。</div></div>
+        <p class="fuel-log-note" id="record-status" role="status">车辆和记录均来自服务器。</p>
     </section>
 
     <section class="fuel-calculator" aria-labelledby="calculator-title">
@@ -191,7 +191,7 @@
                     <input id="margin" data-input="margin" type="number" min="0" step="0.1" value="15">
                 </div>
             </div>
-            <p class="fuel-help">示例金额使用 MZN；把示例值换成你的车辆、路线和当前油价。维修折旧可以用“月度车辆固定成本 ÷ 月度预计公里数”估算。</p>
+            <p class="fuel-help">金额单位为 MZN。维修折旧可按“月度车辆固定成本 ÷ 月度预计公里数”估算。</p>
             <p class="fuel-status" id="fuel-status" role="status" aria-live="polite"></p>
         </div>
 
@@ -216,26 +216,17 @@
         </div>
     </section>
 
-    <section class="fuel-sections" aria-label="运输成本说明">
+    <section class="fuel-sections" aria-label="计算说明">
         <article class="fuel-info">
-            <h2>快递、货运公司怎么核算？</h2>
-            <ol>
-                <li><strong>先算线路总成本：</strong>燃油、过路、司机、维修折旧，再加保险、管理和场站等固定成本。</li>
-                <li><strong>再分摊给货物：</strong>整车常按“车/趟/公里”报价；零担按计费重量、体积或立方米；快递按区域、重量段和派送网络定价。</li>
-                <li><strong>补上空驶和装载率：</strong>去程满载但回程空车，回程成本仍然存在；同一条线路的货越少，单件分摊成本越高。</li>
-                <li><strong>最后形成报价：</strong>成本 + 风险准备 + 毛利 + 税费/平台费用。报价不是简单的“油钱 ÷ 包裹数”。</li>
-            </ol>
-        </article>
-        <article class="fuel-info">
-            <h2>三个常用指标</h2>
-            <p><strong>每公里成本：</strong>适合比较车辆、路线和是否值得自营。</p>
-            <p><strong>吨公里成本：</strong>适合货运、整车和零担线路比较；重量越轻，单吨成本通常越高。</p>
-            <p><strong>单件成本：</strong>快递末端还要把分拣、网点、派送和客服等网络成本分摊到每票，不应只拿车辆油费代替。</p>
+            <h2>计算说明</h2>
+            <p><strong>实测油耗：</strong>只使用同一车辆相邻的“加满油 → 加满油”记录。</p>
+            <p><strong>每公里成本：</strong>将燃油、过路、人工、维修折旧和固定费用合并后除以实际公里数。</p>
+            <p><strong>吨公里成本：</strong>在填写货重时，用总成本除以实际公里数和货重。</p>
             <div class="fuel-formula">基础公式：燃油费 = 实际公里数 ÷ 100 × 百公里油耗 × 每升油价<br>总成本 = 燃油费 + 过路费 + 人工 + 维修折旧 + 固定费用</div>
         </article>
     </section>
 
-    <footer class="fuel-footer">© 2026 SOLUA HOME · 这是估算工具，正式报价请以实际路线、装载率、税费和客户服务范围为准。</footer>
+    <footer class="fuel-footer">数据范围：当前账号可见的车辆资料和加油记录。</footer>
 </main>
 {% endblock %}
 
@@ -251,6 +242,7 @@ fuelReady(() => {
     const number = (name) => Math.max(0, Number(input(name).value) || 0);
     const logNumber = (name) => Math.max(0, Number(logInput(name).value) || 0);
     let records = [];
+    let vehicleOptions = [];
     let latestPrices = {};
     let measuredConsumption = 0;
 
@@ -259,10 +251,16 @@ fuelReady(() => {
     const renderRecordList = () => {
         const root = document.getElementById('fuel-record-list');
         if (!records.length) {
-            root.innerHTML = '<div class="fuel-record-empty">还没有加油记录。建议连续记录 3～5 次“加满油”，结果会更稳定。</div>';
+            root.innerHTML = '<div class="fuel-record-empty">还没有加油记录。选择车辆后保存第一条记录。</div>';
             return;
         }
-        const rows = [...records].sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.odometer) - Number(a.odometer));
+        const selectedVehicle = (logInput('vehicle').value || '').trim();
+        const visibleRecords = selectedVehicle ? records.filter((record) => record.vehicle === selectedVehicle) : records;
+        const rows = [...visibleRecords].sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.odometer) - Number(a.odometer));
+        if (!rows.length) {
+            root.innerHTML = '<div class="fuel-record-empty">当前车辆还没有加油记录。</div>';
+            return;
+        }
         root.innerHTML = `<table><thead><tr><th>车辆</th><th>日期</th><th>里程表</th><th>加油</th><th>油价</th><th>状态</th></tr></thead><tbody>${rows.map((record) => `<tr><td>${escapeHtml(record.vehicle)}</td><td>${escapeHtml(record.date)}</td><td>${record.odometer.toLocaleString('en-US')} km</td><td>${record.liters.toFixed(2)} L</td><td>${record.price ? money(record.price) + '/L' : '使用最新价估算'}</td><td>${record.fullTank ? '加满油' : '部分加油'}</td></tr>`).join('')}</tbody></table>`;
     };
 
@@ -358,10 +356,32 @@ fuelReady(() => {
             const data = payload.message || payload;
             if (!response.ok || !data.ok) throw new Error('records unavailable');
             records = Array.isArray(data.records) ? data.records : [];
+            if (!logInput('vehicle').value && records[0]?.vehicle && vehicleOptions.some((vehicle) => vehicle.name === records[0].vehicle)) logInput('vehicle').value = records[0].vehicle;
             document.getElementById('record-status').textContent = '记录已从服务器读取，随当前账号同步。';
         } catch (error) {
             records = [];
             document.getElementById('record-status').textContent = '请先登录后读取或保存服务器加油记录。';
+        }
+        renderRecordList();
+        updateLogSummary();
+    };
+
+    const loadVehicles = async () => {
+        const select = logInput('vehicle');
+        try {
+            const response = await fetch('/api/method/solua_home.api.fuel_cost.get_available_vehicles', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+            const payload = await response.json();
+            const data = payload.message || payload;
+            if (!response.ok || !data.ok) throw new Error('vehicles unavailable');
+            vehicleOptions = Array.isArray(data.vehicles) ? data.vehicles : [];
+            select.innerHTML = '<option value="">选择车辆</option>' + vehicleOptions.map((vehicle) => `<option value="${escapeHtml(vehicle.name)}">${escapeHtml(vehicle.license_plate || vehicle.name)} · ${escapeHtml([vehicle.make, vehicle.model].filter(Boolean).join(' '))}</option>`).join('');
+            const currentVehicle = records[0]?.vehicle;
+            if (currentVehicle && vehicleOptions.some((vehicle) => vehicle.name === currentVehicle)) select.value = currentVehicle;
+            document.getElementById('record-status').textContent = vehicleOptions.length ? '车辆资料和加油记录来自服务器。' : '系统中暂无可用车辆资料。';
+        } catch (error) {
+            vehicleOptions = [];
+            select.innerHTML = '<option value="">无法读取车辆资料</option>';
+            document.getElementById('record-status').textContent = '无法读取车辆资料，请检查账号权限。';
         }
         renderRecordList();
         updateLogSummary();
@@ -406,6 +426,7 @@ fuelReady(() => {
 
     document.getElementById('fuel-city').addEventListener('change', applyLatestPrice);
     document.getElementById('fuel-type').addEventListener('change', applyLatestPrice);
+    logInput('vehicle').addEventListener('change', () => { renderRecordList(); updateLogSummary(); });
     document.getElementById('refresh-price').addEventListener('click', refreshPrice);
     document.querySelectorAll('[data-input]').forEach((field) => field.addEventListener('input', calculate));
     logInput('date').value = new Date().toISOString().slice(0, 10);
@@ -413,6 +434,7 @@ fuelReady(() => {
     updateLogSummary();
     calculate();
     loadRecords();
+    loadVehicles();
     refreshPrice();
 });
 </script>

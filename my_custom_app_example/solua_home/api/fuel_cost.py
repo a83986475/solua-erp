@@ -120,6 +120,22 @@ def _record_rows():
 
 
 @frappe.whitelist()
+def get_available_vehicles():
+    _require_authenticated()
+    if not frappe.has_permission("Vehicle", "read"):
+        frappe.throw("当前账号没有读取车辆资料的权限", frappe.PermissionError)
+    return {
+        "ok": True,
+        "vehicles": frappe.get_list(
+            "Vehicle",
+            fields=["name", "license_plate", "make", "model", "fuel_type", "last_odometer"],
+            order_by="license_plate asc",
+            limit_page_length=500,
+        ),
+    }
+
+
+@frappe.whitelist()
 def get_fuel_records():
     _require_authenticated()
     return {"ok": True, "records": _record_rows()}

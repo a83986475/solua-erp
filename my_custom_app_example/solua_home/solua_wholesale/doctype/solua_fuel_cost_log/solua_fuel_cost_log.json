@@ -4,7 +4,7 @@
   "doctype": "DocType",
   "engine": "InnoDB",
   "fields": [
-    {"fieldname": "vehicle", "fieldtype": "Data", "label": "车辆", "reqd": 1, "length": 80, "index": 1},
+    {"fieldname": "vehicle", "fieldtype": "Link", "label": "车辆", "options": "Vehicle", "reqd": 1, "index": 1},
     {"fieldname": "reading_date", "fieldtype": "Date", "label": "加油日期", "reqd": 1, "index": 1},
     {"fieldname": "odometer_km", "fieldtype": "Float", "label": "里程表（km）", "reqd": 1},
     {"fieldname": "liters", "fieldtype": "Float", "label": "加油升数（L）", "reqd": 1},
