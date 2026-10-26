@@ -1483,7 +1483,10 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             renderCart();
             const message = `${state.submitted ? t.submitted : t.saved}：${state.orderName}`;
             setStatus(message);
-            window.soluaMobileFeedback(message);
+            const feedbackNode = $("mobile-feedback");
+            feedbackNode.className = "mobile-feedback";
+            feedbackNode.innerHTML = `${esc(message)}${state.orderName ? `<span class="mobile-feedback-actions"><a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="/app/sales-order/${encodeURIComponent(state.orderName)}">打开销售订单</a></span>` : ""}`;
+            feedbackNode.hidden = false;
             if (state.submitted) clearSavedDraft(); else persistDraft();
             if (state.submitted) {
                 window.soluaMobileOpenDetails("mobile-new-sales-order", false);
