@@ -62,7 +62,7 @@ assert 'id="mobile-stock-settings"' in page and 'id="mobile-order-settings-summa
 assert "精确搜索变体货号" in page and "模糊搜索货号" not in page
 assert "客户中心" in page and "mobile-customers-list" in page and "mobile-customer-form" in page and "mobile-new-customer-tax-id" in page
 assert "mobile-new-customer-address" in page and "mobile-new-customer-phone" in page
-assert "view=sales&customer=" in page and "view=orders&customer=" in page and "customerFromUrl" in page
+assert "view=order&customer=" in page and "view=orders&customer=" in page and "customerFromUrl" in page
 assert 'await chooseCustomer(customer);' in page and 'window.soluaMobileOpenDetails("mobile-new-sales-order");' in page
 assert "支持 Google / QQ" in page and "Google 或 QQ 地图链接" in page
 assert "solua-mobile-delivery-route-v1" in page and "restoreRouteDraft" in page and "已恢复上次配送路线草稿" in page

@@ -611,12 +611,15 @@ def _merge_input_rows(rows, allow_zero=False):
             errors.append({"row": row_number, "item_code": item_code, "error": "成本必须为正数"})
         key = (item_code, warehouse)
         if key not in merged:
-            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "rate": rate, "source_rows": []}
+            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "rate": rate, "source_rows": [], "notes": ""}
         elif rate is not None and merged[key].get("rate") is not None and abs(merged[key]["rate"] - rate) > 0.0000001:
             errors.append({"row": row_number, "item_code": item_code, "error": "相同货号和仓库的成本不一致"})
         elif rate is not None and merged[key].get("rate") is None:
             merged[key]["rate"] = rate
         merged[key]["qty"] += qty
+        note = str(row.get("notes") or "").strip()
+        if note and note not in merged[key]["notes"].split("\n"):
+            merged[key]["notes"] = "\n".join(filter(None, [merged[key]["notes"], note]))
         merged[key]["source_rows"].append(row_number)
     return list(merged.values()), errors
 
@@ -849,6 +852,7 @@ def _resolve_sales_item(input_row, context, strict=True):
         "item_name": details.get("item_name") or master.get("item_name") or item_code,
         "description": display.get("description") or details.get("description") or "",
         "qty": input_row.get("qty", 1),
+        "notes": input_row.get("notes") or "",
         "uom": uom,
         "stock_uom": stock_uom,
         "conversion_factor": conversion_factor,

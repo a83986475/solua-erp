@@ -929,7 +929,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 row.address || row.city ? `<div><span>地址：</span>${esc([row.address, row.city].filter(Boolean).join("，"))}</div>` : "",
                 row.customer_group || row.territory ? `<div><span>分组 / 地区：</span>${esc([row.customer_group, row.territory].filter(Boolean).join(" · "))}</div>` : "",
             ].filter(Boolean).join("");
-            return `<article class="mobile-customer-card"><div class="mobile-customer-card-head"><div><div class="mobile-customer-card-name">${esc(row.customer_name || row.name)}</div><div class="mobile-customer-card-meta">${esc(row.name)}${row.customer_type ? ` · ${esc(row.customer_type)}` : ""}</div></div><a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/customer/${encodeURIComponent(row.name)}">查看</a></div>${info ? `<div class="mobile-customer-card-info">${info}</div>` : '<div class="mobile-customer-card-meta" style="margin-top:9px">暂无补充资料</div>'}<div class="mobile-order-actions-list"><a class="btn btn-primary btn-sm" href="/mobile?view=sales&customer=${encodeURIComponent(row.name)}#mobile-new-sales-order">开销售单</a><a class="btn btn-default btn-sm" href="/mobile?view=orders&customer=${encodeURIComponent(row.name)}#mobile-sales-list">查订单</a></div><details class="mobile-location-editor" data-location-customer="${esc(row.name)}" style="margin-top:10px"><summary>门店地图 / 收货位置</summary><div class="mobile-location-body"></div></details></article>`;
+            return `<article class="mobile-customer-card"><div class="mobile-customer-card-head"><div><div class="mobile-customer-card-name">${esc(row.customer_name || row.name)}</div><div class="mobile-customer-card-meta">${esc(row.name)}${row.customer_type ? ` · ${esc(row.customer_type)}` : ""}</div></div><a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/customer/${encodeURIComponent(row.name)}">查看</a></div>${info ? `<div class="mobile-customer-card-info">${info}</div>` : '<div class="mobile-customer-card-meta" style="margin-top:9px">暂无补充资料</div>'}<div class="mobile-order-actions-list"><a class="btn btn-primary btn-sm" href="/mobile?view=order&customer=${encodeURIComponent(row.name)}#mobile-new-sales-order">开销售单</a><a class="btn btn-default btn-sm" href="/mobile?view=orders&customer=${encodeURIComponent(row.name)}#mobile-sales-list">查订单</a></div><details class="mobile-location-editor" data-location-customer="${esc(row.name)}" style="margin-top:10px"><summary>门店地图 / 收货位置</summary><div class="mobile-location-body"></div></details></article>`;
         }).join("");
         list.querySelectorAll("[data-location-customer]").forEach((editor) => editor.addEventListener("toggle", async () => {
             if (!editor.open || editor.dataset.loaded) return;
@@ -1746,12 +1746,15 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             setStatus(t.ready);
             showDraftRecovery();
             const customerFromUrl = new URLSearchParams(window.location.search).get("customer");
-            if (orderMode && customerFromUrl && !readSavedDraft()) {
+            if (orderMode && customerFromUrl) {
+                window.soluaMobileOpenDetails("mobile-new-sales-order");
+                if (readSavedDraft() && !window.confirm("本机有未完成的开单草稿。确定为此客户开始新单？取消可保留并恢复原草稿。")) return;
                 const customers = await call("solua_home.api.mobile.search_customers", { query: customerFromUrl });
                 const customer = (customers || []).find((row) => row.customer === customerFromUrl);
                 if (customer) {
                     await chooseCustomer(customer);
                     window.soluaMobileOpenDetails("mobile-new-sales-order");
+                    $("mobile-new-sales-order").scrollIntoView({ block: "start" });
                 }
             }
         } catch (error) { setStatus(error.message || t.error); }

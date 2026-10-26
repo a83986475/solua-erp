@@ -209,6 +209,15 @@ assert row["qty"] == 5 and row["available_qty"] == 7 and row["custom_item_barcod
 assert row["wholesale_rate"] == 480 and row["standard_selling_rate"] == 430
 assert native_calls[0][1:5] == ("Solua Home, Lda", "Customer A", "Wholesale Selling 3", "2026-09-22")
 
+noted = module._resolve_sales_rows([
+    {"item_code": "GOOD", "qty": 1, "notes": "  分开包装  "},
+    {"item_code": "GOOD", "qty": 2, "notes": "分开包装"},
+    {"item_code": "GOOD", "qty": 1, "notes": "先装车"},
+], context)
+assert noted["rows"][0]["qty"] == 4
+assert noted["rows"][0]["notes"] == "分开包装\n先装车"
+assert row["notes"] == ""
+
 stock_result = module._resolve_sales_rows([{"item_code": "NO-PRICE", "qty": 1}], {"company": "Solua Home, Lda", "posting_date": "2026-09-22", "stock_entry": 1})
 assert stock_result["summary"] == {"valid": 1, "errors": 0}
 
