@@ -15,7 +15,7 @@ for (const doctype of ["Sales Order", "Delivery Note", "Pick List"]) {
 const salesInvoiceLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Sales Invoice": ['));
 assert.ok(salesInvoiceLine && salesInvoiceLine.includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
 const loaderSource = fs.readFileSync(path.join(appRoot, loaderPath), "utf8");
-assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261027a"), "Wholesale script cache version regressed");
+assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261028a"), "Wholesale script cache version regressed");
 const releaseFiles = fs.readFileSync(path.join(__dirname, "release_whitelist.txt"), "utf8");
 assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${loaderPath}`), "Active loader missing from release whitelist");
 const handlers = {}, requests = [], dialogs = [];
@@ -187,16 +187,14 @@ async function query(d,code="A"){
 	delivery.doc.customer_address = "CHINA CASH AND CARRY-商店";
 	handlers["Delivery Note"].refresh(delivery);
 	assert.equal(delivery.doc.custom_store_name, "CHINA CASH AND CARRY-商店");
-	defaultLists.set("Vehicle", [{name:"唯一车辆"}]);
 	defaultLists.set("Driver", [{name:"唯一司机"}]);
 	const defaultDelivery = form("Delivery Note");
 	defaultDelivery.doc.shipping_address_name = "唯一地址";
 	handlers["Delivery Note"].shipping_address_name(defaultDelivery);
 	await flush();
-	assert.equal(defaultDelivery.doc.vehicle_no, "唯一车辆");
+	assert.equal(defaultDelivery.doc.vehicle_no, "AOJ415MC");
 	assert.equal(defaultDelivery.doc.driver, "唯一司机");
 	assert.equal(defaultDelivery.doc.custom_store_phone, "999");
-	defaultLists.set("Vehicle", [{name:"车辆1"},{name:"车辆2"}]);
 	const manualDelivery = form("Delivery Note");
 	manualDelivery.doc.vehicle_no = "手工车辆";
 	await flush();

@@ -926,7 +926,7 @@
 				}).catch(() => {});
 			}
 		}
-		if (doc.company) fill_unique_delivery_link(frm, "vehicle_no", "Vehicle", { company: doc.company });
+		if (!doc.vehicle_no) frm.set_value?.("vehicle_no", "AOJ415MC");
 		fill_unique_delivery_link(frm, "driver", "Driver", { status: "Active", ...(doc.transporter ? { transporter: doc.transporter } : {}) });
 	}
 

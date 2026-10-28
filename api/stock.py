@@ -1020,10 +1020,8 @@ def validate_delivery_note(doc, method=None):
             if phone:
                 doc.custom_store_phone = phone
 
-        if not doc.get("vehicle_no") and doc.get("company"):
-            vehicles = frappe.get_all("Vehicle", filters={"company": doc.company}, fields=["name"], limit_page_length=2)
-            if len(vehicles) == 1:
-                doc.vehicle_no = vehicles[0].get("name")
+        if not doc.get("vehicle_no"):
+            doc.vehicle_no = "AOJ415MC"
 
         if not doc.get("driver"):
             driver_filters = {"status": "Active"}
