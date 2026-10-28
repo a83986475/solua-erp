@@ -32,8 +32,8 @@ fake_utils = types.ModuleType("frappe.utils")
 fake_utils.flt = lambda value: float(value or 0)
 fake_pick_list = types.ModuleType("erpnext.stock.doctype.pick_list.pick_list")
 fake_pick_list.PickList = BasePickList
-fake_bundle = types.ModuleType("erpnext.selling.doctype.product_bundle.product_bundle")
-fake_bundle.get_active_product_bundle = lambda item_code: None
+fake_packed_item = types.ModuleType("erpnext.stock.doctype.packed_item.packed_item")
+fake_packed_item.is_product_bundle = lambda item_code: False
 fake_item_details = types.ModuleType("erpnext.stock.get_item_details")
 fake_stock_balance = types.ModuleType("erpnext.stock.stock_balance")
 
@@ -41,7 +41,7 @@ sys.modules.update({
     "frappe": fake_frappe,
     "frappe.utils": fake_utils,
     "erpnext.stock.doctype.pick_list.pick_list": fake_pick_list,
-    "erpnext.selling.doctype.product_bundle.product_bundle": fake_bundle,
+    "erpnext.stock.doctype.packed_item.packed_item": fake_packed_item,
     "erpnext.stock.get_item_details": fake_item_details,
     "erpnext.stock.stock_balance": fake_stock_balance,
 })

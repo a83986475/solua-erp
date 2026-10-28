@@ -21,7 +21,7 @@ def _reconcile_sales_order_locations(doc):
     if order.docstatus != 1:
         return
 
-    from erpnext.selling.doctype.product_bundle.product_bundle import get_active_product_bundle
+    from erpnext.stock.doctype.packed_item.packed_item import is_product_bundle
     from erpnext.stock.get_item_details import get_bin_details
     from erpnext.stock.stock_balance import get_reserved_qty
 
@@ -31,7 +31,7 @@ def _reconcile_sales_order_locations(doc):
             direct_rows.setdefault(row.sales_order_item, []).append(row)
 
     for source in order.get("items") or []:
-        if source.delivered_by_supplier or get_active_product_bundle(source.item_code):
+        if source.delivered_by_supplier or is_product_bundle(source.item_code):
             continue
 
         factor = flt(source.conversion_factor) or 1
