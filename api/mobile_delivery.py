@@ -4,7 +4,7 @@ import json
 import math
 import requests
 from frappe.utils import flt, nowdate
-from solua_home.api.mobile import _require_admin, _defaults, _sales_order_relations
+from solua_home.api.mobile import _require_admin, _defaults, _sales_order_relations_batch
 
 
 def _route_waypoint(value):
@@ -142,9 +142,17 @@ def list_pending_deliveries(query=None, stage="all", page=1, page_length=20):
                 "per_delivered", "grand_total", "currency", "shipping_address_name", "customer_address"],
         order_by="delivery_date asc, transaction_date asc, name asc",
         limit_start=(page - 1) * page_length, limit_page_length=page_length)
+    names = [row.name for row in rows]
+    items_by_order = {}
+    if names:
+        for item in frappe.get_all("Sales Order Item",
+            filters={"parent": ["in", names], "parenttype": "Sales Order"},
+            fields=["parent", "item_code", "item_name", "qty", "delivered_qty", "uom"],
+            order_by="parent asc, idx asc", limit_page_length=0):
+            items_by_order.setdefault(item.parent, []).append(item)
+    relations = _sales_order_relations_batch(names, {row.name: 1 for row in rows})
     for row in rows:
-        items = frappe.get_all("Sales Order Item", filters={"parent": row.name, "parenttype": "Sales Order"},
-            fields=["item_code", "item_name", "qty", "delivered_qty", "uom"], order_by="idx asc", limit_page_length=0)
+        items = items_by_order.get(row.name, [])
         row["items"] = [item for item in map(_pending_item, items) if item["pending_qty"] > 0]
         name = row.shipping_address_name or row.customer_address
         source = "订单送货地址" if row.shipping_address_name else "订单客户地址（请核对）"
@@ -156,6 +164,6 @@ def list_pending_deliveries(query=None, stage="all", page=1, page_length=20):
                 name, source = names[0], "客户建档地址（请核对）"
         row.update(_address_info(name, source))
         row["overdue"] = bool(row.delivery_date and str(row.delivery_date) < nowdate())
-        row.update(_sales_order_relations(row.name, 1))
+        row.update(relations.get(row.name, {}))
     return {"rows": rows, "row_count": count, "page": page, "page_count": page_count,
             "page_length": page_length, "has_prev": page > 1, "has_next": page < page_count}

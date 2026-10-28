@@ -6,5 +6,13 @@
   "display": "standalone",
   "background_color": "#f4f7fa",
   "theme_color": "#163a5f",
-  "lang": "zh-CN"
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/assets/solua_home/mobile/solua-pwa-icon.png",
+      "sizes": "949x768",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }

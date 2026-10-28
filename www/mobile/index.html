@@ -1,9 +1,11 @@
 {% extends "templates/web.html" %}
 
 {% block head_include %}
-<link rel="manifest" href="/assets/solua_home/mobile/manifest.json">
+<link rel="manifest" href="/assets/solua_home/mobile/manifest{% if mobile_order %}-order{% elif mobile_sales %}-sales{% elif mobile_orders %}-orders{% elif mobile_reports %}-reports{% elif mobile_customer %}-customer{% elif mobile_delivery %}-delivery{% endif %}.json">
+<link rel="apple-touch-icon" href="/assets/solua_home/mobile/solua-pwa-icon.png">
 <meta name="theme-color" content="#163a5f">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/assets/solua_home/mobile/zxing-browser.min.js"></script>
 {% if mobile_delivery %}<link rel="stylesheet" href="/assets/frappe/js/lib/leaflet/leaflet.css">{% endif %}
 {% endblock %}
 
@@ -15,12 +17,14 @@
     body.solua-mobile-page .navbar-nav { flex-direction: row !important; }
     body.solua-mobile-page .navbar .nav-item.dropdown { position: relative; }
     body.solua-mobile-page .navbar .dropdown-menu { position: absolute !important; top: 100% !important; right: 0 !important; left: auto !important; float: none !important; margin-top: 0 !important; }
+    body.solua-order-entry-page .navbar { display: none !important; }
     .mobile-app { max-width: 760px; margin: 0 auto; padding: 14px 12px 42px; }
     body.solua-delivery-desktop .mobile-app { max-width: 1180px; }
     body.solua-delivery-desktop #delivery-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     body.solua-delivery-desktop .mobile-delivery-card { margin-top: 0; }
     .mobile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .mobile-head h1 { margin: 0; color: var(--mobile-blue); font-size: 23px; }
+    .mobile-user-avatar { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 50%; background: #fff0fa; color: #d53b99; font-size: 14px; font-weight: 700; }
     .mobile-tabs { display: block; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: var(--mobile-soft); }
     .mobile-tab { display: block; padding: 11px; border-radius: 7px; color: var(--mobile-blue); text-align: center; text-decoration: none; }
     .mobile-tab.active { background: transparent; box-shadow: none; font-weight: 700; }
@@ -33,21 +37,31 @@
     .mobile-customer-wrap { position: relative; }
     .mobile-customer-selected { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px; border-radius: 8px; background: var(--mobile-soft); }
     .mobile-customer-name { font-weight: 700; color: var(--mobile-blue); }
+    .mobile-draft-recovery { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: #fff8e8; }
+    .mobile-draft-recovery-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .mobile-address { margin-top: 9px; min-height: 42px; }
     .mobile-search { display: flex; gap: 8px; }
+    #employee-sales-order-customer-search + .mobile-suggestions, #employee-sales-order-item-search + .mobile-suggestions { position: static; margin-top: 4px; }
     .mobile-query-wrap { position: relative; min-width: 0; flex: 1; }
     .mobile-suggestions { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--mobile-border); border-radius: 10px; background: #fff; box-shadow: 0 8px 22px rgba(22, 58, 95, .16); }
     .mobile-suggestion { display: block; width: 100%; padding: 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
     .mobile-suggestion:hover, .mobile-suggestion:focus { background: var(--mobile-soft); outline: 0; }
     .mobile-suggestion-code { font-weight: 700; color: var(--mobile-blue); }
     .mobile-suggestion-name { margin-top: 3px; color: var(--mobile-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mobile-employee-item-suggestion { display: flex; align-items: center; gap: 9px; }
+    .mobile-employee-item-image { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 6px; object-fit: contain; background: #fff; }
     .mobile-search button, .mobile-camera-actions button { min-height: 46px; white-space: nowrap; }
+    .mobile-view-toggle { display: inline-flex; gap: 4px; padding: 3px; border-radius: 8px; background: var(--mobile-soft); }
+    .mobile-view-toggle button { min-height: 32px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--mobile-blue); font-size: 12px; }
+    .mobile-view-toggle button.active { background: #fff; box-shadow: 0 1px 4px rgba(22, 58, 95, .16); font-weight: 700; }
     .mobile-camera { display: none; margin-top: 10px; }
     .mobile-camera video { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 10px; background: #111; }
     .mobile-camera-actions { display: flex; gap: 8px; margin-top: 8px; }
     .mobile-result-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
     .mobile-result-head h2 { margin: 0; font-size: 19px; color: var(--mobile-blue); }
     .mobile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+    .mobile-grid.mobile-detail-grid { grid-template-columns: minmax(0, 1fr); }
+    .mobile-grid.mobile-order-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .mobile-card { border: 1px solid var(--mobile-border); border-radius: 10px; overflow: hidden; background: #fff; }
     .mobile-card.selected { outline: 3px solid #5d9bd3; }
     .mobile-card img { display: block; width: 100%; height: 150px; object-fit: cover; background: #f2f4f6; }
@@ -61,6 +75,9 @@
     .mobile-card-actions { display: grid; grid-template-columns: minmax(44px, 74px) minmax(0, 1fr); gap: 6px; margin-top: 10px; }
     .mobile-card-qty { width: auto; min-width: 0; min-height: 38px; }
     .mobile-card-actions button { min-width: 0; min-height: 38px; padding-left: 6px; padding-right: 6px; white-space: nowrap; }
+    .mobile-cart-icon { width: 21px; height: 21px; display: block; margin: 0 auto; }
+    .mobile-detail-grid .mobile-card-actions { display: none; }
+    .mobile-order-grid .mobile-card-actions button { min-height: 44px; white-space: normal; line-height: 1.15; overflow-wrap: anywhere; }
     .mobile-empty { padding: 20px 4px; color: var(--mobile-muted); text-align: center; }
     .mobile-cart-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--mobile-border); }
     .mobile-cart-row:last-child { border-bottom: 0; }
@@ -74,6 +91,8 @@
     .mobile-customer-form label { display: grid; gap: 5px; color: var(--mobile-muted); font-size: 13px; }
     .mobile-customer-form input, .mobile-customer-form select, .mobile-customer-form textarea { min-height: 44px; font-size: 16px; }
     .mobile-customer-form textarea { min-height: 78px; resize: vertical; }
+    .mobile-cart-note { display: grid; gap: 4px; margin-top: 7px; color: var(--mobile-muted); font-size: 13px; }
+    .mobile-cart-note textarea { min-height: 48px; resize: vertical; font-size: 16px; }
     .mobile-customer-form button { min-height: 46px; margin-top: 4px; }
     .mobile-customer-note { margin-top: 4px; }
     .mobile-customer-list { display: grid; gap: 9px; }
@@ -95,10 +114,14 @@
     .mobile-order-total { align-self: center; color: var(--mobile-blue); font-weight: 700; white-space: nowrap; }
     .mobile-order-detail { padding: 0 12px 12px; border-top: 1px solid var(--mobile-border); }
     .mobile-section-collapse { padding: 0; overflow: hidden; }
+    .mobile-ticket-center { display: grid; gap: 12px; }
+    .mobile-ticket-center > .mobile-panel { margin-bottom: 0; }
+    .mobile-ticket-card { margin-bottom: 0; }
+    #mobile-new-sales-order[open] { overflow: visible; }
     .mobile-section-summary { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 14px; color: var(--mobile-blue); font-weight: 700; cursor: pointer; list-style: none; }
     .mobile-section-summary::-webkit-details-marker { display: none; }
-    .mobile-section-summary::after { content: "＋"; color: var(--mobile-muted); }
-    .mobile-section-collapse[open] .mobile-section-summary::after { content: "−"; }
+    .mobile-section-collapse > .mobile-section-summary::after { content: "＋"; color: var(--mobile-muted); }
+    .mobile-section-collapse[open] > .mobile-section-summary::after { content: "−"; }
     .mobile-section-body { padding: 0 14px 14px; }
     .mobile-section-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 9px; }
     .mobile-feedback { margin-bottom: 12px; padding: 11px 13px; border: 1px solid #b7d8c2; border-radius: 10px; background: #edf8f0; color: #176b35; font-weight: 700; }
@@ -180,22 +203,50 @@
 </style>
 
 <div class="mobile-app">
-{% if not mobile_admin %}
+    {% if not mobile_admin and not mobile_order_entry %}
     <div class="mobile-panel mobile-login">
-        <h1>{% if desktop_delivery %}{{ _("送货中心") }}{% else %}{{ _("管理员移动台") }}{% endif %}</h1>
+        <h1>{% if mobile_order_entry %}Nova Encomenda{% elif desktop_delivery %}{{ _("送货中心") }}{% else %}{{ _("管理员移动台") }}{% endif %}</h1>
         {% if frappe.session.user == "Guest" %}
         <p class="mobile-muted">{{ _("请先登录管理员账号。") }}</p>
-        <a class="btn btn-primary" href="{% if mobile_delivery %}/login?redirect-to=/mobile%3Fview%3Ddelivery{% elif mobile_reports %}/login?redirect-to=/mobile%3Fview%3Dreports{% elif mobile_sales %}/login?redirect-to=/mobile%3Fview%3Dsales{% elif mobile_order %}/login?redirect-to=/mobile%3Fview%3Dorder{% elif mobile_orders %}/login?redirect-to=/mobile%3Fview%3Dorders{% elif mobile_customer %}/login?redirect-to=/mobile%3Fview%3Dcustomer{% else %}/login?redirect-to=/mobile%3Fview%3Dstock{% endif %}">{{ _("登录") }}</a>
+        <a class="btn btn-primary" href="{% if mobile_delivery %}/login?redirect-to=/mobile%3Fview%3Ddelivery{% elif mobile_reports %}/login?redirect-to=/mobile%3Fview%3Dreports{% elif mobile_sales %}/login?redirect-to=/mobile%3Fview%3Dsales{% elif mobile_order %}/login?redirect-to=/mobile%3Fview%3Dorder{% elif mobile_orders %}/login?redirect-to=/mobile%3Fview%3Dorders{% elif mobile_ticket_center %}/login?redirect-to=/mobile%3Fview%3Dticket-center{% elif mobile_customer %}/login?redirect-to=/mobile%3Fview%3Dcustomer{% else %}/login?redirect-to=/mobile%3Fview%3Dstock{% endif %}">{{ _("登录") }}</a>
         {% else %}
         <p class="mobile-muted">{{ _("此页面仅限 Administrator 或 System Manager 使用。") }}</p>
         {% endif %}
     </div>
 {% else %}
     <div class="mobile-head">
-        <h1>{% if desktop_delivery %}{{ _("送货中心") }}{% else %}{{ _("管理员移动台") }}{% endif %}</h1>
-        <span class="mobile-muted" id="mobile-status"{% if mobile_customer %} hidden{% endif %}>{{ _("加载中…") }}</span>
+        <h1>{% if mobile_order_entry %}Nova Encomenda{% elif desktop_delivery %}{{ _("送货中心") }}{% else %}{{ _("管理员移动台") }}{% endif %}</h1>
+        {% if mobile_order_entry %}<span class="mobile-user-avatar" title="{{ frappe.session.user }}">{{ mobile_user_initials }}</span>{% else %}<span class="mobile-muted" id="mobile-status"{% if mobile_customer %} hidden{% endif %}>{{ _("加载中…") }}</span>{% endif %}
     </div>
     <div class="mobile-feedback" id="mobile-feedback" hidden role="status" aria-live="polite"></div>
+    {% if mobile_order_entry %}
+    <div class="mobile-panel">
+        <div class="mobile-step-head"><span>Nova Encomenda</span></div>
+        <div class="mobile-search-wrap">
+        <form class="mobile-search" id="employee-sales-order-customer-search">
+            <input id="employee-sales-order-customer-query" class="form-control" type="search" autocomplete="off" placeholder="Cliente">
+            <button class="btn btn-primary" type="submit">Pesquisar</button>
+        </form>
+        <div id="employee-sales-order-customer-list" class="mobile-suggestions" hidden></div>
+        </div>
+        <div id="employee-sales-order-selected-customer" class="mobile-customer-selected" hidden></div>
+        <div class="mobile-search-wrap" style="margin-top:12px">
+        <form class="mobile-search" id="employee-sales-order-item-search">
+            <input id="employee-sales-order-item-query" class="form-control" type="search" autocomplete="off" placeholder="Artigo, código ou nome" disabled>
+            <button class="btn btn-primary" type="submit" disabled>Pesquisar</button>
+        </form>
+        <div id="employee-sales-order-item-list" class="mobile-suggestions" hidden></div>
+        </div>
+        <div id="employee-sales-order-cart" class="mobile-order-list" style="margin-top:12px"><div class="mobile-empty">Selecione um cliente e adicione artigos.</div></div>
+        <div class="mobile-cart-total"><span>Artigos</span><span id="employee-sales-order-total">0</span></div>
+        <button class="btn btn-primary" type="button" id="employee-sales-order-save" style="margin-top:12px" disabled>Guardar rascunho</button>
+        <p class="mobile-muted" id="employee-sales-order-status" role="status" aria-live="polite" style="margin-top:9px"></p>
+    </div>
+    <div class="mobile-panel">
+        <div class="mobile-step-head"><span>Meus rascunhos</span><button class="btn btn-default btn-sm" type="button" id="employee-sales-order-drafts-refresh">Atualizar</button></div>
+        <div id="employee-sales-order-drafts" class="mobile-order-list"><div class="mobile-empty">A carregar…</div></div>
+    </div>
+    {% endif %}
     {% if mobile_delivery %}
     <div class="mobile-panel">
         <div class="mobile-step-head"><span>送货中心</span><button class="btn btn-default btn-sm" type="button" id="delivery-refresh">刷新</button></div>
@@ -222,11 +273,6 @@
         <div id="delivery-map-links" aria-live="polite"></div>
         <p class="mobile-muted">点击地图链接时会将站点位置发送给 Google Maps。路线选择不创建交货单，也不会自动修改送货状态。</p>
     </div>
-    {% endif %}
-    {% if mobile_stock %}
-    <nav class="mobile-tabs" aria-label="移动台功能">
-        <a class="mobile-tab active" href="/mobile?view=stock">库存查询</a>
-    </nav>
     {% endif %}
     {% if mobile_reports %}
     <div class="mobile-panel">
@@ -286,11 +332,12 @@
 
     {% if mobile_sales or mobile_orders %}
     <details class="mobile-panel mobile-section-collapse" id="mobile-sales-list">
-        <summary class="mobile-section-summary"><span>销售单</span><span class="mobile-muted">点击展开</span></summary>
+        <summary class="mobile-section-summary"><span>销售订单</span><span class="mobile-muted">点击展开</span></summary>
         <div class="mobile-section-body">
             <div class="mobile-section-actions">
                 <button class="btn btn-default btn-sm" type="button" id="mobile-orders-refresh">刷新</button>
                 {% if mobile_sales %}<a class="btn btn-primary btn-sm" href="#mobile-new-sales-order" data-open-mobile-details="mobile-new-sales-order">+ 新建销售单</a>{% endif %}
+                {% if mobile_sales %}<a class="btn btn-default btn-sm" href="/mobile?view=sales&docstatus=0#mobile-sales-list">只看草稿</a>{% endif %}
             </div>
             <form class="mobile-search" id="mobile-orders-search">
                 <input id="mobile-orders-query" class="form-control" type="search" autocomplete="off" placeholder="搜索订单号或客户名称">
@@ -301,6 +348,7 @@
                 <button class="btn btn-primary" type="submit">查商品</button>
             </form>
             <div class="mobile-report-toolbar" style="margin-top:9px">
+                <select id="mobile-orders-status" class="form-control" aria-label="销售单状态"><option value="">全部订单</option><option value="0">只看草稿</option><option value="1">只看已提交</option></select>
                 <select id="mobile-orders-sort" class="form-control" aria-label="销售单排序"><option value="date_desc">订单日期：新到旧</option><option value="name_desc">单号：倒序</option><option value="amount_desc">金额：高到低</option></select>
                 <select id="mobile-orders-page-length" class="form-control" aria-label="每页订单数量"><option value="10">每页 10 张</option><option value="20" selected>每页 20 张</option><option value="50">每页 50 张</option></select>
             </div>
@@ -309,11 +357,44 @@
         </div>
     </details>
     {% endif %}
+    {% if mobile_ticket_center %}
+    <div class="mobile-ticket-center" id="mobile-ticket-center">
+        <div class="mobile-panel">
+            <div class="mobile-step-head"><span>票据中心</span><button class="btn btn-default btn-sm" type="button" id="mobile-ticket-center-refresh">刷新</button></div>
+            <p class="mobile-muted">销售订单、拣货单、交货单和销售发票分别显示在独立卡片中。</p>
+        </div>
+        {% for key, label, placeholder in [
+            ("sales-orders", "销售订单", "搜索销售订单号或客户"),
+            ("pick-lists", "拣货单", "搜索拣货单号、客户或销售订单"),
+            ("delivery-notes", "交货单", "搜索交货单号或客户"),
+            ("sales-invoices", "销售发票", "搜索发票号或客户")
+        ] %}
+        <details class="mobile-panel mobile-section-collapse mobile-ticket-card" id="mobile-ticket-{{ key }}">
+            <summary class="mobile-section-summary"><span>{{ label }}</span><span class="mobile-muted">点击展开</span></summary>
+            <div class="mobile-section-body">
+                <form class="mobile-search" id="mobile-ticket-{{ key }}-search">
+                    <input id="mobile-ticket-{{ key }}-query" class="form-control" type="search" autocomplete="off" placeholder="{{ placeholder }}">
+                    <button class="btn btn-primary" type="submit">查询</button>
+                </form>
+                <div class="mobile-report-toolbar" style="margin-top:9px">
+                    <select id="mobile-ticket-{{ key }}-page-length" class="form-control" aria-label="每页数量"><option value="10">每页 10 张</option><option value="20" selected>每页 20 张</option><option value="50">每页 50 张</option></select>
+                </div>
+                <div class="mobile-order-list" id="mobile-ticket-{{ key }}-list"><div class="mobile-empty">加载中…</div></div>
+                <div class="mobile-report-pagination"><button class="btn btn-default" type="button" id="mobile-ticket-{{ key }}-prev" disabled>上一页</button><span class="mobile-muted" id="mobile-ticket-{{ key }}-page-info"></span><button class="btn btn-default" type="button" id="mobile-ticket-{{ key }}-next" disabled>下一页</button></div>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% if mobile_sales or mobile_order or mobile_stock %}
     {% if mobile_sales or mobile_order %}
     <details class="mobile-panel mobile-section-collapse mobile-sales-new" id="mobile-new-sales-order">
         <summary class="mobile-section-summary"><span>新建销售单</span><span class="mobile-muted">点击展开</span></summary>
         <div class="mobile-section-body">
+    <div class="mobile-draft-recovery" id="mobile-draft-recovery" hidden>
+        <span>检测到未完成的开单草稿</span>
+        <span class="mobile-draft-recovery-actions"><button class="btn btn-primary btn-sm" type="button" id="mobile-restore-draft">恢复</button><button class="btn btn-default btn-sm" type="button" id="mobile-discard-draft">清空</button></span>
+    </div>
     {% endif %}
     <div class="mobile-panel mobile-order-only"{% if not mobile_order and not mobile_sales %} hidden{% endif %}>
         <div class="mobile-step-head"><span>1. 选择客户</span><button class="btn btn-default btn-sm" type="button" id="mobile-clear-customer" hidden>更换客户</button></div>
@@ -328,15 +409,40 @@
         <div class="mobile-muted" id="mobile-order-hint" style="margin-top:8px">请先选择客户，再添加商品。</div>
     </div>
 
-    <div class="mobile-panel">
-        <div class="mobile-context">
-            <label>{{ _("公司") }}<input id="mobile-company" class="form-control" readonly></label>
-            <label>{{ _("仓库") }}<input id="mobile-warehouse" class="form-control" placeholder="{{ _('可留空使用默认仓库') }}"></label>
+    {% if mobile_sales or mobile_order %}
+    <details class="mobile-panel mobile-section-collapse" id="mobile-order-settings">
+        <summary class="mobile-section-summary"><span>订单设置</span><span class="mobile-muted" id="mobile-order-settings-summary">加载中…</span></summary>
+        <div class="mobile-section-body">
+            <div class="mobile-context">
+                <label>{{ _("公司") }}<input id="mobile-company" class="form-control" readonly></label>
+                <label>{{ _("仓库") }}<input id="mobile-warehouse" class="form-control" placeholder="{{ _('可留空使用默认仓库') }}"></label>
+            </div>
+        </div>
+    </details>
+    {% else %}
+    <details class="mobile-panel mobile-section-collapse" id="mobile-stock-settings">
+        <summary class="mobile-section-summary"><span>库存查询设置</span><span class="mobile-muted" id="mobile-order-settings-summary">加载中…</span></summary>
+        <div class="mobile-section-body">
+            <div class="mobile-context">
+                <label>{{ _("公司") }}<input id="mobile-company" class="form-control" readonly></label>
+                <label>{{ _("仓库") }}<input id="mobile-warehouse" class="form-control" placeholder="{{ _('可留空使用默认仓库') }}"></label>
+            </div>
+        </div>
+    </details>
+    {% endif %}
+
+    <div class="mobile-panel mobile-order-only" id="mobile-cart-panel"{% if not mobile_order and not mobile_sales %} hidden{% endif %}>
+        <div class="mobile-step-head"><span>2. 购物车</span><span class="mobile-muted" id="mobile-cart-count"></span></div>
+        <div id="mobile-cart"></div>
+        <div class="mobile-cart-total"><span>合计</span><span id="mobile-cart-total">—</span></div>
+        <div class="mobile-order-actions">
+            <button class="btn btn-default" type="button" id="mobile-save-order">保存草稿</button>
+            <button class="btn btn-primary" type="button" id="mobile-submit-order">提交订单</button>
         </div>
     </div>
 
     <div class="mobile-panel" id="mobile-product-panel">
-        <div class="mobile-step-head"><span id="mobile-product-step">{% if mobile_order or mobile_sales %}2. 添加商品{% else %}库存查询{% endif %}</span><span class="mobile-muted">可扫码、模糊搜索或输入模板货号</span></div>
+        <div class="mobile-step-head"><span id="mobile-product-step">{% if mobile_order or mobile_sales %}3. 添加商品{% else %}库存查询{% endif %}</span>{% if mobile_order or mobile_sales or mobile_stock %}<span class="mobile-view-toggle" id="mobile-product-view-toggle"><button type="button" data-mobile-product-view="detail">{% if mobile_order or mobile_sales %}单列详情{% else %}单列{% endif %}</button><button type="button" data-mobile-product-view="order">{% if mobile_order or mobile_sales %}双列下单{% else %}双列{% endif %}</button></span>{% else %}<span class="mobile-muted">可扫码、精确搜索变体货号或输入名称</span>{% endif %}</div>
         <form class="mobile-search" id="mobile-search">
             <div class="mobile-query-wrap">
                 <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
@@ -353,16 +459,6 @@
             </div>
         </div>
         <button class="btn btn-default" type="button" id="mobile-open-camera" style="margin-top:8px" disabled>{{ _("打开摄像头扫码") }}</button>
-    </div>
-
-    <div class="mobile-panel mobile-order-only" id="mobile-cart-panel"{% if not mobile_order and not mobile_sales %} hidden{% endif %}>
-        <div class="mobile-step-head"><span>3. 购物车</span><span class="mobile-muted" id="mobile-cart-count"></span></div>
-        <div id="mobile-cart"></div>
-        <div class="mobile-cart-total"><span>合计</span><span id="mobile-cart-total">—</span></div>
-        <div class="mobile-order-actions">
-            <button class="btn btn-default" type="button" id="mobile-save-order">保存草稿</button>
-            <button class="btn btn-primary" type="button" id="mobile-submit-order">提交订单</button>
-        </div>
     </div>
 
     <div class="mobile-panel" id="mobile-results" hidden>
@@ -398,7 +494,7 @@ function soluaPin(value) {
     return pair.every(Number.isFinite) && Math.abs(pair[0]) <= 90 && Math.abs(pair[1]) <= 180 ? pair : null;
 }
 async function soluaLocationPost(method, args) {
-    const response = await fetch(`/api/method/solua_home.api.mobile_locations.${method}`, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || ""}, body: JSON.stringify(args)});
+    const response = await fetch(`/api/method/solua_home.api.mobile_locations.${method}`, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}"}, body: JSON.stringify(args)});
     const payload = await response.json();
     if (!response.ok || payload.exc) {
         let message = typeof payload.message === "string" ? payload.message : "位置操作失败，请检查输入";
@@ -466,7 +562,7 @@ function soluaLocate(input, status) {
             divider.className = "dropdown-divider";
             divider.dataset.soluaMobileNav = "divider";
             menu.appendChild(divider);
-            [["库存查询", "/mobile?view=stock"], ["销售中心", "/mobile?view=sales"], ["送货中心", "/mobile?view=delivery"], ["报表中心", "/mobile?view=reports"], ["客户中心", "/mobile?view=customer"]].forEach(([label, href]) => {
+            [["库存查询", "/mobile?view=stock"], ["销售中心", "/mobile?view=sales"], ["草稿订单", "/mobile?view=sales&docstatus=0#mobile-sales-list"], ["票据中心", "/mobile?view=ticket-center"], ["员工开单", "/mobile?view=order-entry"], ["送货中心", "/mobile?view=delivery"], ["报表中心", "/mobile?view=reports"], ["客户中心", "/mobile?view=customer"]].forEach(([label, href]) => {
                 const link = document.createElement("a");
                 link.className = "dropdown-item";
                 link.dataset.soluaMobileNav = "1";
@@ -483,6 +579,98 @@ function soluaLocate(input, status) {
     else installMobileMenu();
 })();
 </script>
+{% if mobile_order_entry %}
+<script>
+(() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
+    const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const state = { customer: "", customerName: "", cart: [], orderName: "", warehouse: "" };
+    async function call(method, args = {}) {
+        const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+        const response = await fetch(`/api/method/${method}${query.toString() ? `?${query}` : ""}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || "Pedido falhou");
+        return payload.message;
+    }
+    async function writeCall(method, args = {}) {
+        const response = await fetch(`/api/method/${method}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}" }, credentials: "same-origin", body: JSON.stringify(args) });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.exc) throw new Error(payload.message || "Pedido falhou");
+        return payload.message;
+    }
+    const setStatus = (message) => { $("employee-sales-order-status").textContent = message || ""; const status = $("mobile-status"); if (status) status.textContent = message || ""; };
+    function renderCart() {
+        const list = $("employee-sales-order-cart");
+        list.innerHTML = state.cart.length ? state.cart.map((row) => `<div class="mobile-linked-doc"><div class="mobile-linked-doc-head"><strong>${esc(row.item_code)}</strong><span>Stock: ${num(row.available_sales_qty ?? row.available_qty)} ${esc(row.uom || row.stock_uom || "")}</span></div><div class="mobile-order-item-meta">${esc(row.item_name || "")} · ${num(row.qty)} ${esc(row.uom || "")}</div><div class="mobile-linked-doc-actions"><input class="form-control" style="width:90px" type="number" min="1" step="1" value="${esc(row.qty)}" data-employee-qty="${esc(row.item_code)}"><button class="btn btn-default btn-sm" type="button" data-employee-remove="${esc(row.item_code)}">Remover</button></div></div>`).join("") : '<div class="mobile-empty">Selecione um cliente e adicione artigos.</div>';
+        $("employee-sales-order-total").textContent = String(state.cart.length);
+        $("employee-sales-order-save").disabled = !state.customer || !state.cart.length;
+        list.querySelectorAll("[data-employee-qty]").forEach((input) => input.addEventListener("change", () => { const row = state.cart.find((item) => item.item_code === input.dataset.employeeQty); const qty = Number(input.value); if (row && Number.isInteger(qty) && qty > 0) row.qty = qty; renderCart(); }));
+        list.querySelectorAll("[data-employee-remove]").forEach((button) => button.addEventListener("click", () => { state.cart = state.cart.filter((row) => row.item_code !== button.dataset.employeeRemove); renderCart(); }));
+    }
+    function renderCustomers(rows) {
+        const box = $("employee-sales-order-customer-list");
+        box.innerHTML = (rows || []).map((row) => `<button class="mobile-suggestion" type="button" data-employee-customer="${esc(row.customer)}"><div class="mobile-suggestion-code">${esc(row.customer_name || row.customer)}</div><div class="mobile-suggestion-name">${esc(row.mobile_no || row.customer)}</div></button>`).join("");
+        box.hidden = !(rows || []).length;
+        box.querySelectorAll("[data-employee-customer]").forEach((button) => button.addEventListener("click", () => { const row = rows.find((item) => item.customer === button.dataset.employeeCustomer); if (!row) return; state.customer = row.customer; state.customerName = row.customer_name || row.customer; $("employee-sales-order-selected-customer").innerHTML = `<strong>${esc(state.customerName)}</strong><span class="mobile-muted">${esc(state.customer)}</span>`; $("employee-sales-order-selected-customer").hidden = false; $("employee-sales-order-customer-query").value = ""; box.hidden = true; $("employee-sales-order-item-query").disabled = false; $("employee-sales-order-item-search").querySelector("button").disabled = false; setStatus(`Cliente selecionado: ${state.customerName}`); }));
+    }
+    function renderItems(rows) {
+        const box = $("employee-sales-order-item-list");
+        box.innerHTML = (rows || []).map((row) => `<button class="mobile-suggestion mobile-employee-item-suggestion" type="button" data-employee-item="${esc(row.item_code)}">${row.image ? `<img class="mobile-employee-item-image" src="${esc(row.image)}" alt="" loading="lazy">` : ""}<span><div class="mobile-suggestion-code">${esc(row.item_code)}</div><div class="mobile-suggestion-name">${esc(row.item_name || row.color || "")} · Stock: ${num(row.available_sales_qty ?? row.available_qty)} ${esc(row.uom || row.stock_uom || "")}</div></span></button>`).join("");
+        box.hidden = !(rows || []).length;
+        box.querySelectorAll("[data-employee-item]").forEach((button) => button.addEventListener("click", () => { const row = rows.find((item) => item.item_code === button.dataset.employeeItem); if (!row) return; const existing = state.cart.find((item) => item.item_code === row.item_code); if (existing) existing.qty += 1; else state.cart.push({ item_code: row.item_code, item_name: row.item_name, image: row.image, available_qty: row.available_qty, available_sales_qty: row.available_sales_qty, uom: row.uom || row.stock_uom || "", qty: 1, warehouse: row.warehouse || state.warehouse }); box.hidden = true; $("employee-sales-order-item-query").value = ""; renderCart(); setStatus(`Artigo adicionado: ${row.item_code}`); }));
+    }
+    async function loadDrafts() {
+        try {
+            const data = await call("solua_home.api.mobile.list_employee_sales_order_drafts", { limit: 20 });
+            $("employee-sales-order-drafts").innerHTML = (data.rows || []).length ? data.rows.map((row) => `<div class="mobile-linked-doc"><div class="mobile-linked-doc-head"><strong>${esc(row.name)}</strong><span>Rascunho</span></div><div class="mobile-order-item-meta">${esc(row.customer_name || row.customer || "")} · ${esc(row.transaction_date || "")}</div><div class="mobile-linked-doc-actions"><button class="btn btn-default btn-sm" type="button" data-employee-draft="${esc(row.name)}">Abrir</button></div></div>`).join("") : '<div class="mobile-empty">Ainda não há rascunhos.</div>';
+        } catch (error) { $("employee-sales-order-drafts").innerHTML = `<div class="mobile-empty">${esc(error.message || "Não foi possível carregar os rascunhos")}</div>`; }
+    }
+    async function openDraft(name) {
+        try {
+            const draft = await call("solua_home.api.mobile.get_employee_sales_order_draft", { name });
+            state.customer = draft.customer || "";
+            state.customerName = draft.customer_name || draft.customer || "";
+            state.orderName = draft.name || name;
+            state.warehouse = draft.set_warehouse || "";
+            state.cart = (draft.items || []).map((row) => ({ item_code: row.item_code, item_name: row.item_name, uom: row.uom || row.stock_uom || "", stock_uom: row.stock_uom || "", qty: row.qty, warehouse: row.warehouse || state.warehouse }));
+            $("employee-sales-order-selected-customer").innerHTML = `<strong>${esc(state.customerName)}</strong><span class="mobile-muted">${esc(state.customer)}</span>`;
+            $("employee-sales-order-selected-customer").hidden = false;
+            $("employee-sales-order-item-query").disabled = false;
+            $("employee-sales-order-item-search").querySelector("button").disabled = false;
+            renderCart();
+            setStatus(`Rascunho aberto: ${state.orderName}`);
+            window.scrollTo({top: 0, behavior: "smooth"});
+        } catch (error) { setStatus(error.message || "Não foi possível abrir o rascunho"); }
+    }
+    let customerRequest = 0;
+    let customerTimer;
+    let itemRequest = 0;
+    let itemTimer;
+    async function searchEmployeeCustomers() {
+        const query = $("employee-sales-order-customer-query").value.trim();
+        const request = ++customerRequest;
+        if (query.length < 2) return renderCustomers([]);
+        try { const data = await call("solua_home.api.mobile.search_employee_sales_order_customers", { query }); if (request === customerRequest) renderCustomers(data); } catch (error) { if (request === customerRequest) setStatus(error.message); }
+    }
+    async function searchEmployeeItems() {
+        if (!state.customer) return setStatus("Selecione primeiro o cliente");
+        const query = $("employee-sales-order-item-query").value.trim();
+        const request = ++itemRequest;
+        if (query.length < 3) return renderItems([]);
+        try { const data = await call("solua_home.api.mobile.lookup_employee_sales_order_item", { barcode: query, warehouse: state.warehouse, customer: state.customer }); if (request === itemRequest) renderItems(data.variants || []); } catch (error) { if (request === itemRequest) setStatus(error.message); }
+    }
+    $("employee-sales-order-customer-search").addEventListener("submit", (event) => { event.preventDefault(); searchEmployeeCustomers(); });
+    $("employee-sales-order-customer-query").addEventListener("input", () => { clearTimeout(customerTimer); customerTimer = setTimeout(searchEmployeeCustomers, 250); });
+    $("employee-sales-order-item-search").addEventListener("submit", (event) => { event.preventDefault(); searchEmployeeItems(); });
+    $("employee-sales-order-item-query").addEventListener("input", () => { clearTimeout(itemTimer); itemTimer = setTimeout(searchEmployeeItems, 250); });
+    $("employee-sales-order-save").addEventListener("click", async () => { const button = $("employee-sales-order-save"); button.disabled = true; setStatus("A guardar rascunho…"); try { const result = await writeCall("solua_home.api.mobile.save_employee_sales_order_draft", { customer: state.customer, warehouse: state.warehouse, rows: state.cart.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse })), name: state.orderName, submit: 0 }); state.orderName = result.name; setStatus(`Rascunho guardado: ${state.orderName}`); await loadDrafts(); } catch (error) { setStatus(error.message); } finally { renderCart(); } });
+    $("employee-sales-order-drafts-refresh").addEventListener("click", loadDrafts);
+    $("employee-sales-order-drafts").addEventListener("click", (event) => { const button = event.target.closest("[data-employee-draft]"); if (button) openDraft(button.dataset.employeeDraft); });
+    loadDrafts();
+})();
+</script>
+{% endif %}
 {% if mobile_admin and mobile_delivery %}
 <script>
 function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) {
@@ -516,7 +704,24 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
     const num = (value) => Number(value || 0).toLocaleString(undefined, {maximumFractionDigits: 2});
     const link = (route, name) => `<a target="_blank" rel="noopener" href="/app/${route}/${encodeURIComponent(name)}">${esc(name)}</a>`;
+    const deliveryRouteDraftKey = "solua-mobile-delivery-route-v1";
     let page = 1, requestId = 0, rows = [], stops = [], routeVersion = 0, map = null, mapPins = null;
+    function saveRouteDraft() {
+        if (!stops.length) return clearRouteDraft();
+        localStorage.setItem(deliveryRouteDraftKey, JSON.stringify({saved_at: Date.now(), stops, origin: $("delivery-origin").value.trim(), return_to_origin: $("delivery-return").value}));
+    }
+    function clearRouteDraft() { localStorage.removeItem(deliveryRouteDraftKey); }
+    function restoreRouteDraft() {
+        try {
+            const draft = JSON.parse(localStorage.getItem(deliveryRouteDraftKey) || "null");
+            if (!draft || !Array.isArray(draft.stops) || !draft.stops.length) return false;
+            if (Date.now() - Number(draft.saved_at || 0) > 7 * 24 * 60 * 60 * 1000) { clearRouteDraft(); return false; }
+            stops = draft.stops.filter((stop) => stop && Array.isArray(stop.orders) && stop.orders.length).map((stop) => ({customer: String(stop.customer || ""), address: String(stop.address || ""), orders: stop.orders.map(String)}));
+            $("delivery-origin").value = String(draft.origin || "");
+            $("delivery-return").value = draft.return_to_origin === "1" ? "1" : "0";
+            return !!stops.length;
+        } catch (error) { clearRouteDraft(); return false; }
+    }
     const selectedNames = () => new Set(stops.flatMap((stop) => stop.orders));
     function syncSelection() {
         const names = selectedNames();
@@ -524,6 +729,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     }
     function renderStops() {
         routeVersion++;
+        saveRouteDraft();
         $("delivery-opt-status").textContent = $("delivery-optimize").disabled ? "自动优化需配置服务器 Google Routes API 密钥" : "点击自动优化会将位置发送给 Google，可能产生 API 费用；需填写出发位置，支持 2–25 站。";
         $("delivery-map-links").innerHTML = "";
         if (map) updateMap();
@@ -593,7 +799,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             if (!window.confirm("创建交货单草稿？请在单据中核对本次配送数量后再提交。")) return;
             button.disabled = true;
             try {
-                const response = await fetch("/api/method/solua_home.api.mobile.create_delivery_note", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || ""}, body: JSON.stringify({sales_order: button.dataset.deliveryCreate})});
+                const response = await fetch("/api/method/solua_home.api.mobile.create_delivery_note", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}"}, body: JSON.stringify({sales_order: button.dataset.deliveryCreate})});
                 const payload = await response.json();
                 if (!response.ok || payload.exc) throw new Error(typeof payload.message === "string" ? payload.message : "创建失败，请重试");
                 window.soluaMobileFeedback(`${payload.message.state === "existing" ? "已有交货单草稿" : "交货单草稿已创建"}：${payload.message.name}`);
@@ -624,10 +830,10 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     ["delivery-stage", "delivery-size"].forEach((id) => $(id).addEventListener("change", () => load()));
     $("delivery-prev").addEventListener("click", () => load(page - 1));
     $("delivery-next").addEventListener("click", () => load(page + 1));
-    $("delivery-clear").addEventListener("click", () => {stops = []; renderStops(); syncSelection();});
-    $("delivery-refresh").addEventListener("click", () => {stops = []; renderStops(); load();});
-    ["delivery-origin", "delivery-return"].forEach((id) => $(id).addEventListener("change", () => {routeVersion++; $("delivery-map-links").innerHTML = ""; $("delivery-opt-status").textContent = "出发点或终点已修改，请重新优化。";}));
-    $("delivery-origin").addEventListener("input", () => {routeVersion++; $("delivery-map-links").innerHTML = "";});
+    $("delivery-clear").addEventListener("click", () => {stops = []; clearRouteDraft(); renderStops(); syncSelection();});
+    $("delivery-refresh").addEventListener("click", () => {stops = []; clearRouteDraft(); renderStops(); load();});
+    ["delivery-origin", "delivery-return"].forEach((id) => $(id).addEventListener("change", () => {routeVersion++; saveRouteDraft(); $("delivery-map-links").innerHTML = ""; $("delivery-opt-status").textContent = "出发点或终点已修改，请重新优化。";}));
+    $("delivery-origin").addEventListener("input", () => {routeVersion++; saveRouteDraft(); $("delivery-map-links").innerHTML = "";});
     const originActions = document.createElement("div"); originActions.className = "mobile-route-actions";
     originActions.innerHTML = '<button class="btn btn-default btn-sm" type="button" data-origin-locate>使用当前出发位置</button>';
     $("delivery-origin").closest("label").after(originActions);
@@ -640,7 +846,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         }
         button.disabled = true; $("delivery-opt-status").textContent = "正在计算道路配送顺序…";
         try {
-            const response = await fetch("/api/method/solua_home.api.mobile_delivery.optimize_delivery_route", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || ""}, body: JSON.stringify({origin, addresses: stops.map((stop) => stop.address), return_to_origin: $("delivery-return").value})});
+        const response = await fetch("/api/method/solua_home.api.mobile_delivery.optimize_delivery_route", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}"}, body: JSON.stringify({origin, addresses: stops.map((stop) => stop.address), return_to_origin: $("delivery-return").value})});
             const payload = await response.json();
             if (!response.ok || payload.exc) throw new Error(typeof payload.message === "string" ? payload.message : "优化失败，原顺序已保留");
             if (version !== routeVersion) throw new Error("计算期间路线已修改，请重新优化");
@@ -658,7 +864,10 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             $("delivery-map-links").innerHTML = `<div class="mobile-muted" style="margin-top:9px">${stops.length} 个送货站点 · ${routes.length} 段 · 按当前顺序${returnToOrigin ? "（最后返回出发点）" : ""}</div>${routes.map((route, index) => `<div class="mobile-route-actions"><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="${esc(route.url)}">第 ${index + 1} 段：路线点 ${route.first}–${route.last} · 打开地图</a></div>`).join("")}`;
         } catch (error) { $("delivery-map-links").textContent = error.message; }
     });
-    renderStops(); load();
+    const routeRestored = restoreRouteDraft();
+    renderStops();
+    if (routeRestored) window.soluaMobileFeedback("已恢复上次配送路线草稿");
+    load();
     fetch("/api/method/solua_home.api.mobile_delivery.get_route_optimization_status", {credentials: "same-origin"}).then(async (response) => {
         const payload = await response.json();
         if (!response.ok || payload.exc) throw new Error();
@@ -686,12 +895,20 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     async function writeCall(method, args = {}) {
         const response = await fetch(`/api/method/${method}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}" },
             credentials: "same-origin",
             body: JSON.stringify(args),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok || payload.exc) throw new Error(payload.message || errorText);
+        if (!response.ok || payload.exc) {
+            let message = payload.message || errorText;
+            try {
+                const messages = JSON.parse(payload._server_messages || "[]");
+                const entry = messages.length ? JSON.parse(messages[0]) : null;
+                message = entry?.message || message;
+            } catch (_) {}
+            throw new Error(message);
+        }
         return payload.message ?? payload;
     }
     function fillSelect(id, values, selected) {
@@ -712,7 +929,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 row.address || row.city ? `<div><span>地址：</span>${esc([row.address, row.city].filter(Boolean).join("，"))}</div>` : "",
                 row.customer_group || row.territory ? `<div><span>分组 / 地区：</span>${esc([row.customer_group, row.territory].filter(Boolean).join(" · "))}</div>` : "",
             ].filter(Boolean).join("");
-            return `<article class="mobile-customer-card"><div class="mobile-customer-card-head"><div><div class="mobile-customer-card-name">${esc(row.customer_name || row.name)}</div><div class="mobile-customer-card-meta">${esc(row.name)}${row.customer_type ? ` · ${esc(row.customer_type)}` : ""}</div></div><a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/customer/${encodeURIComponent(row.name)}">查看</a></div>${info ? `<div class="mobile-customer-card-info">${info}</div>` : '<div class="mobile-customer-card-meta" style="margin-top:9px">暂无补充资料</div>'}<details class="mobile-location-editor" data-location-customer="${esc(row.name)}" style="margin-top:10px"><summary>门店地图 / 收货位置</summary><div class="mobile-location-body"></div></details></article>`;
+            return `<article class="mobile-customer-card"><div class="mobile-customer-card-head"><div><div class="mobile-customer-card-name">${esc(row.customer_name || row.name)}</div><div class="mobile-customer-card-meta">${esc(row.name)}${row.customer_type ? ` · ${esc(row.customer_type)}` : ""}</div></div><a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/customer/${encodeURIComponent(row.name)}">查看</a></div>${info ? `<div class="mobile-customer-card-info">${info}</div>` : '<div class="mobile-customer-card-meta" style="margin-top:9px">暂无补充资料</div>'}<div class="mobile-order-actions-list"><a class="btn btn-primary btn-sm" href="/mobile?view=order&customer=${encodeURIComponent(row.name)}#mobile-new-sales-order">开销售单</a><a class="btn btn-default btn-sm" href="/mobile?view=orders&customer=${encodeURIComponent(row.name)}#mobile-sales-list">查订单</a></div><details class="mobile-location-editor" data-location-customer="${esc(row.name)}" style="margin-top:10px"><summary>门店地图 / 收货位置</summary><div class="mobile-location-body"></div></details></article>`;
         }).join("");
         list.querySelectorAll("[data-location-customer]").forEach((editor) => editor.addEventListener("toggle", async () => {
             if (!editor.open || editor.dataset.loaded) return;
@@ -789,7 +1006,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
 })();
 </script>
 {% endif %}
-{% if mobile_admin and (mobile_sales or mobile_orders) %}
+{% if mobile_admin and (mobile_sales or mobile_orders or mobile_ticket_center) %}
 <script>
 (() => {
     const $ = (id) => document.getElementById(id);
@@ -797,6 +1014,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const money = (value, currency) => `${num(value)} ${esc(currency || "MZN")}`;
     const setStatus = (value) => { $("mobile-status").textContent = value; };
+    window.addEventListener("offline", () => window.soluaMobileFeedback("网络已断开，请检查网络连接", "error"));
     async function call(method, args = {}) {
         const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null && value !== ""));
         const response = await fetch(`/api/method/${method}${query.toString() ? `?${query}` : ""}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
@@ -807,7 +1025,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     async function writeCall(method, args = {}) {
         const response = await fetch(`/api/method/${method}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}" },
             credentials: "same-origin",
             body: JSON.stringify(args),
         });
@@ -818,10 +1036,25 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     const route = { "Delivery Note": "delivery-note", "Sales Invoice": "sales-invoice", "Pick List": "pick-list" };
     let ordersPage = 1;
     let ordersRequest = 0;
+    const centerTypes = [
+        {doctype: "Sales Order", key: "sales-orders", label: "销售订单"},
+        {doctype: "Pick List", key: "pick-lists", label: "拣货单"},
+        {doctype: "Delivery Note", key: "delivery-notes", label: "交货单"},
+        {doctype: "Sales Invoice", key: "sales-invoices", label: "销售发票"},
+    ];
+    const centerPages = Object.fromEntries(centerTypes.map((type) => [type.doctype, 1]));
+    const centerRequests = Object.fromEntries(centerTypes.map((type) => [type.doctype, 0]));
     function docButtons(doc, doctype, viewLabel = "查看") {
         const path = route[doctype];
         const url = `/api/method/solua_home.api.export.download_pdf?doctype=${encodeURIComponent(doctype)}&name=${encodeURIComponent(doc.name)}&mobile=1`;
-        return `<a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/${path}/${encodeURIComponent(doc.name)}">${esc(viewLabel)}</a><a class="btn btn-default btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(doc.name)}.pdf" href="${url}">保存 PDF</a>`;
+        const label = doctype === "Sales Invoice" ? "销售发票" : doctype === "Delivery Note" ? "交货单" : "拣货单";
+        return `<a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/${path}/${encodeURIComponent(doc.name)}">${esc(viewLabel)}</a><a class="btn btn-default btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(doc.name)}.pdf" href="${url}">保存 PDF</a><button class="btn btn-primary btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_document_pdf_to_wechat" data-wecom-name="${esc(doc.name)}" data-wecom-label="${esc(label)} PDF">发 PDF 到微信</button><button class="btn btn-default btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_document_xlsx_to_wechat" data-wecom-name="${esc(doc.name)}" data-wecom-label="${esc(label)}表格">发表格到微信</button>`;
+    }
+    function bindWechatButtons(root) {
+        root.querySelectorAll("[data-wecom-send]").forEach((button) => button.addEventListener("click", () => sendToWechat(button.dataset.wecomSend, button.dataset.wecomName, button, button.dataset.wecomLabel)));
+    }
+    function salesOrderButtons(doc) {
+        return `<a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/sales-order/${encodeURIComponent(doc.name)}">查看订单</a><a class="btn btn-default btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(doc.name)}.pdf" href="/api/method/solua_home.api.export.download_sales_order_customer_pdf?name=${encodeURIComponent(doc.name)}&mobile=1">保存 PDF</a><a class="btn btn-default btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(doc.name)}.xlsx" href="/api/method/solua_home.api.export.download_sales_order_customer_xlsx?name=${encodeURIComponent(doc.name)}">保存表格</a><button class="btn btn-primary btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_sales_order_customer_pdf_to_wechat" data-wecom-name="${esc(doc.name)}" data-wecom-label="PDF">发 PDF 到微信</button><button class="btn btn-default btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_sales_order_customer_xlsx_to_wechat" data-wecom-name="${esc(doc.name)}" data-wecom-label="表格">发表格到微信</button>`;
     }
     function renderInvoice(doc) {
         return `<div class="mobile-linked-doc"><div class="mobile-linked-doc-head"><strong>销售发票 ${esc(doc.name)}</strong><span class="mobile-muted">${esc(doc.docstatus ? (doc.status || "已提交") : "草稿")}</span></div><div class="mobile-order-item-meta">${esc(doc.posting_date || "")} · ${money(doc.grand_total, doc.currency)}</div><div class="mobile-linked-doc-actions">${docButtons(doc, "Sales Invoice")}</div></div>`;
@@ -859,6 +1092,8 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                         <a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="/app/sales-order/${encodeURIComponent(row.name)}">查看订单</a>
                         <a class="btn btn-primary btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(row.name)}.pdf" href="/api/method/solua_home.api.export.download_sales_order_customer_pdf?name=${encodeURIComponent(row.name)}&mobile=1">保存 PDF</a>
                         <a class="btn btn-default btn-sm" target="_blank" rel="noopener" data-mobile-file="1" data-mobile-file-name="${esc(row.name)}.xlsx" href="/api/method/solua_home.api.export.download_sales_order_customer_xlsx?name=${encodeURIComponent(row.name)}">保存表格</a>
+                        <button class="btn btn-primary btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_sales_order_customer_pdf_to_wechat" data-wecom-name="${esc(row.name)}" data-wecom-label="PDF">发 PDF 到微信</button>
+                        <button class="btn btn-default btn-sm" type="button" data-wecom-send="solua_home.api.wecom.send_sales_order_customer_xlsx_to_wechat" data-wecom-name="${esc(row.name)}" data-wecom-label="表格">发表格到微信</button>
                         ${row.can_create_pick_list ? `<button class="btn btn-default btn-sm" type="button" data-create-pick-list="${esc(row.name)}">生成拣货单</button>` : ""}
                     </div>
                 </div>
@@ -866,6 +1101,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         list.querySelectorAll("[data-create-delivery]").forEach((button) => button.addEventListener("click", () => createDocument("solua_home.api.mobile.create_delivery_note", { sales_order: button.dataset.createDelivery }, "确认创建交货单草稿？", button)));
         list.querySelectorAll("[data-create-invoice]").forEach((button) => button.addEventListener("click", () => createDocument("solua_home.api.mobile.create_sales_invoice", { delivery_note: button.dataset.createInvoice }, "确认创建销售发票草稿？", button)));
         list.querySelectorAll("[data-create-pick-list]").forEach((button) => button.addEventListener("click", () => createDocument("solua_home.api.mobile.create_pick_list", { sales_order: button.dataset.createPickList }, "确认生成拣货单草稿？", button)));
+        bindWechatButtons(list);
     }
     async function createDocument(method, args, message, button) {
         if (!window.confirm(message)) return;
@@ -878,21 +1114,70 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 ? `${result.state === "existing" ? "已有" : "已创建"}拣货单草稿：${result.name}`
                 : `${result.state === "existing" ? "已存在" : "已创建草稿"}：${result.name}`;
             setStatus(feedback);
-            window.soluaMobileFeedback(feedback);
-            if (isPickList) {
-                const node = $("mobile-feedback");
-                node.innerHTML = `${esc(feedback)}<span class="mobile-feedback-actions">${docButtons(result, "Pick List", "打开拣货单")}</span>`;
-            }
+            const createdDoctype = result.doctype || (isPickList ? "Pick List" : method.includes("invoice") ? "Sales Invoice" : "Delivery Note");
+            const node = $("mobile-feedback");
+            node.innerHTML = `${esc(feedback)}<span class="mobile-feedback-actions">${docButtons(result, createdDoctype, isPickList ? "打开拣货单" : "打开单据")}</span>`;
+            node.hidden = false;
             await load();
             setStatus(feedback);
         } catch (error) { const feedback = error.message || "请求失败，请稍后重试"; setStatus(feedback); window.soluaMobileFeedback(feedback, "error"); }
         finally { if (button) button.disabled = false; }
     }
+    async function sendToWechat(method, name, button, label) {
+        if (!window.confirm(`将订单 ${name} 的${label}发送到企业微信群，继续吗？`)) return;
+        button.disabled = true;
+        setStatus("发送中…");
+        try {
+            const result = await writeCall(method, {name});
+            const feedback = `已发送：${result.filename || name}`;
+            setStatus(feedback);
+            window.soluaMobileFeedback(feedback);
+        } catch (error) {
+            const feedback = error.message || "微信发送失败，请重试";
+            setStatus(feedback);
+            window.soluaMobileFeedback(feedback, "error");
+        } finally { button.disabled = false; }
+    }
+    function renderCenterRows(type, rows) {
+        const list = $("mobile-ticket-" + type.key + "-list");
+        list.innerHTML = (rows || []).length ? rows.map((row) => {
+            const actions = type.doctype === "Sales Order" ? salesOrderButtons(row) : docButtons(row, type.doctype, type.doctype === "Pick List" ? "查看拣货单" : "查看");
+            const extra = row.sales_order ? ` · 销售订单 ${esc(row.sales_order)}` : "";
+            return `<div class="mobile-linked-doc"><div class="mobile-linked-doc-head"><strong>${esc(type.label)} ${esc(row.name)}</strong><span class="mobile-muted">${esc(row.docstatus ? (row.status || "已提交") : "草稿")}</span></div><div class="mobile-order-item-meta">${esc(row.customer || "未关联客户")}${extra} · ${esc(row.date || "")}${row.grand_total ? ` · ${money(row.grand_total, row.currency)}` : ""}</div><div class="mobile-linked-doc-actions">${actions}</div></div>`;
+        }).join("") : '<div class="mobile-empty">没有找到记录</div>';
+        bindWechatButtons(list);
+    }
+    async function loadCenter(type, page = 1) {
+        const list = $("mobile-ticket-" + type.key + "-list");
+        if (!list) return;
+        const request = ++centerRequests[type.doctype];
+        try {
+            const data = await call("solua_home.api.mobile.list_document_center", {doctype: type.doctype, query: $("mobile-ticket-" + type.key + "-query").value.trim(), limit: $("mobile-ticket-" + type.key + "-page-length").value, page});
+            if (request !== centerRequests[type.doctype]) return;
+            centerPages[type.doctype] = data.page;
+            renderCenterRows(type, data.rows);
+            $("mobile-ticket-" + type.key + "-page-info").textContent = `第 ${data.page} / ${data.page_count} 页 · 共 ${data.row_count} 张`;
+            $("mobile-ticket-" + type.key + "-prev").disabled = !data.has_prev;
+            $("mobile-ticket-" + type.key + "-next").disabled = !data.has_next;
+            setStatus(`票据中心：${type.label} ${data.row_count} 张`);
+        } catch (error) { list.innerHTML = `<div class="mobile-empty">${esc(error.message || "票据加载失败")}</div>`; }
+    }
+    function initCenter() {
+        centerTypes.forEach((type) => {
+            const prefix = "mobile-ticket-" + type.key;
+            $(prefix + "-search").addEventListener("submit", (event) => { event.preventDefault(); window.soluaMobileOpenDetails(prefix); loadCenter(type); });
+            $(prefix + "-page-length").addEventListener("change", () => loadCenter(type));
+            $(prefix + "-prev").addEventListener("click", () => loadCenter(type, centerPages[type.doctype] - 1));
+            $(prefix + "-next").addEventListener("click", () => loadCenter(type, centerPages[type.doctype] + 1));
+            loadCenter(type);
+        });
+        $("mobile-ticket-center-refresh").addEventListener("click", () => centerTypes.forEach((type) => loadCenter(type)));
+    }
     async function load(page = 1) {
         const request = ++ordersRequest;
         setStatus("加载中…");
         try {
-            const data = await call("solua_home.api.mobile.list_sales_orders", { query: $("mobile-orders-query").value.trim(), item_query: $("mobile-orders-item-query").value.trim(), limit: $("mobile-orders-page-length").value, sort: $("mobile-orders-sort").value, page });
+            const data = await call("solua_home.api.mobile.list_sales_orders", { query: $("mobile-orders-query").value.trim(), item_query: $("mobile-orders-item-query").value.trim(), docstatus: $("mobile-orders-status").value, limit: $("mobile-orders-page-length").value, sort: $("mobile-orders-sort").value, page });
             if (request !== ordersRequest) return;
             ordersPage = data.page;
             render(data.rows);
@@ -902,35 +1187,76 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             setStatus(`共 ${data.row_count} 张订单`);
         } catch (error) { setStatus(error.message || "请求失败，请稍后重试"); }
     }
-    $("mobile-orders-search").addEventListener("submit", (event) => { event.preventDefault(); window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
-    $("mobile-orders-item-search").addEventListener("submit", (event) => { event.preventDefault(); window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
-    ["mobile-orders-sort", "mobile-orders-page-length"].forEach((id) => $(id).addEventListener("change", () => load()));
-    $("mobile-orders-prev").addEventListener("click", () => load(ordersPage - 1));
-    $("mobile-orders-next").addEventListener("click", () => load(ordersPage + 1));
-    $("mobile-orders-refresh").addEventListener("click", () => { window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
-    document.addEventListener("solua:orders-refresh", () => { window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
-    load();
+    if ($("mobile-orders-list")) {
+        $("mobile-orders-search").addEventListener("submit", (event) => { event.preventDefault(); window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
+        $("mobile-orders-item-search").addEventListener("submit", (event) => { event.preventDefault(); window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
+        ["mobile-orders-status", "mobile-orders-sort", "mobile-orders-page-length"].forEach((id) => $(id).addEventListener("change", () => load()));
+        $("mobile-orders-prev").addEventListener("click", () => load(ordersPage - 1));
+        $("mobile-orders-next").addEventListener("click", () => load(ordersPage + 1));
+        $("mobile-orders-refresh").addEventListener("click", () => { window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
+        document.addEventListener("solua:orders-refresh", () => { window.soluaMobileOpenDetails("mobile-sales-list"); load(); });
+        const customerFromUrl = new URLSearchParams(window.location.search).get("customer");
+        const statusFromUrl = new URLSearchParams(window.location.search).get("docstatus");
+        if (["0", "1"].includes(statusFromUrl)) $("mobile-orders-status").value = statusFromUrl;
+        if (customerFromUrl) { $("mobile-orders-query").value = customerFromUrl; window.soluaMobileOpenDetails("mobile-sales-list"); }
+    }
+    if ($("mobile-ticket-center")) initCenter();
+    if ($("mobile-orders-list")) load();
 })();
 </script>
 {% endif %}
 {% if mobile_admin and (mobile_stock or mobile_sales or mobile_order) %}
 <script>
 (() => {
-    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false };
     const orderMode = ["order", "sales"].includes(new URLSearchParams(window.location.search).get("view"));
+    const productViewStorageKey = orderMode ? "solua-mobile-product-view" : "solua-mobile-stock-product-view";
+    const salesDraftStorageKey = "solua-mobile-sales-draft-v1";
+    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, cameraReader: null, cameraControls: null, cameraBusy: false, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false, draftSaveTimer: 0, productView: localStorage.getItem(productViewStorageKey) || (orderMode ? "order" : "detail") };
     const $ = (id) => document.getElementById(id);
     const t = {
         loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
-        noData: "{{ _('没有找到可用的颜色变体') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请手动输入条码') }}",
-        cameraFailed: "{{ _('摄像头无法打开，请检查浏览器权限') }}", selected: "{{ _('已选择') }}",
+        noData: "{{ _('没有找到可用的颜色变体') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请在上方手动输入条码、货号或名称') }}",
+        cameraFailed: "{{ _('摄像头无法打开，请检查权限；也可以在上方手动输入条码、货号或名称') }}", selected: "{{ _('已选择') }}",
         noPermission: "{{ _('没有读取商品数据的权限') }}", error: "{{ _('请求失败，请稍后重试') }}", customerFirst: "{{ _('请先选择客户') }}", saved: "{{ _('草稿已保存') }}", submitted: "{{ _('订单已提交') }}"
     };
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
     const num = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const money = (value) => value === null || value === undefined || value === "" || Number(value) <= 0 ? "—" : `${num(value)} ${esc(state.currency)}`;
     const setStatus = (value) => { $("mobile-status").textContent = value; };
+    if (orderMode) {
+        window.addEventListener("offline", () => { setStatus("当前处于离线状态，草稿仍保留在本机，联网后可继续提交"); window.soluaMobileFeedback("网络已断开，当前开单草稿已保留", "error"); });
+        window.addEventListener("online", () => setStatus("网络已恢复，可继续提交订单"));
+    }
     const hideSuggestions = () => { $("mobile-suggestions").hidden = true; $("mobile-suggestions").innerHTML = ""; };
     const hideCustomerSuggestions = () => { $("mobile-customer-suggestions").hidden = true; $("mobile-customer-suggestions").innerHTML = ""; };
+    const hideDraftRecovery = () => { $("mobile-draft-recovery")?.setAttribute("hidden", ""); };
+    const clearSavedDraft = () => { clearTimeout(state.draftSaveTimer); if (orderMode) localStorage.removeItem(salesDraftStorageKey); hideDraftRecovery(); };
+    function persistDraft() {
+        if (!orderMode) return;
+        clearTimeout(state.draftSaveTimer);
+        state.draftSaveTimer = setTimeout(() => {
+            if (state.submitted || !state.customer || !state.cart.length) return clearSavedDraft();
+            try {
+                localStorage.setItem(salesDraftStorageKey, JSON.stringify({
+                    saved_at: Date.now(), customer: state.customer, address: state.address, warehouse: $("mobile-warehouse").value.trim(),
+                    orderName: state.orderName, cart: state.cart.map((row) => ({ ...row, qty: Number(row.qty), notes: row.notes || "" })),
+                }));
+            } catch (error) { /* local storage may be unavailable in private browsing */ }
+        }, 150);
+    }
+    function readSavedDraft() {
+        if (!orderMode) return null;
+        try {
+            const draft = JSON.parse(localStorage.getItem(salesDraftStorageKey) || "null");
+            if (!draft || !draft.customer || !Array.isArray(draft.cart) || !draft.cart.length) return null;
+            if (Date.now() - Number(draft.saved_at || 0) > 7 * 24 * 60 * 60 * 1000) { clearSavedDraft(); return null; }
+            return draft;
+        } catch (error) { clearSavedDraft(); return null; }
+    }
+    function showDraftRecovery() {
+        const recovery = $("mobile-draft-recovery");
+        if (recovery && readSavedDraft()) recovery.removeAttribute("hidden");
+    }
 
     async function call(method, args = {}) {
         const query = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
@@ -946,7 +1272,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     async function writeCall(method, args = {}) {
         const response = await fetch(`/api/method/${method}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": window.frappe?.csrf_token || window.csrf_token || "" },
+            headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": "{{ csrf_token }}" },
             credentials: "same-origin",
             body: JSON.stringify(args),
         });
@@ -957,6 +1283,10 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
 
     function stopCamera() {
         state.scanning = false;
+        state.cameraControls?.stop?.();
+        state.cameraControls = null;
+        state.cameraReader?.reset?.();
+        state.cameraReader = null;
         state.stream?.getTracks().forEach((track) => track.stop());
         state.stream = null;
         $("mobile-video").srcObject = null;
@@ -982,13 +1312,14 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                     ${row.status ? `<div class="mobile-muted" style="margin-top:8px">${esc(row.status)}</div>` : ""}
                     ${orderMode ? `<div class="mobile-card-actions">
                         <input class="form-control mobile-card-qty" type="number" min="1" step="1" value="1" data-qty-code="${esc(row.item_code)}" aria-label="数量">
-                        <button class="btn btn-primary" type="button" data-add-code="${esc(row.item_code)}">加入购物车</button>
+                        <button class="btn btn-primary" type="button" data-add-code="${esc(row.item_code)}" aria-label="加入购物车" title="加入购物车"><svg class="mobile-cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"></path></svg></button>
                     </div>` : ""}
                 </div>
             </article>`).join("") : `<div class="mobile-empty">${esc(t.noData)}</div>`;
         $("mobile-grid").querySelectorAll("[data-image-code]").forEach((node) => node.addEventListener("click", () => {
             openImage(node.dataset.imageUrl, node.dataset.imageCode);
         }));
+        applyProductView(state.productView);
         $("mobile-grid").querySelectorAll("[data-add-code]").forEach((node) => node.addEventListener("click", (event) => {
             event.stopPropagation();
             const code = node.dataset.addCode;
@@ -997,6 +1328,14 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             const qty = Number(qtyInput?.value || 0);
             addToCart(row, qty);
         }));
+    }
+
+    function applyProductView(view) {
+        state.productView = view === "detail" ? "detail" : "order";
+        $("mobile-grid")?.classList.toggle("mobile-detail-grid", state.productView === "detail");
+        $("mobile-grid")?.classList.toggle("mobile-order-grid", state.productView === "order");
+        document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.classList.toggle("active", button.dataset.mobileProductView === state.productView));
+        localStorage.setItem(productViewStorageKey, state.productView);
     }
 
     function openImage(url, code) {
@@ -1019,11 +1358,11 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     function setOrderEnabled(enabled) {
         enabled = orderMode ? enabled : true;
         $("mobile-query").disabled = !enabled;
-        $("mobile-query").placeholder = enabled ? "扫描条码、模糊搜索货号或输入名称" : t.customerFirst;
+        $("mobile-query").placeholder = enabled ? "扫描条码、输入变体货号或名称" : t.customerFirst;
         $("mobile-search").querySelector("button[type=submit]").disabled = !enabled;
         $("mobile-open-camera").disabled = !enabled;
         if (orderMode) $("mobile-order-hint").textContent = enabled ? "选择商品和数量后加入购物车。" : t.customerFirst;
-        $("mobile-product-step").textContent = orderMode ? "2. 添加商品" : "库存查询";
+        $("mobile-product-step").textContent = orderMode ? "3. 添加商品" : "库存查询";
     }
 
     function renderCart() {
@@ -1038,7 +1377,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         }
         $("mobile-cart").innerHTML = cart.map((row) => `
             <div class="mobile-cart-row">
-                <div><strong>${esc(row.color || row.item_name || row.item_code)}</strong><div class="mobile-cart-meta">${esc(row.item_code)} · ${money(row.rate)} / ${esc(row.uom || "")}${row.pack_size ? ` · 1${esc(row.uom)}=${num(row.pack_size)}${esc(row.stock_uom)}` : ""}</div></div>
+                <div><strong>${esc(row.color || row.item_name || row.item_code)}</strong><div class="mobile-cart-meta">${esc(row.item_code)} · ${money(row.rate)} / ${esc(row.uom || "")}${row.pack_size ? ` · 1${esc(row.uom)}=${num(row.pack_size)}${esc(row.stock_uom)}` : ""}</div><label class="mobile-cart-note">拿货备注<textarea class="form-control" placeholder="可留空" data-cart-note-code="${esc(row.item_code)}" ${state.submitted ? "disabled" : ""}>${esc(row.notes || "")}</textarea></label></div>
                 <div class="mobile-cart-actions"><input class="form-control mobile-cart-qty" type="number" min="1" step="1" value="${row.qty}" data-cart-code="${esc(row.item_code)}" ${state.submitted ? "disabled" : ""}><button class="btn btn-default btn-sm" type="button" data-remove-code="${esc(row.item_code)}" ${state.submitted ? "disabled" : ""}>删除</button></div>
             </div>`).join("");
         $("mobile-cart-total").textContent = money(cart.reduce((total, row) => total + Number(row.rate || 0) * Number(row.qty || 0), 0));
@@ -1048,13 +1387,28 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             if (!row || !Number.isInteger(qty) || qty <= 0) return renderCart();
             row.qty = qty;
             renderCart();
+            persistDraft();
+        }));
+        $("mobile-cart").querySelectorAll("[data-cart-note-code]").forEach((input) => input.addEventListener("input", () => {
+            const row = cart.find((item) => item.item_code === input.dataset.cartNoteCode);
+            if (row) row.notes = input.value;
+            persistDraft();
         }));
         $("mobile-cart").querySelectorAll("[data-remove-code]").forEach((button) => button.addEventListener("click", () => {
             state.cart = state.cart.filter((row) => row.item_code !== button.dataset.removeCode);
             renderCart();
+            persistDraft();
         }));
         $("mobile-save-order").disabled = state.submitted;
         $("mobile-submit-order").disabled = state.submitted;
+    }
+
+    function renderOrderSettingsSummary() {
+        const summary = $("mobile-order-settings-summary");
+        if (!summary) return;
+        const company = state.company || $("mobile-company").value || "—";
+        const warehouse = $("mobile-warehouse").value.trim() || "默认仓库";
+        summary.textContent = `${company} · ${warehouse}`;
     }
 
     function addToCart(row, qty) {
@@ -1062,9 +1416,51 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         if (!row || !Number.isInteger(qty) || qty <= 0) return setStatus("数量必须为正整数");
         const existing = state.cart.find((item) => item.item_code === row.item_code);
         if (existing) existing.qty += qty;
-        else state.cart.push({ item_code: row.item_code, item_name: row.item_name, color: row.color, uom: row.uom, stock_uom: row.stock_uom, pack_size: row.pack_size, rate: row.rate || 0, warehouse: row.warehouse, qty });
+        else state.cart.push({ item_code: row.item_code, item_name: row.item_name, color: row.color, uom: row.uom, stock_uom: row.stock_uom, pack_size: row.pack_size, rate: row.rate || 0, warehouse: row.warehouse, qty, notes: "" });
         renderCart();
+        persistDraft();
         setStatus(`已加入购物车：${row.item_code}`);
+    }
+
+    async function restoreDraft() {
+        const draft = readSavedDraft();
+        if (!draft || state.orderBusy) return;
+        state.orderBusy = true;
+        hideDraftRecovery();
+        setStatus("正在恢复草稿并重新检查库存与价格…");
+        try {
+            const customers = await call("solua_home.api.mobile.search_customers", { query: draft.customer });
+            const customer = (customers || []).find((row) => row.customer === draft.customer);
+            if (!customer) throw new Error("草稿客户已不存在或已停用，请重新选择客户");
+            await chooseCustomer(customer, { preserveDraft: true });
+            const warehouse = String(draft.warehouse || state.warehouse || "").trim();
+            $("mobile-warehouse").value = warehouse;
+            state.warehouse = warehouse;
+            state.address = draft.address || "";
+            $("mobile-address").value = state.address;
+            state.orderName = draft.orderName || "";
+            state.cart = [];
+            for (const savedRow of draft.cart) {
+                const data = await call("solua_home.api.mobile.lookup", { barcode: savedRow.item_code, warehouse, customer: state.customer });
+                const current = (data.variants || []).find((row) => row.item_code === savedRow.item_code);
+                if (!current) throw new Error(`商品 ${savedRow.item_code} 已无法重新查询，请检查后再开单`);
+                const qty = Number(savedRow.qty);
+                if (!Number.isInteger(qty) || qty <= 0) throw new Error(`商品 ${savedRow.item_code} 的数量无效`);
+                state.cart.push({ ...current, qty, notes: String(savedRow.notes || "") });
+            }
+            state.submitted = false;
+            renderOrderSettingsSummary();
+            setOrderEnabled(true);
+            renderCart();
+            persistDraft();
+            window.soluaMobileOpenDetails("mobile-new-sales-order");
+            setStatus(`已恢复销售订单草稿${state.orderName ? `：${state.orderName}` : ""}`);
+            window.soluaMobileFeedback("已恢复销售订单草稿");
+        } catch (error) {
+            showDraftRecovery();
+            setStatus(error.message || t.error);
+            window.soluaMobileFeedback(error.message || t.error, "error");
+        } finally { state.orderBusy = false; }
     }
 
     async function saveOrder(submit) {
@@ -1077,7 +1473,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 customer: state.customer,
                 address: state.address,
                 warehouse: $("mobile-warehouse").value.trim(),
-                rows: state.cart.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse })),
+                rows: state.cart.map((row) => ({ item_code: row.item_code, qty: row.qty, warehouse: row.warehouse, notes: row.notes || "" })),
                 name: state.orderName,
                 submit: submit ? 1 : 0,
             });
@@ -1087,13 +1483,18 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             renderCart();
             const message = `${state.submitted ? t.submitted : t.saved}：${state.orderName}`;
             setStatus(message);
-            window.soluaMobileFeedback(message);
+            const feedbackNode = $("mobile-feedback");
+            feedbackNode.className = "mobile-feedback";
+            feedbackNode.innerHTML = `${esc(message)}${state.orderName ? `<span class="mobile-feedback-actions"><a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="/app/sales-order/${encodeURIComponent(state.orderName)}">打开销售订单</a></span>` : ""}`;
+            feedbackNode.hidden = false;
+            if (state.submitted) clearSavedDraft(); else persistDraft();
             if (state.submitted) {
                 window.soluaMobileOpenDetails("mobile-new-sales-order", false);
                 window.soluaMobileOpenDetails("mobile-sales-list");
                 document.dispatchEvent(new CustomEvent("solua:orders-refresh"));
             }
         } catch (error) {
+            persistDraft();
             setStatus(error.message || t.error);
             window.soluaMobileFeedback(error.message || t.error, "error");
         }
@@ -1115,8 +1516,9 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         }));
     }
 
-    async function chooseCustomer(row) {
+    async function chooseCustomer(row, options = {}) {
         if (state.cart.length && !window.confirm("更换客户将清空当前购物车，继续吗？")) return;
+        if (!options.preserveDraft) clearSavedDraft();
         state.customer = row.customer;
         state.address = "";
         state.cart = [];
@@ -1137,6 +1539,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         } catch (error) { select.hidden = true; }
         setOrderEnabled(true);
         renderCart();
+        if (!options.preserveDraft) persistDraft();
         setStatus(`已选择客户：${row.customer_name || row.customer}`);
     }
 
@@ -1147,6 +1550,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         state.cart = [];
         state.orderName = "";
         state.submitted = false;
+        clearSavedDraft();
         $("mobile-customer-query").value = "";
         $("mobile-customer-selected").hidden = true;
         $("mobile-customer-selected").innerHTML = "";
@@ -1195,13 +1599,13 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         const request = ++state.suggestionRequest;
         state.suggestionTimer = setTimeout(async () => {
             try {
-                const data = await call("solua_home.api.mobile.lookup", { barcode: query, warehouse: $("mobile-warehouse").value.trim(), customer: state.customer });
-                if (request === state.suggestionRequest) renderSuggestions(data.variants);
+                const data = await call("solua_home.api.mobile.search_item_suggestions", { query, limit: 8 });
+                if (request === state.suggestionRequest) renderSuggestions(data.items);
             } catch (error) { if (request === state.suggestionRequest) hideSuggestions(); }
         }, 250);
     }
 
-    async function lookup(value) {
+    async function lookup(value, options = {}) {
         const barcode = String(value || "").trim();
         if (!barcode) return;
         if (orderMode && !state.customer) return setStatus(t.customerFirst);
@@ -1209,7 +1613,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         ++state.suggestionRequest;
         clearTimeout(state.suggestionTimer);
         hideSuggestions();
-        stopCamera();
+        if (!options.keepCamera) stopCamera();
         state.selected = "";
         setStatus(t.searching);
         try {
@@ -1224,41 +1628,70 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 return;
             }
             render(data);
-            setStatus(t.ready);
+            if (options.fromCamera) {
+                $("mobile-query").value = "";
+                $("mobile-query").focus();
+                $("mobile-camera-status").textContent = "已识别，可继续扫描…";
+                setStatus("已识别，可继续扫描");
+            } else {
+                setStatus(t.ready);
+            }
         } catch (error) {
             setStatus(error.message || t.error);
         }
     }
 
+    async function handleCameraCode(rawValue) {
+        const value = String(rawValue || "").trim();
+        if (!value || !state.scanning || state.cameraBusy) return;
+        state.cameraBusy = true;
+        $("mobile-query").value = value;
+        try {
+            await lookup(value, { keepCamera: true, fromCamera: true });
+        } finally {
+            window.setTimeout(() => { state.cameraBusy = false; }, 700);
+        }
+    }
+
     async function openCamera() {
-        if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
+        if (!navigator.mediaDevices?.getUserMedia) {
             $("mobile-camera-status").textContent = t.scanUnsupported;
             $("mobile-camera").style.display = "block";
             return;
         }
         try {
-            const detector = new BarcodeDetector();
-            state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
             const video = $("mobile-video");
-            video.srcObject = state.stream;
             $("mobile-camera").style.display = "block";
-            $("mobile-camera-status").textContent = "对准条码…";
-            await video.play();
             state.scanning = true;
-            const detect = async () => {
-                if (!state.scanning) return;
-                try {
-                    const codes = await detector.detect(video);
-                    if (codes[0]?.rawValue) {
-                        $("mobile-query").value = codes[0].rawValue;
-                        await lookup(codes[0].rawValue);
-                        return;
-                    }
-                } catch (error) { /* keep camera open and allow manual input */ }
+            const constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+            if (window.BarcodeDetector) {
+                const detector = new BarcodeDetector();
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = state.stream;
+                $("mobile-camera-status").textContent = "对准条码…";
+                await video.play();
+                const detect = async () => {
+                    if (!state.scanning) return;
+                    try { const codes = await detector.detect(video); await handleCameraCode(codes[0]?.rawValue); } catch (error) { /* continue scanning */ }
+                    requestAnimationFrame(detect);
+                };
                 requestAnimationFrame(detect);
-            };
-            requestAnimationFrame(detect);
+                return;
+            }
+            if (window.ZXingBrowser?.BrowserMultiFormatReader) {
+                state.cameraReader = new window.ZXingBrowser.BrowserMultiFormatReader();
+                $("mobile-camera-status").textContent = "正在调用摄像头并识别条码…";
+                state.cameraControls = await state.cameraReader.decodeFromConstraints(constraints, video, (result) => handleCameraCode(result?.getText?.()));
+                state.stream = video.srcObject;
+                $("mobile-camera-status").textContent = "对准条码…";
+                return;
+            }
+            state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = state.stream;
+            $("mobile-camera-status").textContent = "摄像头已打开；当前浏览器无法自动识别，请手动输入条码";
+            await video.play();
         } catch (error) {
+            stopCamera();
             $("mobile-camera-status").textContent = t.cameraFailed;
         }
     }
@@ -1269,9 +1702,30 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     $("mobile-customer-query").addEventListener("input", (event) => suggestCustomers(event.target.value));
     $("mobile-customer-query").addEventListener("focus", (event) => suggestCustomers(event.target.value));
     $("mobile-clear-customer").addEventListener("click", clearCustomer);
-    $("mobile-address").addEventListener("change", (event) => { state.address = event.target.value; });
+    $("mobile-address").addEventListener("change", (event) => { state.address = event.target.value; persistDraft(); });
+    $("mobile-warehouse").addEventListener("input", () => { renderOrderSettingsSummary(); persistDraft(); });
+    $("mobile-warehouse").addEventListener("change", () => {
+        const input = $("mobile-warehouse");
+        const next = input.value.trim();
+        if (state.cart.length && next !== state.warehouse.trim()) {
+            if (!window.confirm("切换仓库会清空当前购物车，是否继续？")) {
+                input.value = state.warehouse;
+                renderOrderSettingsSummary();
+                return;
+            }
+            state.cart = [];
+            renderCart();
+            clearSavedDraft();
+        }
+        state.warehouse = next;
+        renderOrderSettingsSummary();
+        persistDraft();
+    });
     $("mobile-save-order").addEventListener("click", () => saveOrder(false));
     $("mobile-submit-order").addEventListener("click", () => saveOrder(true));
+    $("mobile-restore-draft")?.addEventListener("click", restoreDraft);
+    $("mobile-discard-draft")?.addEventListener("click", () => { clearSavedDraft(); setStatus("已清空未完成的开单草稿"); });
+    document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
     document.addEventListener("click", (event) => {
         if (!event.target.closest(".mobile-query-wrap")) hideSuggestions();
         if (!event.target.closest(".mobile-customer-wrap")) hideCustomerSuggestions();
@@ -1282,6 +1736,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     $("mobile-image-modal").addEventListener("click", (event) => { if (event.target.id === "mobile-image-modal") closeImage(); });
     document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("mobile-image-modal").hidden) closeImage(); });
     setOrderEnabled(orderMode ? false : true);
+    applyProductView(state.productView);
     (async () => {
         try {
             const data = await call("solua_home.api.mobile.get_defaults");
@@ -1290,7 +1745,21 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             state.currency = data.currency || "MZN";
             $("mobile-company").value = state.company;
             $("mobile-warehouse").value = state.warehouse;
+            renderOrderSettingsSummary();
             setStatus(t.ready);
+            showDraftRecovery();
+            const customerFromUrl = new URLSearchParams(window.location.search).get("customer");
+            if (orderMode && customerFromUrl) {
+                window.soluaMobileOpenDetails("mobile-new-sales-order");
+                if (readSavedDraft() && !window.confirm("本机有未完成的开单草稿。确定为此客户开始新单？取消可保留并恢复原草稿。")) return;
+                const customers = await call("solua_home.api.mobile.search_customers", { query: customerFromUrl });
+                const customer = (customers || []).find((row) => row.customer === customerFromUrl);
+                if (customer) {
+                    await chooseCustomer(customer);
+                    window.soluaMobileOpenDetails("mobile-new-sales-order");
+                    $("mobile-new-sales-order").scrollIntoView({ block: "start" });
+                }
+            }
         } catch (error) { setStatus(error.message || t.error); }
     })();
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { scope: "/mobile/" }).catch(() => {});

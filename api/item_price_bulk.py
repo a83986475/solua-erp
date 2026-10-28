@@ -13,6 +13,23 @@ def _check_access():
 		frappe.throw(_("You do not have permission to update Item Price."), frappe.PermissionError)
 
 
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def item_query(doctype, txt, searchfield, start, page_len, filters=None, as_dict=False):
+	"""Select ordinary Items and templates; ERPNext's default query excludes templates."""
+	_check_access()
+	return frappe.get_list(
+		"Item",
+		filters={"disabled": 0, "variant_of": ["is", "not set"]},
+		or_filters={"name": ["like", f"%{txt}%"], "item_name": ["like", f"%{txt}%"]},
+		fields=["name", "item_name"],
+		order_by="name asc",
+		limit_start=start,
+		limit_page_length=page_len,
+		as_list=not as_dict,
+	)
+
+
 def _get_plan(item_code, price_list):
 	if not item_code or not price_list:
 		frappe.throw(_("Select an Item or Item template and Price List."))

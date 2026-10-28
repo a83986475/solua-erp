@@ -22,7 +22,7 @@
 					],
 					primary_action_label: __("保存并打开预览"),
 					primary_action(values) {
-						frm.set_value({
+						const print_values = {
 							custom_print_item_name: values.show_item_name ? 1 : 0,
 							custom_print_sku: values.show_sku ? 1 : 0,
 							custom_print_color_code: values.show_color ? 1 : 0,
@@ -31,7 +31,11 @@
 							custom_print_description: values.show_description ? 1 : 0,
 							custom_print_color_images: values.show_images ? 1 : 0,
 							custom_print_color_qr: values.show_qr ? 1 : 0,
-						}).then(() => frm.save(frm.doc.docstatus === 1 ? "Update" : undefined)).then(() => {
+						};
+						const save = frm.doc.docstatus === 1
+							? frappe.call({ method: "frappe.client.set_value", args: { doctype: frm.doctype, name: frm.doc.name, fieldname: print_values } }).then(() => frm.reload_doc())
+							: frm.set_value(print_values).then(() => frm.save());
+						save.then(() => {
 							const params = new URLSearchParams({ doctype: "Sales Invoice", name: frm.doc.name, no_letterhead: "0", trigger_print: "1" });
 							window.open(`/printview?${params.toString()}`, "_blank");
 							window.solua_home_print_preferences?.save(frm.doctype, values);

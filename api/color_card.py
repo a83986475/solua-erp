@@ -85,16 +85,18 @@ def _variant_attributes(item_code):
 
 
 def get_item_cor(item_code, item=None):
-    """Return native Cor; only fall back for legacy records with no Cor row."""
+    """Return the current custom color code; fall back to native Cor for legacy records."""
     if not item_code:
         return ""
+    if item is None:
+        item = frappe.get_doc("Item", item_code)
+    current_color = str(item.get("custom_color_code") or "").strip()
+    if current_color:
+        return current_color
     color = (_variant_attributes(item_code).get("Cor") or "").strip()
     if color:
         return color
-    # Compatibility only: old history may still have the retired duplicate field.
-    if item is None:
-        item = frappe.get_doc("Item", item_code)
-    return str(item.get("custom_color_code") or "").strip()
+    return ""
 
 
 def get_item_color_image(item):
@@ -117,12 +119,15 @@ def get_item_color_image(item):
                 "attached_to_name": item.get("name") or item_code,
                 "is_private": 0,
             },
-            fields=["file_url", "file_name"],
+            fields=["file_url", "file_name", "attached_to_field"],
             order_by="creation asc",
             limit_page_length=50,
         ):
             file_name = str(file_row.get("file_name") or file_row.get("file_url") or "")
-            if item_code.casefold() in file_name.casefold() and file_name.lower().split("?")[0].endswith(image_extensions):
+            is_image = file_name.lower().split("?")[0].endswith(image_extensions)
+            if is_image and file_row.get("attached_to_field") == "custom_swatch_image":
+                return file_row.get("file_url") or ""
+            if is_image and item_code.casefold() in file_name.casefold():
                 return file_row.get("file_url") or ""
 
         return template_image or item_image
@@ -136,7 +141,7 @@ def _public_variant(item, template_order_code=""):
         "item_code": item.item_code,
         "order_code": item.get("custom_order_code") or template_order_code or item.item_code,
         "color_code": get_item_cor(item.name, item),
-        "color_name": _variant_attributes(item.name).get("Cor") or item.get("custom_pos_short_name") or "",
+        "color_name": item.get("custom_color_code") or _variant_attributes(item.name).get("Cor") or item.get("custom_pos_short_name") or "",
         "name": item.get("custom_chinese_name") or item.item_name,
         "item_name": item.item_name,
         "image": image,
@@ -196,6 +201,51 @@ def get_public_color_card(query=None):
     return None
 
 
+@frappe.whitelist(allow_guest=True)
+def get_public_catalog(limit=60, start=0):
+    """Return the published, price-free catalog used by the public home page.
+
+    This deliberately reuses the color-card publication gate and card builder;
+    guest callers never receive Item Price, stock, cost, warehouse, or notes.
+    """
+    if not _has_column("custom_color_card_published"):
+        return {"items": [], "logo": "/files/solua-logo.jpg", "next_start": None}
+
+    try:
+        limit = min(max(int(limit), 1), 100)
+    except (TypeError, ValueError):
+        limit = 60
+    try:
+        start = max(int(start), 0)
+    except (TypeError, ValueError):
+        start = 0
+
+    templates = frappe.get_all(
+        "Item",
+        filters={
+            "has_variants": 1,
+            "disabled": 0,
+            "custom_color_card_published": 1,
+        },
+        fields=["item_code"],
+        order_by="modified desc, item_code asc",
+        limit_start=start,
+        limit_page_length=limit + 1,
+    )
+
+    cards = []
+    for row in templates[:limit]:
+        card = _build_public_card(row.item_code)
+        if card:
+            cards.append(card)
+
+    return {
+        "items": cards,
+        "logo": "/files/solua-logo.jpg",
+        "next_start": start + limit if len(templates) > limit else None,
+    }
+
+
 def get_public_color_card_url(item_or_code):
     """供 Jinja 打印使用的公开色卡地址；未发布时返回空字符串。"""
     item_code = getattr(item_or_code, "name", None) or getattr(item_or_code, "item_code", None)
@@ -213,4 +263,6 @@ def get_public_color_card_url(item_or_code):
         return ""
 
     key = frappe.db.get_value("Item", template_code, "custom_order_code") or template_code
-    return f"{get_url('/colors')}?q={quote(str(key))}"
+    public_site_url = (frappe.conf.get("public_site_url") or "").rstrip("/")
+    base_url = public_site_url or get_url("").rstrip("/")
+    return f"{base_url}/colors?q={quote(str(key))}"

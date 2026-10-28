@@ -1,0 +1,18 @@
+{
+  "name": "Solua 管理员移动台 - 新建销售单",
+  "short_name": "新建销售单",
+  "start_url": "/mobile?view=order",
+  "scope": "/mobile",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#163a5f",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/assets/solua_home/mobile/solua-pwa-icon.png",
+      "sizes": "949x768",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

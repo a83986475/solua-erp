@@ -201,14 +201,19 @@ def get_sales_order_stock_requirements(doc):
     return requirements
 
 
-def _lock_bin_rows(item_code, warehouse):
-    if not warehouse:
-        return
+def _warehouse_names(warehouse):
     from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
 
     warehouses = list(get_child_warehouses(warehouse) or [])
     if warehouse not in warehouses:
         warehouses.append(warehouse)
+    return warehouses
+
+
+def _lock_bin_rows(item_code, warehouse):
+    if not warehouse:
+        return
+    warehouses = _warehouse_names(warehouse)
     bin_table = frappe.qb.DocType("Bin")
     frappe.qb.from_(bin_table).select(bin_table.name).where(
         (bin_table.item_code == item_code) & bin_table.warehouse.isin(warehouses)
@@ -216,16 +221,19 @@ def _lock_bin_rows(item_code, warehouse):
 
 
 def validate_stock_requirements(requirements, company, self_reserved=None, message="库存不足"):
-    """Check actual stock less other reservations, locking Bin rows first."""
+    """Check actual stock less live Sales Order reservations, locking Bin rows first."""
     self_reserved = self_reserved or {}
     shortages = []
     from erpnext.stock.get_item_details import get_bin_details
+    from erpnext.stock.stock_balance import get_reserved_qty
 
     for (item_code, warehouse), required_qty in sorted(requirements.items()):
         _lock_bin_rows(item_code, warehouse)
         bin_details = get_bin_details(item_code, warehouse, company, include_child_warehouses=True) or {}
         actual_qty = flt(bin_details.get("actual_qty"))
-        reserved_qty = flt(bin_details.get("reserved_qty"))
+        # Bin.reserved_qty is a denormalized rollup refreshed after submit; use
+        # the native live Sales Order query while the Bin rows are locked.
+        reserved_qty = sum(flt(get_reserved_qty(item_code, child)) for child in _warehouse_names(warehouse))
         available_qty = actual_qty - reserved_qty + flt(self_reserved.get((item_code, warehouse)))
         if required_qty > available_qty + 0.000001:
             shortages.append(_("{0}（仓库：{1}，需求：{2}，实际：{3}，预留：{4}，可用：{5}）").format(
@@ -546,6 +554,7 @@ def _pick_list_source_orders(doc):
 
 def _merge_pick_list_order_comparison(doc, order_names, expected, expected_meta):
     picked_by_key = {}
+    picked_keys_by_order_item = {}
     for row in doc.get("locations") or []:
         sales_order_item = _row_value(row, "sales_order_item")
         item_code = _row_value(row, "item_code")
@@ -555,12 +564,22 @@ def _merge_pick_list_order_comparison(doc, order_names, expected, expected_meta)
         entry = picked_by_key.setdefault(key, {"planned": 0, "picked": 0})
         entry["planned"] += _row_stock_qty(row)
         entry["picked"] += flt(_row_value(row, "picked_qty"))
+        picked_keys_by_order_item.setdefault(sales_order_item, set()).add(key)
 
     rows = []
+    matched_renamed_keys = set()
     tolerance = 0.000001
     for key, required_stock in expected.items():
         meta = dict(expected_meta[key])
         picked = picked_by_key.get(key, {})
+        if not picked:
+            # Submitted snapshots can contain an old Item code; the Sales Order
+            # row is the stable identity for a non-bundle line.
+            candidates = picked_keys_by_order_item.get(key[0], set())
+            if len(candidates) == 1:
+                renamed_key = next(iter(candidates))
+                picked = picked_by_key[renamed_key]
+                matched_renamed_keys.add(renamed_key)
         planned_stock = flt(picked.get("planned"))
         picked_stock = flt(picked.get("picked"))
         shortage_stock = max(required_stock - picked_stock, 0)
@@ -581,7 +600,7 @@ def _merge_pick_list_order_comparison(doc, order_names, expected, expected_meta)
         rows.append(meta)
 
     for key, picked in picked_by_key.items():
-        if key in expected:
+        if key in expected or key in matched_renamed_keys:
             continue
         sales_order_item, item_code = key
         rows.append({

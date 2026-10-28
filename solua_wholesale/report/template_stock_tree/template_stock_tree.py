@@ -11,6 +11,16 @@ def _filter_items(items, exclude_legacy):
         return items
     return {name: item for name, item in items.items() if "LEGACY" not in name.upper()}
 
+def _legacy_group_key(item_code, items):
+    marker = "-LEGACY"
+    if not item_code.upper().endswith(marker):
+        return None
+    template_code = item_code[:-len(marker)]
+    template = items.get(template_code)
+    if not template or not template.get("has_variants"):
+        return None
+    return template_code, template.get("report_uom") or template.get("stock_uom")
+
 def _report_values(item, actual, reserved, opening=0, sold=0, delivered=0):
     """Return report quantities in the item's configured sales UOM when safe."""
     factor = flt(item.get("report_factor") or 1)
@@ -29,12 +39,13 @@ def _report_values(item, actual, reserved, opening=0, sold=0, delivered=0):
     }
 
 
-def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantities=None, delivered_quantities=None):
+def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantities=None, delivered_quantities=None, legacy_opening_by_group=None):
     groups = {}
     quantities = {}
     opening_quantities = opening_quantities or {}
     sold_quantities = sold_quantities or {}
     delivered_quantities = delivered_quantities or {}
+    legacy_opening_by_group = legacy_opening_by_group or {}
     for stock in bins:
         qty = quantities.setdefault(stock["item_code"], [0, 0])
         qty[0] += flt(stock["actual_qty"])
@@ -58,12 +69,14 @@ def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantiti
         code, uom = key
         node_id = json.dumps(key, ensure_ascii=False)
         if items[code].get("has_variants"):
+            hidden_opening = flt(legacy_opening_by_group.get(key) or 0)
             rows.append({
                 "node_id": node_id, "parent_id": "", "indent": 0,
                 "item_code": code, "item_name": items[code]["item_name"],
                 "warehouse": warehouse, "stock_uom": items[code].get("report_uom") or uom,
                 **{field: sum(row[field] for row in children)
-                   for field in ("actual_qty", "reserved_qty", "available_qty", "opening_qty", "sold_qty", "delivered_qty")},
+                   for field in ("actual_qty", "reserved_qty", "available_qty", "sold_qty", "delivered_qty")},
+                "opening_qty": sum(row["opening_qty"] for row in children) + hidden_opening,
             })
             for child in sorted(children, key=lambda row: row["item_code"]):
                 rows.append({**child, "node_id": json.dumps((*key, child["item_code"])),
@@ -73,14 +86,19 @@ def group_rows(items, bins, warehouse="", opening_quantities=None, sold_quantiti
     return rows
 
 
-def add_totals(rows):
+def add_totals(rows, legacy_opening_by_group=None):
     parent_ids = {row["parent_id"] for row in rows if row.get("parent_id")}
     leaves = [row for row in rows if row["node_id"] not in parent_ids]
+    legacy_opening_by_group = legacy_opening_by_group or {}
     totals = {}
     for row in leaves:
         total = totals.setdefault(row["stock_uom"], {field: 0 for field in ("opening_qty", "sold_qty", "delivered_qty", "actual_qty", "reserved_qty", "available_qty")})
         for field in total:
             total[field] += flt(row.get(field))
+    for (item_code, uom), opening in legacy_opening_by_group.items():
+        parent_id = json.dumps((item_code, uom), ensure_ascii=False)
+        if parent_id in parent_ids:
+            totals.setdefault(uom, {field: 0 for field in ("opening_qty", "sold_qty", "delivered_qty", "actual_qty", "reserved_qty", "available_qty")})["opening_qty"] += flt(opening)
     for uom, total in sorted(totals.items()):
         rows.append({
             "node_id": json.dumps(("__total__", uom), ensure_ascii=False), "parent_id": "", "indent": 0,
@@ -109,22 +127,21 @@ def execute(filters=None):
     if filters.warehouse:
         warehouse_filters["name"] = filters.warehouse
     warehouses = frappe.get_list("Warehouse", filters=warehouse_filters, pluck="name", limit_page_length=0)
-    items = {row.name: row for row in frappe.get_list(
+    all_items = {row.name: row for row in frappe.get_list(
         "Item", filters={"is_stock_item": 1},
         fields=["name", "item_name", "variant_of", "has_variants", "stock_uom", "sales_uom"], limit_page_length=0
     )}
-    items = _filter_items(items, cint(filters.get("exclude_legacy")))
     sales_uom_factors = {
         (row.parent, row.uom): flt(row.conversion_factor)
         for row in frappe.get_all(
             "UOM Conversion Detail",
-            filters={"parenttype": "Item", "parent": ["in", list(items)]},
+            filters={"parenttype": "Item", "parent": ["in", list(all_items)]},
             fields=["parent", "uom", "conversion_factor"],
             limit_page_length=0,
         )
-        if flt(row.conversion_factor) > 0
-    } if items else {}
-    for item in items.values():
+        if flt(row.conversion_factor) > 0 and row.parent in all_items
+    } if all_items else {}
+    for item in all_items.values():
         sales_uom = item.get("sales_uom") or ""
         factor = sales_uom_factors.get((item.name, sales_uom)) if sales_uom else None
         if not factor and item.get("variant_of") and sales_uom:
@@ -132,11 +149,13 @@ def execute(filters=None):
         if sales_uom and sales_uom != item.get("stock_uom") and factor:
             item["report_uom"] = sales_uom
             item["report_factor"] = factor
+    items = _filter_items(all_items, cint(filters.get("exclude_legacy")))
     bins = frappe.get_list(
         "Bin", filters={"warehouse": ["in", warehouses], "item_code": ["in", list(items)]},
         fields=["item_code", "warehouse", "actual_qty", "reserved_qty"], limit_page_length=0,
     ) if warehouses and items else []
     opening_quantities = {}
+    legacy_opening_by_group = {}
     if warehouses:
         opening_reconciliations = frappe.get_all(
             "Stock Reconciliation",
@@ -150,11 +169,18 @@ def execute(filters=None):
                     "parent": ["in", opening_reconciliations],
                     "parenttype": "Stock Reconciliation",
                     "warehouse": ["in", warehouses],
-                    "item_code": ["in", list(items)],
+                    "item_code": ["in", list(all_items)],
                 },
                 fields=["item_code", "qty"], limit_page_length=0,
             ):
-                opening_quantities[row.item_code] = opening_quantities.get(row.item_code, 0) + flt(row.qty)
+                if row.item_code in items:
+                    opening_quantities[row.item_code] = opening_quantities.get(row.item_code, 0) + flt(row.qty)
+                else:
+                    key = _legacy_group_key(row.item_code, all_items)
+                    if key:
+                        item = all_items[row.item_code]
+                        factor = flt(item.get("report_factor") or 1) or 1
+                        legacy_opening_by_group[key] = legacy_opening_by_group.get(key, 0) + flt(row.qty) / factor
     sold_quantities = {}
     delivered_quantities = {}
     if warehouses and items:
@@ -188,6 +214,7 @@ def execute(filters=None):
     if filters.template:
         items = {name: item for name, item in items.items()
                  if name == filters.template or item.get("variant_of") == filters.template}
+        legacy_opening_by_group = {key: qty for key, qty in legacy_opening_by_group.items() if key[0] == filters.template}
     columns = [
         {"fieldname": "item_code", "label": _("货号"), "fieldtype": "Link", "options": "Item", "width": 290},
         {"fieldname": "item_name", "label": _("Item Name"), "fieldtype": "Data", "width": 200},
@@ -200,5 +227,5 @@ def execute(filters=None):
     columns.insert(4, {"fieldname": "opening_qty", "label": _("初始库存"), "fieldtype": "Float", "precision": "0", "width": 130})
     columns.insert(5, {"fieldname": "sold_qty", "label": _("销售订单数量"), "fieldtype": "Float", "precision": "0", "width": 130})
     columns.insert(6, {"fieldname": "delivered_qty", "label": _("已出货数量"), "fieldtype": "Float", "precision": "0", "width": 130})
-    rows = group_rows(items, bins, warehouse_label, opening_quantities, sold_quantities, delivered_quantities) if warehouses else []
-    return columns, add_totals(rows)
+    rows = group_rows(items, bins, warehouse_label, opening_quantities, sold_quantities, delivered_quantities, legacy_opening_by_group) if warehouses else []
+    return columns, add_totals(rows, legacy_opening_by_group)

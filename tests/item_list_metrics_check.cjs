@@ -1,10 +1,10 @@
 // Item list script: column widths are pinned and the refresh button stays wired.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
 const base = path.join(__dirname, "..");
-const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics.js"), "utf8");
+const source = fs.readFileSync(path.join(base, "public/js/item_list_metrics_v20261017d.js"), "utf8");
 
 const calls = [], alerts = [], buttons = [];
-let loaded = 0, inherited = 0;
+let loaded = 0, inherited = 0, dialog;
 const sandbox = {
 	window: {},
 	frappe: {
@@ -13,6 +13,7 @@ const sandbox = {
 		listview_settings: { Item: { inherited_key: 1, onload() { inherited += 1; } } },
 		call: (options) => { calls.push(options); return Promise.resolve({ message: { updated: 93 } }); },
 		show_alert: (alert) => alerts.push(alert),
+		ui: { Dialog: class { constructor(options) { dialog = options; this.options = options; } show() {} } },
 	},
 	__: (text, args) => (Array.isArray(args) ? args.reduce((out, v, i) => out.replace(`{${i}}`, v), text) : text),
 	console,
@@ -43,9 +44,21 @@ assert.equal(applied.description, 220, "computed 900px must be capped");
 assert.equal(applied.custom_rate_retail, 110, "columns not yet rendered still get a width");
 assert.equal(applied.item_name, undefined, "columns without a configured width stay automatic");
 
-// The refresh button calls the whitelisted backend and reloads the list.
-assert.equal(buttons.length, 1);
+// The refresh and bulk-price buttons are both registered on the Item list.
+assert.equal(buttons.length, 2);
 assert(buttons[0].label, "刷新库存与售价");
+assert(buttons[1].label, "批量修改物料价格");
+buttons[1].action();
+assert.equal(dialog.fields.find((field) => field.fieldname === "item_code").get_query().query,
+	"solua_home.api.item_price_bulk.item_query", "bulk prices must bypass ERPNext's template-excluding Item query");
+assert.equal(dialog.secondary_action_label, undefined, "cancel is added after a preview so the initial dialog stays simple");
+assert(!source.includes('dialog.set_value("item_code", "")'), "successful updates must retain the selected Item");
+assert(source.includes('dialog.set_secondary_action(() => {'), "preview must expose a return-to-edit action");
+assert(source.includes('dialog.set_secondary_action_label(__("返回修改"))'), "return-to-edit action must have a visible label");
+assert(source.includes('dialog.get_secondary_btn().addClass("hide")'), "returning to edit must hide the preview-only action");
+assert(!source.includes('dialog.set_secondary_action(() => dialog.hide())'), "return-to-edit must keep the dialog open");
+assert(fs.readFileSync(path.join(base, "hooks.py"), "utf8").includes('"public/js/item_list_metrics_v20261017d.js"'),
+	"Item list must load the versioned selector fix");
 buttons[0].action();
 assert.equal(calls.at(-1).method, "solua_home.item_metrics.refresh_all_item_metrics");
 return Promise.resolve().then(() => {

@@ -16,9 +16,9 @@ from frappe.utils import cint, flt
 from solua_home.api.stock import validate_transaction_quantities
 
 # 折扣审批改为「密码审批」（2026-08-08）：
-# 任何折扣（幅度 > 公司配置阈值，默认 0 = 任何折扣）都需在发票「审批密码」字段
-# 输入公司配置的审批密码后才能提交。密码存于 设置→公司→Solua Home, Lda，
-# 字段加密存储，界面上不可见；收银员没有自由打折权。
+# 普通账号的折扣（幅度 > 公司配置阈值，默认 0 = 任何折扣）都需在发票「审批密码」字段
+# 输入公司配置的审批密码后才能提交。Administrator 账号免此审批；密码存于
+# 设置→公司→Solua Home, Lda，字段加密存储，界面上不可见；收银员没有自由打折权。
 
 
 def before_validate_sales_invoice(doc, method=None):
@@ -85,7 +85,19 @@ def _get_discount_approval_settings(doc):
     enabled = cint(frappe.db.get_value("Company", company, "custom_enable_discount_approval") or 0)
     threshold = flt(frappe.db.get_value("Company", company, "custom_discount_approval_threshold") or 0)
     pwd_hash = frappe.db.get_value("Company", company, "custom_discount_approval_password") or ""
+    if pwd_hash and set(str(pwd_hash)) == {"*"}:
+        try:
+            pwd_hash = frappe.get_doc("Company", company).get_password(
+                "custom_discount_approval_password", raise_exception=False
+            ) or ""
+        except Exception:
+            pwd_hash = ""
     return enabled, threshold, _try_decrypt(pwd_hash)
+
+
+def _discount_approval_exempt():
+    """Administrator账号免折扣审批；售价低于成本的硬拦截不变。"""
+    return frappe.session.user == "Administrator"
 
 
 def requires_large_invoice_approval(doc):
@@ -245,6 +257,7 @@ def validate_sales_invoice(doc, method=None):
         and approval_pwd
         and max_pct > threshold
         and not cint(doc.get("custom_discount_approved"))
+        and not _discount_approval_exempt()
     ):
         entered = _try_decrypt(doc.get("custom_approval_password") or "")
         if entered == approval_pwd:
@@ -299,6 +312,8 @@ def verify_discount_approval_password(password, company=None):
 
     返回 {"ok": True/False}；审批未启用或密码为空时视为通过（由提交时后端门再次把关）。
     """
+    if _discount_approval_exempt():
+        return {"ok": True}
     if not company:
         company = frappe.defaults.get_user_default("company")
     enabled, threshold, approval_pwd = _get_discount_approval_settings(
@@ -477,7 +492,11 @@ def validate_sales_order_stock(doc, method=None):
 
     requirements = get_sales_order_stock_requirements(doc)
     self_reserved = {}
-    if doc.get("docstatus") == 1 and doc.get("name"):
+    flags = getattr(doc, "flags", None)
+    if getattr(flags, "_stock_reservation_persisted", False) or getattr(flags, "ignore_validate_update_after_submit", False):
+        # The submitted-child update already wrote this order before validating it.
+        self_reserved = requirements
+    elif doc.get("docstatus") == 1 and doc.get("name"):
         # Updating a submitted order must replace its old reservation, not count
         # the newly edited quantity as its own available stock.
         previous = getattr(getattr(doc, "flags", None), "_stock_previous_doc", None)
@@ -503,7 +522,7 @@ def get_sales_order_item_display(item_code):
     return result
 
 
-# Sales-order-only import/selection helpers.  The resolver deliberately calls
+# Sales-order-style import/selection helpers.  The resolver deliberately calls
 # ERPNext's get_item_details() so price rules, UOM conversion and item defaults
 # remain owned by ERPNext rather than being copied here.
 _UPLOAD_COLUMN_ALIASES = {
@@ -545,6 +564,18 @@ def _positive_integer(value):
         return None
 
 
+def _nonnegative_integer(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = Decimal(str(value).strip().replace(",", ""))
+        if not number.is_finite() or number < 0 or number != number.to_integral_value():
+            return None
+        return int(number)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
 def _positive_rate(value):
     if value is None or isinstance(value, bool):
         return None
@@ -557,14 +588,15 @@ def _positive_rate(value):
         return None
 
 
-def _merge_input_rows(rows):
+def _merge_input_rows(rows, allow_zero=False):
     merged = {}
     errors = []
     for index, row in enumerate(rows or [], start=1):
         row = row or {}
         row_number = row.get("_row", index)
         item_code = str(row.get("item_code") or row.get("sku") or "").strip()
-        qty = _positive_integer(row.get("qty") or row.get("quantity"))
+        raw_qty = row.get("qty") if row.get("qty") is not None else row.get("quantity")
+        qty = (_nonnegative_integer if allow_zero else _positive_integer)(raw_qty)
         warehouse = str(row.get("warehouse") or "").strip()
         raw_rate = row.get("rate")
         rate_present = raw_rate is not None and str(raw_rate).strip() != ""
@@ -573,23 +605,26 @@ def _merge_input_rows(rows):
             errors.append({"row": row_number, "item_code": "", "error": "缺少货号/SKU"})
             continue
         if qty is None:
-            errors.append({"row": row_number, "item_code": item_code, "error": "数量必须为正整数"})
+            errors.append({"row": row_number, "item_code": item_code, "error": "数量必须为非负整数" if allow_zero else "数量必须为正整数"})
             continue
         if rate_present and rate is None:
             errors.append({"row": row_number, "item_code": item_code, "error": "成本必须为正数"})
         key = (item_code, warehouse)
         if key not in merged:
-            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "rate": rate, "source_rows": []}
+            merged[key] = {"item_code": item_code, "qty": 0, "warehouse": warehouse, "rate": rate, "source_rows": [], "notes": ""}
         elif rate is not None and merged[key].get("rate") is not None and abs(merged[key]["rate"] - rate) > 0.0000001:
             errors.append({"row": row_number, "item_code": item_code, "error": "相同货号和仓库的成本不一致"})
         elif rate is not None and merged[key].get("rate") is None:
             merged[key]["rate"] = rate
         merged[key]["qty"] += qty
+        note = str(row.get("notes") or "").strip()
+        if note and note not in merged[key]["notes"].split("\n"):
+            merged[key]["notes"] = "\n".join(filter(None, [merged[key]["notes"], note]))
         merged[key]["source_rows"].append(row_number)
     return list(merged.values()), errors
 
 
-def _parse_table_rows(table):
+def _parse_table_rows(table, allow_zero=False):
     rows = [list(row) for row in (table or []) if any(str(cell or "").strip() for cell in row)]
     if not rows:
         return [], [{"row": 1, "item_code": "", "error": "文件没有可读取的行"}]
@@ -606,7 +641,7 @@ def _parse_table_rows(table):
         rate_index = header.get("rate")
         data_rows = rows[1:]
         start_row = 2
-    elif len(rows[0]) >= 2 and _positive_integer(rows[0][1]) is not None:
+    elif len(rows[0]) >= 2 and (_nonnegative_integer if allow_zero else _positive_integer)(rows[0][1]) is not None:
         # Also accept a headerless two-column export: SKU in column A, qty in B.
         code_index, qty_index, warehouse_index, rate_index = 0, 1, None, None
         data_rows = rows
@@ -624,7 +659,7 @@ def _parse_table_rows(table):
             "rate": row[rate_index] if rate_index is not None and rate_index < len(row) else "",
             "_row": row_number,
         })
-    merged, errors = _merge_input_rows(parsed)
+    merged, errors = _merge_input_rows(parsed, allow_zero=allow_zero)
     return merged, errors
 
 
@@ -719,6 +754,7 @@ def _sales_context(context):
     context.plc_conversion_rate = context.get("plc_conversion_rate") or 1
     context.ignore_pricing_rule = cint(context.get("ignore_pricing_rule") or 0)
     context.stock_entry = cint(context.get("stock_entry") or 0)
+    context.stock_reconciliation = cint(context.get("stock_reconciliation") or 0)
     context.require_cost = cint(context.get("require_cost") or 0)
     return context
 
@@ -786,7 +822,7 @@ def _resolve_sales_item(input_row, context, strict=True):
         price_list_rate = input_rate
         if cint(context.get("require_cost")) and input_rate <= 0:
             errors.append("入库成本必须为正数")
-    if rate <= 0 and price_list_rate <= 0 and not cint(context.get("stock_entry")):
+    if rate <= 0 and price_list_rate <= 0 and not cint(context.get("stock_entry")) and not cint(context.get("stock_reconciliation")):
         errors.append("当前销售价格表没有有效价格")
     if cint(master.get("is_stock_item")) and not warehouse:
         errors.append("没有默认仓库或订单仓库")
@@ -816,6 +852,7 @@ def _resolve_sales_item(input_row, context, strict=True):
         "item_name": details.get("item_name") or master.get("item_name") or item_code,
         "description": display.get("description") or details.get("description") or "",
         "qty": input_row.get("qty", 1),
+        "notes": input_row.get("notes") or "",
         "uom": uom,
         "stock_uom": stock_uom,
         "conversion_factor": conversion_factor,
@@ -836,8 +873,8 @@ def _resolve_sales_item(input_row, context, strict=True):
         "available_qty": available_qty,
         "available_sales_qty": flt(available_qty / conversion_factor) if conversion_factor else available_qty,
         "pack_size": conversion_factor if conversion_factor > 1 and uom != stock_uom else 0,
-        "wholesale_rate": 0 if cint(context.get("stock_entry")) else _display_price(item_code, context, "Wholesale Selling", warehouse),
-        "standard_selling_rate": 0 if cint(context.get("stock_entry")) else _display_price(item_code, context, "Standard Selling", warehouse),
+        "wholesale_rate": 0 if cint(context.get("stock_entry")) or cint(context.get("stock_reconciliation")) else _display_price(item_code, context, "Wholesale Selling", warehouse),
+        "standard_selling_rate": 0 if cint(context.get("stock_entry")) or cint(context.get("stock_reconciliation")) else _display_price(item_code, context, "Standard Selling", warehouse),
         "errors": errors,
     }
     if errors and strict:
@@ -847,7 +884,7 @@ def _resolve_sales_item(input_row, context, strict=True):
 
 def _resolve_sales_rows(rows, context, strict=True):
     context = _sales_context(context)
-    normalized, errors = _merge_input_rows(rows)
+    normalized, errors = _merge_input_rows(rows, allow_zero=cint(context.get("stock_reconciliation")))
     resolved = []
     for input_row in normalized:
         row, row_errors = _resolve_sales_item(input_row, context, strict=strict)
@@ -861,7 +898,8 @@ def _resolve_sales_rows(rows, context, strict=True):
 def preview_sales_order_upload(file_url, context=None):
     """Parse an attached CSV/XLSX/XLS and return an unsaved enriched preview."""
     table, source_info = _read_order_table(file_url)
-    parsed, errors = _parse_table_rows(table)
+    allow_zero = cint(_json_value(context).get("stock_reconciliation") or 0)
+    parsed, errors = _parse_table_rows(table, allow_zero=allow_zero)
     if source_info and errors:
         actual = "、".join(str(value) for value in table[0]) if table else "（空）"
         for error in errors:
@@ -880,7 +918,8 @@ def preview_sales_order_paste(text, context=None):
     for line in lines:
         delimiter = "\t" if "\t" in line else "," if "," in line else ";" if ";" in line else None
         table.append(line.split(delimiter) if delimiter else re.split(r"\s+", line.strip()))
-    parsed, errors = _parse_table_rows(table)
+    allow_zero = cint(_json_value(context).get("stock_reconciliation") or 0)
+    parsed, errors = _parse_table_rows(table, allow_zero=allow_zero)
     result = _resolve_sales_rows(parsed, context, strict=True)
     result["errors"] = errors + result["errors"]
     result["summary"]["errors"] = len(result["errors"])
@@ -904,28 +943,72 @@ def get_sales_order_color_variants(barcode, context=None):
     exact_codes = {query}
     if query and not query.upper().startswith("SH"):
         exact_codes.add(f"SH{query}")
+    exact_item_filters = {
+        "disabled": 0,
+        "has_variants": 0,
+    }
+    exact_item_or_filters = [
+        ["name", "in", list(exact_codes)],
+        ["item_code", "in", list(exact_codes)],
+    ]
+    item_fields = ["name", "item_code", "variant_of"]
+    if frappe.get_meta("Item").has_field("custom_color_code"):
+        item_fields.append("custom_color_code")
+        exact_item_or_filters.append(["custom_color_code", "=", query])
+    if frappe.get_meta("Item").has_field("custom_label_barcode"):
+        item_fields.append("custom_label_barcode")
+        exact_item_or_filters.append(["custom_label_barcode", "=", query])
+    if query:
+        # A typed color suffix such as H048 is a variant lookup, not a template lookup.
+        exact_item_or_filters.append(["item_code", "like", f"%-{query}"])
     exact_variants = frappe.get_all(
         "Item",
-        filters={"disabled": 0, "has_variants": 0},
-        or_filters=[["name", "in", list(exact_codes)], ["item_code", "in", list(exact_codes)]],
-        fields=["name", "item_code", "variant_of"],
+        filters=exact_item_filters,
+        or_filters=exact_item_or_filters,
+        fields=item_fields,
         limit_page_length=20,
     )
-    exact_variant = next(
-        (
-            row for row in exact_variants
-            if row.get("variant_of")
-            and (row.get("name") in exact_codes or row.get("item_code") in exact_codes)
-        ),
-        None,
-    )
+    barcode_parents = frappe.get_all(
+        "Item Barcode",
+        filters={"barcode": query},
+        fields=["parent"],
+        limit_page_length=20,
+    ) if query else []
+    barcode_parent_names = list({row.get("parent") for row in barcode_parents if row.get("parent")})
+    if barcode_parent_names:
+        exact_variants.extend(frappe.get_all(
+            "Item",
+            filters={"name": ["in", barcode_parent_names], "disabled": 0, "has_variants": 0},
+            fields=item_fields,
+            limit_page_length=20,
+        ))
+    exact_color_variants = frappe.get_all(
+        "Item Variant Attribute",
+        filters={"attribute": "Cor", "attribute_value": query},
+        fields=["parent"],
+        limit_page_length=20,
+    ) if query else []
+    exact_color_names = list({row.get("parent") for row in exact_color_variants if row.get("parent")})
+    if exact_color_names:
+        exact_variants.extend(frappe.get_all(
+            "Item",
+            filters={"name": ["in", exact_color_names], "disabled": 0, "has_variants": 0},
+            fields=item_fields,
+            limit_page_length=20,
+        ))
+    exact_variant_names = {
+        name
+        for row in exact_variants
+        if row.get("variant_of")
+        for name in (row.get("name"), row.get("item_code"))
+        if name
+    }
     result = get_color_variants(barcode=barcode, barcode_only=False)
-    if exact_variant:
-        exact_names = {exact_variant.get("name"), exact_variant.get("item_code")}
+    if exact_variant_names:
         for group in result.get("templates") or []:
             group["variants"] = [
                 variant for variant in group.get("variants") or []
-                if variant.get("name") in exact_names or variant.get("item_code") in exact_names
+                if variant.get("name") in exact_variant_names or variant.get("item_code") in exact_variant_names
             ]
         result["templates"] = [group for group in result.get("templates") or [] if group.get("variants")]
     if result.get("state") != "ok":

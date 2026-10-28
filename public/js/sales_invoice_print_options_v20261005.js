@@ -31,12 +31,33 @@ function render_sales_invoice_payment_terms_notice(frm) {
 }
 const invoice_summary_field = (fieldname, label) =>
 	`<button type="button" class="btn btn-link btn-xs p-0 solua-invoice-approval-field" data-field="${invoice_summary_escape(fieldname)}">${invoice_summary_escape(label)}</button>`;
+function configure_sales_invoice_approval_password_input(frm) {
+	const input = frm.fields_dict?.custom_approval_password?.$input;
+	if (!input?.length) return;
+	// This is an approval secret, not a user login password.
+	input.attr({
+		type: "text",
+		name: "solua_approval_secret",
+		autocomplete: "off",
+		autocapitalize: "none",
+		autocorrect: "off",
+		spellcheck: "false",
+		inputmode: "text",
+		"data-lpignore": "true",
+		"data-1p-ignore": "true",
+		"data-bwignore": "true",
+	});
+	input.css("-webkit-text-security", "disc");
+}
 const invoice_max_discount = (doc) => {
 	let pct = Number(doc.additional_discount_percentage || 0);
 	if (doc.discount_amount && doc.net_total) pct = Math.max(pct, Number(doc.discount_amount) / Number(doc.net_total) * 100);
 	for (const row of doc.items || []) {
 		pct = Math.max(pct, Number(row.discount_percentage || 0));
 		if (row.discount_amount && row.amount) pct = Math.max(pct, Number(row.discount_amount) / Number(row.amount) * 100);
+		const list_rate = Number(row.price_list_rate || 0);
+		const rate = Number(row.rate || 0);
+		if (list_rate > 0 && rate >= 0 && rate < list_rate) pct = Math.max(pct, (list_rate - rate) / list_rate * 100);
 	}
 	return Number.isFinite(pct) ? pct : 0;
 };
@@ -109,6 +130,7 @@ async function refresh_sales_invoice_approval_summary(frm) {
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
 		render_sales_invoice_payment_terms_notice(frm);
+		configure_sales_invoice_approval_password_input(frm);
 		refresh_sales_invoice_approval_summary(frm);
 		if (frm.is_new() || frm.__solua_wholesale_print_button) return;
 		frm.__solua_wholesale_print_button = true;
@@ -164,7 +186,7 @@ frappe.ui.form.on("Sales Invoice", {
 				],
 				primary_action_label: __("保存并打开预览"),
 				primary_action(values) {
-					const save = frm.set_value({
+					const print_values = {
 						custom_print_item_name: values.show_item_name ? 1 : 0,
 						custom_print_sku: values.show_sku ? 1 : 0,
 						custom_print_color_code: values.show_color ? 1 : 0,
@@ -173,8 +195,9 @@ frappe.ui.form.on("Sales Invoice", {
 						custom_print_description: values.show_description ? 1 : 0,
 						custom_print_color_images: values.show_images ? 1 : 0,
 						custom_print_color_qr: values.show_qr ? 1 : 0,
-					});
-					save.then(() => frm.save(frm.doc.docstatus === 1 ? "Update" : undefined)).then(() => {
+					};
+					const save = frm.set_value(print_values).then(() => frm.save(frm.doc.docstatus === 1 ? "Update" : undefined));
+					save.then(() => {
 						const params = new URLSearchParams({
 							doctype: "Sales Invoice",
 							name: frm.doc.name,
