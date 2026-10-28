@@ -1,5 +1,10 @@
 # Solua ERPNext agent rules
 
+## Production deployment and cloud synchronization
+
+- A production deployment is not complete until the confirmed production change has a focused Git commit and that commit is pushed to the configured cloud remote. Commit and push only the exact deployed files; never use `git add .`, and never include unconfirmed local experiments, secrets, backups, or customer data.
+- Before pushing, run the relevant focused checks and `git diff --check`, record the commit SHA, then verify the remote branch contains that exact SHA. If production was changed outside Git or the deployed source cannot be matched to the local commit, stop and report the mismatch instead of pushing unrelated work.
+
 ## Preserve form loading entrypoints
 
 - Before deploying `hooks.py` or wholesale form scripts, run `node my_custom_app_example/solua_home/tests/wholesale_forms_check.cjs`. The check covers the active loader, cache version, release whitelist, and bulk quantity behavior; a failure blocks deployment.

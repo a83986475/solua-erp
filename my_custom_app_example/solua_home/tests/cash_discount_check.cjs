@@ -6,14 +6,16 @@ const context = {module: {exports: {}}, flt: value => Number(value || 0), __: va
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(require.resolve("../public/js/payment_entry_labels_v20261004.js"), "utf8"), context);
 context.frappe = {call: async () => ({message: {eligible}})};
-const {apply_pronto_pagamento, calculate_pronto_pagamento, restore_cash_discount_allocation} = context.module.exports;
+const {apply_pronto_pagamento, calculate_pronto_pagamento, restore_cash_discount_allocation, should_apply_pronto_pagamento} = context.module.exports;
 function form() {
-  return {doc: {docstatus: 0, party_type: "Customer", party: "AN LAN", custom_payment_term: "PRONTO PAGAMENTO", mode_of_payment: "Cash",
+  return {doc: {docstatus: 0, party_type: "Customer", party: "AN LAN", custom_payment_term: "PRONTO PAGAMENTO", mode_of_payment: "E-MOLA",
     references: [{reference_doctype: "Sales Invoice", reference_name: "invoice", allocated_amount: 100}], deductions: [], paid_amount: 100, received_amount: 100},
     events: {set_unallocated_amount() {}}, refresh_fields() {}, set_intro() {}, add_child() {const row = {}; this.doc.deductions.push(row); return row;}};
 }
 (async () => {
   const frm = form();
+  assert.equal(should_apply_pronto_pagamento({custom_payment_term: "PRONTO PAGAMENTO", mode_of_payment: "E-MOLA"}), true);
+  assert.equal(should_apply_pronto_pagamento({custom_payment_term: "30 DAY CREDIT", mode_of_payment: "Cash"}), false);
   await apply_pronto_pagamento(frm);
   assert.equal(frm.doc.paid_amount, 100);
   assert.equal(frm.doc.deductions.length, 0);

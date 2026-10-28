@@ -7,7 +7,7 @@ const js = fs.readFileSync(root + 'public/js/public_home.js', 'utf8');
 const colors = fs.readFileSync(root + 'www/colors/index.html', 'utf8');
 
 for (const marker of [
-  '/assets/solua_home/css/public_home.css?v=20261017c',
+  '/assets/solua_home/css/public_home.css?v=20261017e',
   '/assets/solua_home/js/public_home.js?v=20261017a',
   'Os preços não estão publicados nesta fase.',
 ]) assert(html.includes(marker), `missing homepage marker: ${marker}`);

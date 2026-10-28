@@ -1,6 +1,6 @@
 // Cache-busted loader for the doctype tools; refresh the current form after registration.
 (function () {
-	const src = "/assets/solua_home/js/wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261023a";
+	const src = "/assets/solua_home/js/wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261027a";
 	if (document.querySelector("script[data-solua-wholesale-forms]")) return;
 	const script = document.createElement("script");
 	script.dataset.soluaWholesaleForms = "1";

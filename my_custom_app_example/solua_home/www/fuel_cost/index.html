@@ -26,7 +26,7 @@
     .fuel-price-source a { color: #6d552d; }
     .fuel-price-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .fuel-mini-button, .fuel-log-submit { border: 0; border-radius: 0; background: #2b2118; color: #fff8ed; padding: 9px 13px; cursor: pointer; }
-    .fuel-log-form { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr 1fr auto auto; gap: 12px; align-items: end; }
+    .fuel-log-form { display: grid; grid-template-columns: 1.1fr repeat(5, 1fr) auto auto; gap: 12px; align-items: end; }
     .fuel-log-form .fuel-field input { height: 42px; }
     .fuel-log-check { display: flex; align-items: center; gap: 6px; min-height: 42px; color: var(--fc-muted); font-size: 12px; white-space: nowrap; }
     .fuel-log-check input { width: 16px; height: 16px; accent-color: var(--fc-gold); }
@@ -133,6 +133,7 @@
             <div class="fuel-field"><label for="log-date">加油日期</label><input id="log-date" data-log-input="date" type="date"></div>
             <div class="fuel-field"><label for="log-odometer">当前里程表（km）</label><input id="log-odometer" data-log-input="odometer" type="number" min="0" step="0.1"></div>
             <div class="fuel-field"><label for="log-liters">本次加油（L）</label><input id="log-liters" data-log-input="liters" type="number" min="0" step="0.01"></div>
+            <div class="fuel-field"><label for="log-amount">加油金额（MZN）</label><input id="log-amount" data-log-input="amount" type="number" min="0" step="0.01" placeholder="按油价换算"></div>
             <div class="fuel-field"><label for="log-price">实际油价（MZN/L）</label><input id="log-price" data-log-input="price" type="number" min="0" step="0.01" placeholder="可用最新价估算"></div>
             <label class="fuel-log-check"><input id="log-full" data-log-input="fullTank" type="checkbox" checked> 加满油</label>
             <button class="fuel-log-submit" type="button" id="add-fuel-record">保存记录</button>
@@ -152,15 +153,12 @@
             <h2 id="calculator-title">运输估算</h2>
             <div class="fuel-form">
                 <div class="fuel-field">
-                    <label for="distance">单程里程（km）</label>
+                    <label for="distance">送货单程里程（km）</label>
                     <input id="distance" data-input="distance" type="number" min="0" step="0.1" value="100">
                 </div>
                 <div class="fuel-field">
                     <label for="consumption">百公里油耗（L/100km） <button class="fuel-inline-action" type="button" id="use-measured">使用实测值</button></label>
                     <input id="consumption" data-input="consumption" type="number" min="0" step="0.1" value="10">
-                </div>
-                <div class="fuel-field full">
-                    <label class="fuel-toggle"><input id="round-trip" data-input="roundTrip" type="checkbox"> 按往返计算（返程也由本车承担）</label>
                 </div>
                 <div class="fuel-field">
                     <label for="fuel-price">柴油/汽油价格（MZN/L）</label>
@@ -204,7 +202,7 @@
             </div>
             <h2>成本拆解</h2>
             <div class="fuel-breakdown">
-                <div class="fuel-row"><span>实际行驶里程</span><strong data-output="totalDistance">0 km</strong></div>
+                <div class="fuel-row"><span>实际行驶里程（去程 + 回仓）</span><strong data-output="totalDistance">0 km</strong></div>
                 <div class="fuel-row"><span>预计耗油量</span><strong data-output="liters">0 L</strong></div>
                 <div class="fuel-row"><span>燃油费</span><strong data-output="fuel">MZN 0.00</strong></div>
                 <div class="fuel-row"><span>过路费</span><strong data-output="toll">MZN 0.00</strong></div>
@@ -241,6 +239,14 @@ fuelReady(() => {
     const money = (value) => `MZN ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const number = (name) => Math.max(0, Number(input(name).value) || 0);
     const logNumber = (name) => Math.max(0, Number(logInput(name).value) || 0);
+    let lastFuelInput = 'liters';
+    const syncLogAmount = (source) => {
+        lastFuelInput = source;
+        const price = logNumber('price');
+        if (!price) return;
+        if (source === 'amount' && logNumber('amount')) logInput('liters').value = (logNumber('amount') / price).toFixed(2);
+        if (source === 'liters' && logNumber('liters')) logInput('amount').value = (logNumber('liters') * price).toFixed(2);
+    };
     let records = [];
     let vehicleOptions = [];
     let latestPrices = {};
@@ -293,7 +299,7 @@ fuelReady(() => {
 
     const calculate = () => {
         const distance = number('distance');
-        const totalDistance = distance * (input('roundTrip').checked ? 2 : 1);
+        const totalDistance = distance * 2;
         const consumption = number('consumption');
         const fuelPrice = number('fuelPrice');
         const toll = number('toll');
@@ -327,6 +333,7 @@ fuelReady(() => {
         const price = latestPrices[city]?.[type];
         document.getElementById('latest-price').textContent = price ? money(price) + '/L' : '暂不可用';
         if (price) input('fuelPrice').value = price.toFixed(2);
+        syncLogAmount(lastFuelInput);
         updateLogSummary();
         calculate();
     };
@@ -391,9 +398,10 @@ fuelReady(() => {
         const vehicle = (logInput('vehicle').value || '').trim();
         const date = logInput('date').value;
         const odometer = logNumber('odometer');
+        if (logNumber('amount') && !logNumber('liters')) syncLogAmount('amount');
         const liters = logNumber('liters');
         if (!vehicle || !date || !odometer || !liters) {
-            document.getElementById('record-status').textContent = '请填写车辆、日期、里程表和加油升数。';
+            document.getElementById('record-status').textContent = logNumber('amount') && !logNumber('price') ? '按加油金额换算需要填写实际油价。' : '请填写车辆、日期、里程表和加油升数。';
             return;
         }
         const button = document.getElementById('add-fuel-record');
@@ -401,7 +409,7 @@ fuelReady(() => {
         document.getElementById('record-status').textContent = '正在保存到服务器…';
         try {
             const form = new URLSearchParams({ vehicle, reading_date: date, odometer_km: String(odometer), liters: String(liters), fuel_price: String(logNumber('price') || ''), full_tank: logInput('fullTank').checked ? '1' : '0' });
-            const response = await fetch('/api/method/solua_home.api.fuel_cost.save_fuel_record', { method: 'POST', body: form, headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+            const response = await fetch('/api/method/solua_home.api.fuel_cost.save_fuel_record', { method: 'POST', body: form, headers: { Accept: 'application/json', 'X-Frappe-CSRF-Token': '{{ csrf_token }}' }, credentials: 'same-origin' });
             const payload = await response.json();
             const data = payload.message || payload;
             if (!response.ok || !data.ok) throw new Error('record save failed');
@@ -427,6 +435,9 @@ fuelReady(() => {
     document.getElementById('fuel-city').addEventListener('change', applyLatestPrice);
     document.getElementById('fuel-type').addEventListener('change', applyLatestPrice);
     logInput('vehicle').addEventListener('change', () => { renderRecordList(); updateLogSummary(); });
+    logInput('liters').addEventListener('input', () => syncLogAmount('liters'));
+    logInput('amount').addEventListener('input', () => syncLogAmount('amount'));
+    logInput('price').addEventListener('input', () => syncLogAmount(lastFuelInput));
     document.getElementById('refresh-price').addEventListener('click', refreshPrice);
     document.querySelectorAll('[data-input]').forEach((field) => field.addEventListener('input', calculate));
     logInput('date').value = new Date().toISOString().slice(0, 10);

@@ -49,6 +49,93 @@ def _send_file(webhook_url, key, filename, content, content_type):
     return {"filename": filename}
 
 
+def apply_customer_print_preference(doc, method=None):
+    """Copy the customer's default merge choice into a new or reassigned Sales Order."""
+    if doc.doctype != "Sales Order" or not doc.get("customer"):
+        return
+    if not (doc.is_new() or doc.has_value_changed("customer")):
+        return
+    if not frappe.get_meta("Sales Order").has_field("custom_print_merge_order_code"):
+        return
+    if not frappe.get_meta("Customer").has_field("custom_print_merge_order_code_default"):
+        return
+    preference = frappe.db.get_value("Customer", doc.customer, "custom_print_merge_order_code_default")
+    doc.custom_print_merge_order_code = 0 if preference == "不合并货号" else 1
+
+
+def enqueue_sales_order_submit_send(doc, method=None):
+    """Queue both customer files after a Sales Order transaction commits."""
+    if doc.doctype != "Sales Order" or int(doc.docstatus or 0) != 1:
+        return
+    frappe.enqueue(
+        "solua_home.api.wecom.send_submitted_sales_order_to_wechat",
+        queue="short",
+        enqueue_after_commit=True,
+        job_id=f"wecom-sales-order-submit:{doc.name}",
+        deduplicate=True,
+        sales_order=doc.name,
+    )
+
+
+def _set_sales_order_wecom_status(name, status, error="", sent_at=None):
+    frappe.db.set_value(
+        "Sales Order",
+        name,
+        {
+            "custom_wecom_send_status": status,
+            "custom_wecom_send_error": error or "",
+            "custom_wecom_sent_at": sent_at,
+        },
+        update_modified=False,
+    )
+    frappe.db.commit()
+
+
+def _send_with_retries(sender, name):
+    import time
+
+    last_error = None
+    for attempt in range(3):
+        try:
+            return sender(name)
+        except Exception as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    raise last_error
+
+
+def send_submitted_sales_order_to_wechat(sales_order):
+    """Send submitted Sales Order PDF and XLSX without affecting order submission."""
+    doc = frappe.get_doc("Sales Order", sales_order)
+    if int(doc.docstatus or 0) != 1:
+        return {"status": "skipped", "reason": "not submitted"}
+    if doc.get("custom_wecom_send_status") == "已发送":
+        return {"status": "already sent"}
+
+    _set_sales_order_wecom_status(sales_order, "发送中")
+    results = {}
+    errors = []
+    for label, sender in (
+        ("PDF", send_sales_order_customer_pdf_to_wechat),
+        ("XLSX", send_sales_order_customer_xlsx_to_wechat),
+    ):
+        try:
+            results[label] = _send_with_retries(sender, sales_order)
+        except Exception as error:
+            errors.append(f"{label}: {error}")
+
+    if errors:
+        status = "部分成功" if results else "失败"
+        message = "; ".join(errors)[:2000]
+        _set_sales_order_wecom_status(sales_order, status, message)
+        frappe.log_error(message, f"Sales Order WeCom send failed: {sales_order}")
+        return {"status": status, "results": results, "errors": errors}
+
+    _set_sales_order_wecom_status(sales_order, "已发送", sent_at=frappe.utils.now_datetime())
+    return {"status": "sent", "results": results}
+
+
 @frappe.whitelist()
 def send_sales_order_customer_pdf_to_wechat(name):
     webhook_url, key = _webhook_config()
@@ -64,7 +151,8 @@ def send_sales_order_customer_pdf_to_wechat(name):
     print_format = _active_print_format("Sales Order")
     if not print_format:
         frappe.throw("销售订单没有可用的打印格式")
-    pdf = _render_document_pdf(doc, print_format, merge_customer=True)
+    merge_customer = bool(int(doc.get("custom_print_merge_order_code") or 0))
+    pdf = _render_document_pdf(doc, print_format, merge_customer=merge_customer)
     filename = _sales_order_customer_pdf_filename(doc)
     return _send_file(webhook_url, key, filename, pdf, "application/pdf")
 
@@ -81,7 +169,8 @@ def send_sales_order_customer_xlsx_to_wechat(name):
 
     doc = get_export_document("Sales Order", name)
     filename = f"{_sales_order_customer_pdf_filename(doc)[:-4]}.xlsx"
-    xlsx = _xlsx_bytes(_customer_sales_order_table(doc), "客户表格")
+    merge_customer = bool(int(doc.get("custom_print_merge_order_code") or 0))
+    xlsx = _xlsx_bytes(_customer_sales_order_table(doc, merge_customer=merge_customer), "客户表格")
     return _send_file(
         webhook_url,
         key,

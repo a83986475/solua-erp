@@ -20,6 +20,10 @@ const CASH_DISCOUNT_RATE = 3;
 const CASH_DISCOUNT_ACCOUNT = "Discount Allowed - SH";
 const CASH_DISCOUNT_COST_CENTER = "Main - SH";
 
+function should_apply_pronto_pagamento(doc) {
+	return doc?.custom_payment_term === CASH_DISCOUNT_TERM;
+}
+
 // 抹零：直接抹去小数位（向零截断），不做四舍五入。
 function truncate_decimals(value) {
 	const cents = Math.round((Number(value) || 0) * 100) / 100;
@@ -77,10 +81,7 @@ async function apply_pronto_pagamento(frm, options = {}) {
 	if (!frm?.doc || frm.doc.docstatus !== 0) return;
 	const request = (frm.__solua_cash_discount_request || 0) + 1;
 	frm.__solua_cash_discount_request = request;
-	if (
-		frm.doc.custom_payment_term !== CASH_DISCOUNT_TERM ||
-		(frm.doc.mode_of_payment && frm.doc.mode_of_payment !== "Cash")
-	) {
+	if (!should_apply_pronto_pagamento(frm.doc)) {
 		clear_pronto_pagamento(frm);
 		return;
 	}
@@ -147,7 +148,7 @@ async function apply_pronto_pagamento(frm, options = {}) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento, restore_cash_discount_allocation, truncate_decimals };
+	module.exports = { calculate_pronto_pagamento, apply_pronto_pagamento, clear_pronto_pagamento, restore_cash_discount_allocation, should_apply_pronto_pagamento, truncate_decimals };
 }
 
 if (typeof frappe !== "undefined") {
