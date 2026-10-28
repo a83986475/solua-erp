@@ -4,6 +4,7 @@
 
 - A production deployment is not complete until the confirmed production change has a focused Git commit and that commit is pushed to the configured cloud remote. Commit and push only the exact deployed files; never use `git add .`, and never include unconfirmed local experiments, secrets, backups, or customer data.
 - Before pushing, run the relevant focused checks and `git diff --check`, record the commit SHA, then verify the remote branch contains that exact SHA. If production was changed outside Git or the deployed source cannot be matched to the local commit, stop and report the mismatch instead of pushing unrelated work.
+- Scheduled-task times and deployment records use Mozambique time (`Africa/Maputo`, UTC+2); do not describe them using the server's local timezone.
 
 ## Preserve form loading entrypoints
 
