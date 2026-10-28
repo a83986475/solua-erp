@@ -15,7 +15,7 @@ for (const doctype of ["Sales Order", "Delivery Note", "Pick List"]) {
 const salesInvoiceLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Sales Invoice": ['));
 assert.ok(salesInvoiceLine && salesInvoiceLine.includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
 const loaderSource = fs.readFileSync(path.join(appRoot, loaderPath), "utf8");
-assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261028a"), "Wholesale script cache version regressed");
+assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261028b"), "Wholesale script cache version regressed");
 const releaseFiles = fs.readFileSync(path.join(__dirname, "release_whitelist.txt"), "utf8");
 assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${loaderPath}`), "Active loader missing from release whitelist");
 const handlers = {}, requests = [], dialogs = [];
