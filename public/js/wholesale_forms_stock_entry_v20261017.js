@@ -533,6 +533,11 @@
 		dialog.fields_dict.select_all.$input?.on("click", () => set_selection(true));
 		dialog.fields_dict.invert_selection.$input?.on("click", invert_selection);
 		dialog.show();
+		const dialog_body = dialog.$wrapper.find(".modal-body");
+		dialog_body.find(".section-body").css({ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", columnGap: "16px" });
+		dialog_body.find(".form-column, .form-column > form").css("display", "contents");
+		dialog_body.find(".frappe-control.input-max-width").css({ minWidth: 0, width: "100%", maxWidth: "none" });
+		dialog_body.find(".frappe-control[data-fieldname='hint'], .frappe-control[data-fieldname='results']").css({ gridColumn: "1 / -1", width: "100%", maxWidth: "none" });
 		search();
 	}
 

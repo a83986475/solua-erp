@@ -32,7 +32,7 @@ const document = {
 class Dialog {
   constructor(options) {
     this.action=options.primary_action;
-    this.values = {}; this.fields_dict = {}; this.$wrapper = input();
+    this.values = {}; this.fields_dict = {}; const cssTarget = {find(){return this;},css(){return this;}}; this.$wrapper = {find(){return cssTarget;},on(){return this;},off(){return this;}};
     for (const f of options.fields) {
       this.values[f.fieldname] = f.default ?? "";
       const field = {...f,df:{...f},$input:input(),$wrapper:{html(){},empty(){}}};
@@ -85,6 +85,8 @@ const browser = {open(){},localStorage};
 const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser, document};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/document_table_export_v20260930c.js"),"utf8"), script_scope);
 const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261017.js"),"utf8");
+assert.ok(wholesaleSource.includes('gridTemplateColumns: "repeat(4, minmax(0, 1fr))"'), "Bulk picker filter layout regressed");
+assert.ok(wholesaleSource.includes('gridColumn: "1 / -1"'), "Bulk picker result table full-width layout regressed");
 vm.runInNewContext(wholesaleSource, script_scope);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options_v20261005.js"),"utf8"), script_scope);
 const salesTools = browser.solua_home_sales_order_tools;
