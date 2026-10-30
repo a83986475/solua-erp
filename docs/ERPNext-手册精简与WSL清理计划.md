@@ -31,7 +31,7 @@
 4. Git 状态：`apps/erpnext` 有 `banking/yarn.lock` 修改；`apps/xpos` 有两份翻译修改及多个新建 DocType 文件、`yarn.lock`。这些均为未提交工作。
 5. 唯一性：`sites/dev.localhost/private/backups/` 下有 `20260923_120002-dev_localhost-database.sql.gz`（1,271,220 字节）和对应站点配置备份（244 字节）；站点 `dev.localhost` 存在。未证明有其他副本。
 6. WSL 命令输出未发现用户启动配置或系统服务中引用该 Bench 的脚本；该检查不构成删除授权。
-7. Windows 主工作区：`C:\Users\Yang\solua-home\sites\erpnext`；手册原始状态干净，另有 12 项既有业务代码修改，全部保留、不纳入提交。
+7. Windows 主工作区：`C:\Users\Yang\solua-erp`；手册原始状态干净，另有 12 项既有业务代码修改，全部保留、不纳入提交。
 
 ## 备份与可恢复性判断
 

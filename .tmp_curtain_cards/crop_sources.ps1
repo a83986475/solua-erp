@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$root = 'C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_color_cards_20260919'
+$root = 'C:\Users\Yang\solua-erp\outputs\curtain_color_cards_20260919'
 $media = Join-Path $root 'extracted_sources\raw_xlsx_media'
 $out = Join-Path $root 'extracted_sources\crops'
 New-Item -ItemType Directory -Path $out -Force | Out-Null

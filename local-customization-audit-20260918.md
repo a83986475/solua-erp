@@ -2,7 +2,7 @@
 
 ## 1. 审计范围与基线
 
-- 仓库：`C:\Users\Yang\solua-home\sites\erpnext`
+- 仓库：`C:\Users\Yang\solua-erp`
 - 远端：`https://github.com/a83986475/solua-erp.git`
 - 分支：`develop`
 - 审计起始 HEAD/远端：`456e1c3057`

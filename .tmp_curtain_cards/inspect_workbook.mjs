@@ -3,7 +3,7 @@ import path from "node:path";
 import { FileBlob, SpreadsheetFile } from "@oai/artifact-tool";
 
 const source = "D:/WeChat/xwechat_files/chenyangyang_7cef/msg/file/2026-09/莫桑比克色卡文档.xlsx";
-const outDir = "C:/Users/Yang/solua-home/sites/erpnext/outputs/curtain_color_cards_20260919";
+const outDir = "C:/Users/Yang/solua-erp/outputs/curtain_color_cards_20260919";
 const workbook = await SpreadsheetFile.importXlsx(await FileBlob.load(source));
 
 const overviewInspect = await workbook.inspect({

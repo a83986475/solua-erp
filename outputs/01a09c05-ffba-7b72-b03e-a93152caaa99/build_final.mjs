@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import { FileBlob, SpreadsheetFile, Workbook } from '@oai/artifact-tool';
 
-const outDir = 'C:/Users/Yang/solua-home/sites/erpnext/outputs/01a09c05-ffba-7b72-b03e-a93152caaa99';
+const outDir = 'C:/Users/Yang/solua-erp/outputs/01a09c05-ffba-7b72-b03e-a93152caaa99';
 const outputPath = `${outDir}/莫桑比克窗帘_ERPNext导入草稿.xlsx`;
 const font = 'Arial';
 

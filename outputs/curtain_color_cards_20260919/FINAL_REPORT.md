@@ -13,11 +13,11 @@
 
 ## 输出位置
 
-- 窗帘杆最终卡片：`C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_rod_color_cards_20260919\final_corrected\`
-- 窗帘杆缩略图：`C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_rod_color_cards_20260919\final_corrected\thumbnails\`
-- 窗帘最终卡片：`C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_color_cards_20260919\final_white_square\`
-- 窗帘缩略图：`C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_color_cards_20260919\final_white_square\thumbnails\`
-- 本次修复与 SH151114 预览接触表：`C:\Users\Yang\solua-home\sites\erpnext\outputs\curtain_color_cards_20260919\repair_completion_20260920_v2\`
+- 窗帘杆最终卡片：`C:\Users\Yang\solua-erp\outputs\curtain_rod_color_cards_20260919\final_corrected\`
+- 窗帘杆缩略图：`C:\Users\Yang\solua-erp\outputs\curtain_rod_color_cards_20260919\final_corrected\thumbnails\`
+- 窗帘最终卡片：`C:\Users\Yang\solua-erp\outputs\curtain_color_cards_20260919\final_white_square\`
+- 窗帘缩略图：`C:\Users\Yang\solua-erp\outputs\curtain_color_cards_20260919\final_white_square\thumbnails\`
+- 本次修复与 SH151114 预览接触表：`C:\Users\Yang\solua-erp\outputs\curtain_color_cards_20260919\repair_completion_20260920_v2\`
 - 被替换的 4 张旧卡片及缩略图已备份在上述目录的 `previous_versions` 子目录。
 - 桌面交付：`C:\Users\Yang\Desktop\色卡图\窗帘\`（56 张卡片及 56 张缩略图）
 
