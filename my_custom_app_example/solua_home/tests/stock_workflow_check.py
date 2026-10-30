@@ -39,6 +39,7 @@ assert "pick_list_item" in stock_source
 assert "picked_qty" in stock_source
 assert "COALESCE(SUM(i.stock_qty),0)" in stock_source
 assert "actual_qty - reserved_qty" in stock_source
+assert "get_reserved_qty(item_code, child)" in stock_source
 assert "custom_shortage_note" in stock_source
 assert "custom_sales_order" in stock_source
 assert "销售订单对比未通过" in stock_source
@@ -125,6 +126,27 @@ full = Doc(
     locations=[Row(item_code="ITEM", stock_qty=10, picked_qty=10)],
 )
 loaded.validate_pick_list_result(full, require_result=True)
+
+warehouse_module = types.ModuleType("erpnext.stock.doctype.warehouse.warehouse")
+warehouse_module.get_child_warehouses = lambda warehouse: [warehouse]
+item_details_module = types.ModuleType("erpnext.stock.get_item_details")
+item_details_module.get_bin_details = lambda *args, **kwargs: {"actual_qty": 14, "reserved_qty": 0}
+stock_balance_module = types.ModuleType("erpnext.stock.stock_balance")
+reserved_calls = []
+stock_balance_module.get_reserved_qty = lambda item_code, warehouse: reserved_calls.append((item_code, warehouse)) or 10
+sys.modules.update({
+    "erpnext.stock.doctype.warehouse.warehouse": warehouse_module,
+    "erpnext.stock.get_item_details": item_details_module,
+    "erpnext.stock.stock_balance": stock_balance_module,
+})
+loaded._lock_bin_rows = lambda *args: None
+try:
+    loaded.validate_stock_requirements({("ITEM", "WH"): 10}, "Company")
+except RuntimeError as error:
+    assert "预留：10" in str(error) and "可用：4" in str(error)
+else:
+    raise AssertionError("live Sales Order reservations were not enforced")
+assert reserved_calls == [("ITEM", "WH")]
 
 comparison_order = Doc(
     items=[

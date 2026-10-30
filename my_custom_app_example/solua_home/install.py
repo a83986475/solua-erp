@@ -1,12 +1,36 @@
 # -*- coding: utf-8 -*-
 import json
+import re
 
 import frappe
+
+from solua_home.printing.format_retirement import apply_reviewed_retirements, is_retired_format
 
 PICK_LIST_PRINT_FORMAT = "拣货单"
 SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
 WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
+
+SOLUA_A4_PRINT_FORMATS = (
+    "ORDER CONFIRMACAO(PT）",
+    "客户订单确认单（中文颜色版）",
+    "Guia de Remessa",
+    "拣货单",
+    "FACTURA A4（8mm边距） v2 v3",
+)
+SOLUA_A4_LAYOUT_MARKER = "/* SOLUA_PDF_LAYOUT_V1 */"
+SOLUA_A4_LAYOUT_CSS = (
+    "\n" + SOLUA_A4_LAYOUT_MARKER + "\n"
+        "@page{size:A4!important;margin:8mm 8mm 10mm!important;}"
+        ".print-format{margin:0!important;padding:0 0 2mm!important;max-width:none!important;"
+    "width:100%!important;zoom:1!important;box-sizing:border-box!important;}"
+    ".print-format table{page-break-inside:auto!important;}"
+    ".print-format thead{display:table-header-group!important;}"
+    ".print-format tbody tr,.print-format tbody tr td,.print-format tfoot tr{"
+    "break-inside:avoid!important;page-break-inside:avoid!important;}"
+    ".print-format .block,.print-format .sign,.print-format .confirm,.print-format .totals{"
+    "break-inside:avoid!important;page-break-inside:avoid!important;}"
+)
 
 
 def ensure_solua_stock_entry_types():
@@ -106,7 +130,7 @@ def install_wholesale_only():
         ensure_wholesale_module()
         add_wholesale_fields(commit=False)
         base = os.path.dirname(__file__)
-        for folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh", "sales_invoice_wholesale_color", "delivery_note_guia_remessa"):
+        for folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh", "sales_invoice_wholesale_color_v2", "delivery_note_guia_remessa"):
             import_file_by_path(os.path.join(base, "print_format", folder, folder + ".json"),
                                 force=True, ignore_version=True)
         _lock_customer_sku_print_format()
@@ -133,7 +157,7 @@ def install_wholesale_only():
                 raise RuntimeError("Invalid hook: " + method)
         for name, expected_module in (
             ("ORDER CONFIRMACAO(PT）", "Solua Wholesale"),
-            ("批发销售单（颜色版）", "Solua Home 定制"),
+            ("批发销售单（颜色版）新版", "Solua Home 定制"),
             ("Guia de Remessa", "Solua Wholesale"),
         ):
             fmt = frappe.get_doc("Print Format", name)
@@ -329,59 +353,42 @@ def sync_standard_print_formats():
         if not os.path.exists(json_path):
             continue
         try:
+            with open(json_path, encoding="utf-8") as source:
+                if is_retired_format(json.load(source).get("name")):
+                    continue
             import_file_by_path(json_path, force=True, ignore_version=True)
             _sync_additional_notes_print_format(folder)
             frappe.db.commit()
         except Exception as e:
             frappe.log_error(f"打印格式导入失败 [{json_path}]: {e}", "solua_home.print_formats")
     _sync_pdf_page_margins()
+    apply_reviewed_retirements()
 
 
 def _sync_pdf_page_margins():
-    """Make the three active A4 formats repeat the page margin on every page."""
-    marker = "/* SOLUA_PDF_PAGE_MARGIN_V4 */"
-    css = (
-        "\n" + marker + "\n"
-        "@page{size:A4!important;}"
-        ".print-format{margin-top:12mm!important;margin-right:0!important;margin-bottom:0!important;margin-left:0!important;padding:0 8mm 8mm!important;max-width:none!important;width:100%!important;box-sizing:border-box!important;}"
-    )
-    invoice_name = "FACTURA A4（8mm边距） v2 v3"
-    for name in ("Guia de Remessa", "拣货单", invoice_name):
+    """Keep one A4 margin and pagination policy for the four formal documents."""
+    legacy_pattern = r"/\* SOLUA_PDF_(?:PAGE_MARGIN|PROPORTIONAL_SCALE)_V\d+ \*/.*?(?=/\* SOLUA_PDF_|$)"
+    legacy_html_style_pattern = r"/\* SOLUA_PDF_(?:PAGE_MARGIN|PROPORTIONAL_SCALE)_V\d+ \*/.*?(?=/\* SOLUA_PDF_|</style>)"
+    for name in SOLUA_A4_PRINT_FORMATS:
         if not frappe.db.exists("Print Format", name):
             continue
         doc = frappe.get_doc("Print Format", name)
-        if name == invoice_name:
-            html = doc.html or ""
-            invoice_css = css + ".print-format{min-height:285mm!important;} .print-format table.items{table-layout:fixed!important;}"
-            if marker in html:
-                continue
-            closing = html.rfind("</style>")
-            if closing < 0:
-                raise RuntimeError("Active invoice Print Format has no style block")
-            doc.html = html[:closing] + invoice_css + html[closing:]
+        current_css = re.sub(legacy_pattern, "", doc.css or "", flags=re.S).rstrip()
+        current_html = re.sub(legacy_html_style_pattern, "", doc.html or "", flags=re.S)
+        if SOLUA_A4_LAYOUT_MARKER in current_css:
+            current_css = re.sub(
+                r"/\* SOLUA_PDF_LAYOUT_V1 \*/.*?(?=/\* SOLUA_PDF_|$)",
+                SOLUA_A4_LAYOUT_CSS.strip(),
+                current_css,
+                flags=re.S,
+            ).rstrip()
         else:
-            if marker in (doc.css or ""):
-                continue
-            format_css = css
-            if name == "Guia de Remessa":
-                format_css += (
-                    ".print-format table.items{table-layout:fixed!important;width:100%!important;font-size:8pt!important;}"
-                    ".print-format table.items th,.print-format table.items td{min-width:0!important;overflow-wrap:break-word!important;word-break:normal!important;white-space:normal!important;}"
-                    ".print-format .col-sku,.print-format .col-barcode{white-space:nowrap!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(1),.print-format table.items tbody tr>:nth-child(1){width:5%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(2),.print-format table.items tbody tr>:nth-child(2){width:8%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(3),.print-format table.items tbody tr>:nth-child(3){width:8%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(4),.print-format table.items tbody tr>:nth-child(4){width:9%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(5),.print-format table.items tbody tr>:nth-child(5){width:13%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(6),.print-format table.items tbody tr>:nth-child(6){width:18%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(7),.print-format table.items tbody tr>:nth-child(7){width:10%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(8),.print-format table.items tbody tr>:nth-child(8){width:9%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(9),.print-format table.items tbody tr>:nth-child(9){width:6%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(10),.print-format table.items tbody tr>:nth-child(10){width:7%!important;}"
-                    ".print-format table.items tr:nth-child(2)>:nth-child(11),.print-format table.items tbody tr>:nth-child(11){width:7%!important;}"
-                )
-            doc.css = (doc.css or "") + format_css
-        doc.save(ignore_permissions=True)
+            current_css += SOLUA_A4_LAYOUT_CSS
+        changed = current_css != (doc.css or "") or current_html != (doc.html or "")
+        if changed:
+            doc.css = current_css
+            doc.html = current_html
+            doc.save(ignore_permissions=True)
 
 
 def _sync_additional_notes_print_format(folder):
@@ -389,6 +396,11 @@ def _sync_additional_notes_print_format(folder):
     specs = {
         "sales_order_wholesale_color": (
             "ORDER CONFIRMACAO(PT）",
+            "{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else 1 %}",
+            "{% if doc.get('custom_print_color_qr') %}",
+        ),
+        "sales_order_wholesale_color_zh": (
+            "客户订单确认单（中文颜色版）",
             "{% set show_description = doc.get('custom_print_description') if doc.get('custom_print_description') is not none else 1 %}",
             "{% if doc.get('custom_print_color_qr') %}",
         ),
@@ -410,6 +422,39 @@ def _sync_additional_notes_print_format(folder):
     doc = frappe.get_doc("Print Format", name) if frappe.db.exists("Print Format", name) else None
     if not doc:
         return
+    if folder in ("sales_order_wholesale_color", "sales_order_wholesale_color_zh"):
+        # Customer PDFs keep color quantities in the description; remove the separate color column permanently.
+        html = doc.html or ""
+        for old in (
+            "{% set show_color_code = doc.get('custom_print_color_code') if doc.get('custom_print_color_code') is not none else 1 %}",
+            "{% set show_cor = doc.get('custom_print_cor') if doc.get('custom_print_cor') is not none else 0 %}",
+            "{% set show_color_code = 0 %}",
+            "{% set show_cor = 0 %}",
+            "{% if show_color_code %}<th class=\"col-color-code\">Cor</th>{% endif %}",
+            "{% if show_color_code %}<th class=\"col-color-code\">颜色</th>{% endif %}",
+            "{% if show_cor %}<th class=\"col-cor\">Cor / 颜色</th>{% endif %}",
+            "{% if show_cor %}<th class=\"col-cor\">颜色</th>{% endif %}",
+            "{% if show_color_code %}<td class=\"col-color-code\">{{ (item.color_code or '—') | e }}</td>{% endif %}",
+            "{% if show_cor %}<td class=\"col-cor\">{{ (item.color or '—') | e }}</td>{% endif %}",
+            " + show_color_code + show_cor",
+            ".print-format .items .col-color-code, .print-format .items .col-cor { min-width: 16mm; white-space: nowrap; }",
+            ".print-format .items .col-color-code, .print-format .items .col-cor,\n.print-format .wholesale-items .col-color-code, .print-format .wholesale-items .col-cor { min-width: 16mm; white-space: nowrap; }",
+            ".print-format table.items .col-color-code,.print-format table.items .col-cor{display:none!important;}",
+        ):
+            html = html.replace(old, "")
+        if html != doc.html:
+            doc.html = html
+            doc.save(ignore_permissions=True)
+        css = doc.css or ""
+        for old in (
+            ".print-format .items .col-color-code, .print-format .items .col-cor { min-width: 16mm; white-space: nowrap; }",
+            ".print-format .items .col-color-code, .print-format .items .col-cor,\n.print-format .wholesale-items .col-color-code, .print-format .wholesale-items .col-cor { min-width: 16mm; white-space: nowrap; }",
+            ".print-format table.items .col-color-code,.print-format table.items .col-cor{display:none!important;}",
+        ):
+            css = css.replace(old, "")
+        if css != (doc.css or ""):
+            doc.css = css
+            doc.save(ignore_permissions=True)
     if folder == "sales_order_wholesale_color":
         fit_marker = "/* SOLUA_PDF_FIT_V6 */"
         fit_css = (
@@ -1275,6 +1320,7 @@ def add_sales_color_print_fields():
 def add_wholesale_fields(commit=True):
     """Add only the small snapshots needed for wholesale order/delivery prints."""
     fields = [
+        {"dt": "Customer", "fieldname": "custom_print_merge_order_code_default", "label": "客户订单货号显示", "fieldtype": "Select", "options": "合并货号\n不合并货号", "default": "合并货号", "insert_after": "customer_group", "description": "新销售订单默认是否合并同款对外货号；订单保存后保留当时设置。"},
         {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_html", "label": "差价明细（打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细打印快照，不参与会计计算。"},
         {"dt": "Sales Order", "fieldname": "custom_price_difference_detail_json", "label": "差价明细（结构化打印数据）", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价明细结构化打印快照，不参与会计计算。"},
         {"dt": "Sales Invoice", "fieldname": "custom_price_difference_detail", "label": "差价明细", "fieldtype": "Long Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1, "description": "差价摘要，不参与会计计算。"},
@@ -1303,6 +1349,9 @@ def add_wholesale_fields(commit=True):
         {"dt": "Sales Order", "fieldname": "custom_print_cor", "label": "订单显示 Cor/颜色", "fieldtype": "Check", "default": "0", "allow_on_submit": 1, "hidden": 1, "read_only": 1, "insert_after": "custom_print_color_code"},
         {"dt": "Sales Order", "fieldname": "custom_print_description", "label": "订单显示商品描述", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_cor"},
         {"dt": "Sales Order", "fieldname": "custom_print_additional_notes", "label": "订单显示补充说明", "fieldtype": "Check", "default": "1", "allow_on_submit": 1, "insert_after": "custom_print_description"},
+        {"dt": "Sales Order", "fieldname": "custom_wecom_send_status", "label": "微信发送状态", "fieldtype": "Select", "options": "待发送\n发送中\n已发送\n部分成功\n失败", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1},
+        {"dt": "Sales Order", "fieldname": "custom_wecom_send_error", "label": "微信发送错误", "fieldtype": "Small Text", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1},
+        {"dt": "Sales Order", "fieldname": "custom_wecom_sent_at", "label": "微信发送时间", "fieldtype": "Datetime", "hidden": 1, "read_only": 1, "allow_on_submit": 1, "no_copy": 1},
         {"dt": "Sales Order Item", "fieldname": "custom_item_barcode", "label": "真实商品条码", "fieldtype": "Data", "read_only": 1, "in_list_view": 1, "no_copy": 1, "insert_after": "item_code", "description": "变体无独立条码时继承模板真实条码；绝不使用物料编码代替"},
         {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_custom_tab", "label": "提交前检查", "fieldtype": "Tab Break", "insert_after": "connections_tab"},
         {"dt": "Sales Invoice", "fieldname": "custom_sales_invoice_approval_summary", "label": "提交前检查", "fieldtype": "HTML", "insert_after": "custom_sales_invoice_custom_tab"},
@@ -1368,6 +1417,10 @@ def add_wholesale_fields(commit=True):
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] == "Sales Order" and field["fieldname"] in {"custom_print_merge_order_code", "custom_print_color_code", "custom_print_cor"}:
             updates = {key: field[key] for key in ("label", "hidden", "read_only") if key in field}
+            if updates:
+                frappe.db.set_value("Custom Field", existing, updates)
+        elif field["dt"] == "Customer" and field["fieldname"] == "custom_print_merge_order_code_default":
+            updates = {key: field[key] for key in ("label", "options", "default", "insert_after", "description") if key in field}
             if updates:
                 frappe.db.set_value("Custom Field", existing, updates)
         elif field["dt"] == "Sales Invoice" and field["fieldname"] in {

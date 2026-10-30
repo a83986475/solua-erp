@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 pdf_calls = []
 xlsx_calls = []
 opened_doctypes = []
+color_languages = []
 
 
 class Doc(dict):
@@ -63,6 +64,14 @@ frappe.utils = utils
 frappe.__docs = {}
 frappe.__allowed = set()
 frappe.__blocked = set()
+
+
+class CustomerDB:
+    def get_value(self, doctype, name, field):
+        return "zh-CN" if doctype == "Customer" and name == "ZH-CUST" and field == "language" else ""
+
+
+frappe.db = CustomerDB()
 sys.modules["frappe"] = frappe
 sys.modules["frappe.utils"] = utils
 
@@ -98,8 +107,12 @@ sys.modules["frappe.utils.xlsxutils"] = xlsxutils
 wholesale = types.ModuleType("solua_home.printing.wholesale")
 
 
-def get_wholesale_print_data(doc):
+def get_wholesale_print_data(doc, color_language="pt"):
+    color_languages.append(color_language)
     data = {"items": [dict(item) for item in doc["print_data"].get("items", [])]}
+    if color_language == "zh":
+        for item in data["items"]:
+            item["description"] = item.get("zh_description") or item.get("description") or ""
     if not doc.get("custom_print_merge_order_code"):
         return data
     merged = {}
@@ -271,6 +284,19 @@ customer_table = module._customer_sales_order_table(wholesale_doc(
 assert customer_table[-3] == ["商品名称", "货号", "条码", "描述", "数量", "单位", "单价", "金额"]
 assert customer_table[-2] == ["商品", "STYLE", "111", "红色", 5, "箱/CTN", 100, 500]
 assert customer_table[-1] == ["合计", "", "", "", 5, "", "", 500]
+
+# 中文客户的合并货号导出必须沿用中文 PDF 的窗帘杆描述语言。
+zh_order = wholesale_doc(
+    "Sales Order",
+    [{"item_code": "ROD-RED", "order_code": "ROD", "description": "2m curtain rod / red",
+      "zh_description": "2米窗帘杆 / 红色", "qty": 1, "uom": "根", "rate": 100, "amount": 100},
+     {"item_code": "ROD-BLUE", "order_code": "ROD", "description": "2m curtain rod / blue",
+      "zh_description": "2米窗帘杆 / 蓝色", "qty": 2, "uom": "根", "rate": 100, "amount": 200}],
+    customer="ZH-CUST", custom_print_merge_order_code=1,
+)
+zh_table = module.build_table(zh_order, "item_code,description,qty", 0, 0)
+assert color_languages[-1] == "zh"
+assert zh_table[1] == ["ROD", "2米窗帘杆 / 红色", 3], zh_table
 module.export_document_table("Sales Invoice", "DOC-1", "item_code", "csv", 0, 0, 1)
 assert pdf_calls[-1]["content"].decode("utf-8").endswith("STYLE\r\n"), pdf_calls[-1]["content"]
 assert unmerged_invoice["custom_print_merge_order_code"] == "0", "per-export merge must not mutate the document"

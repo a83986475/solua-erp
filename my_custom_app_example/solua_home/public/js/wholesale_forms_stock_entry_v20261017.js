@@ -432,6 +432,7 @@
 		const stock_entry = is_stock_entry_form(frm);
 		const reconciliation = is_stock_reconciliation_form(frm);
 		const stock_document = stock_entry || reconciliation;
+		const sales_order_layout = !stock_document;
 		const dialog = new frappe.ui.Dialog({
 			title: __("批量添加物料"),
 			size: "extra-large",
@@ -440,14 +441,20 @@
 				{ fieldname: "default_qty", label: __("默认数量"), fieldtype: "Int", default: 1, min: reconciliation ? 0 : 1, reqd: 1, description: stock_entry ? __("搜索结果加入库存变动单时的初始数量，可在结果表中逐行调整") : reconciliation ? __("搜索结果加入库存盘点时的初始数量，可在结果表中逐行调整；允许填写 0") : __("搜索结果加入销售订单时的初始数量，可在结果表中逐行调整") },
 				{ fieldtype: "Column Break" },
 				{ fieldname: "item_group", label: __("商品组"), fieldtype: "Link", options: "Item Group" },
-				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item", get_query: () => ({ filters: { disabled: 0, has_variants: 1 } }) },
+				{ fieldname: "template", label: __("模板"), fieldtype: "Link", options: "Item", get_query: () => {
+					const item_group = dialog.get_value("item_group");
+					return { filters: { disabled: 0, has_variants: 1, ...(item_group ? { item_group } : {}) } };
+				} },
+				...(sales_order_layout ? [{ fieldtype: "Column Break" }] : []),
 				{ fieldname: "color", label: __("颜色/固定色号"), fieldtype: "Data" },
 				{ fieldname: "search", label: __("搜索货号/SKU/物料名称"), fieldtype: "Data", description: __("支持部分货号、SKU 或物料名称") },
+				...(sales_order_layout ? [{ fieldtype: "Column Break" }] : []),
 				{ fieldname: "in_stock", label: __("只看有库存"), fieldtype: "Check" },
 				{ fieldtype: "Button", fieldname: "search_items", label: __("搜索") },
 				{ fieldtype: "Button", fieldname: "select_all", label: __("当前筛选结果全选") },
 				{ fieldtype: "Button", fieldname: "invert_selection", label: __("反选") },
 				{ fieldtype: "HTML", fieldname: "hint", options: `<div class="text-muted small">${stock_entry ? __("库存 = actual_qty - reserved_qty；物料入库需填写成本，出库成本由系统计算。") : reconciliation ? __("库存 = actual_qty - reserved_qty；盘点数量是仓库实盘绝对值，可填写 0。") : __("库存 = actual_qty - reserved_qty；价格由 ERPNext 当前价格逻辑读取。")}</div>` },
+				...(sales_order_layout ? [{ fieldtype: "Section Break" }] : []),
 				{ fieldtype: "Table", fieldname: "results", label: __("物料结果"), cannot_add_rows: true, cannot_delete_rows: true, in_place_edit: true, data: [],
 					fields: [
 						{ fieldname: "image", label: __("图片"), fieldtype: "Attach Image", read_only: 1, in_list_view: 1 },
@@ -996,7 +1003,7 @@
 				}).catch(() => {});
 			}
 		}
-		if (doc.company) fill_unique_delivery_link(frm, "vehicle_no", "Vehicle", { company: doc.company });
+		if (!doc.vehicle_no) frm.set_value?.("vehicle_no", "AOJ415MC");
 		fill_unique_delivery_link(frm, "driver", "Driver", { status: "Active", ...(doc.transporter ? { transporter: doc.transporter } : {}) });
 	}
 

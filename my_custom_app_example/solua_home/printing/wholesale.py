@@ -28,6 +28,8 @@ def get_solua_print_css(with_logo=True):
     ``with_logo=False`` 供小纸格式使用（如 50×30mm 价格标签）：公司 logo 是
     15.4×12.3mm，在标签纸上会盖住商品名，所以由调用方显式关掉。
     """
+    from solua_home.printing.format_retirement import get_reviewed_margin_css
+
     try:
         parsed_font_size = int(float(_print_setting("custom_solua_print_font_size", 10)))
         font_size = 10 if parsed_font_size <= 0 else max(8, min(14, parsed_font_size))
@@ -82,9 +84,10 @@ def get_solua_print_css(with_logo=True):
 .print-format .block {{ page-break-inside: avoid; margin-top: var(--solua-block-margin); }}
 @media print {{ .print-format {{ font-size: var(--solua-font-size); }} }}
 {logo_css}
+{margin_css}
 </style>
 {logo_html}
-""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html))
+""".format(font_size=font_size, line_height=line_height, cell_padding=cell_padding, block_margin=block_margin, item_border=item_border, logo_css=logo_css, logo_html=logo_html, margin_css=get_reviewed_margin_css()))
 
 
 def validate_print_settings(doc, method=None):
@@ -852,7 +855,8 @@ def get_wholesale_print_data(doc, live=False, color_language="pt"):
                     item["description"] = f"{item['description']}；颜色：{color}".lstrip("；")
     if customer_print and doc.get("custom_print_merge_order_code"):
         original_count = len(data.get("items") or [])
-        data["items"] = _merge_customer_print_items(data.get("items"), rod_color_boxes=doc.doctype == "Sales Order",
+        data["items"] = _merge_customer_print_items(data.get("items"),
+                                                     rod_color_boxes=doc.doctype in ("Sales Order", "Delivery Note"),
                                                   color_language=color_language)
         data["customer_merged"] = len(data["items"]) < original_count
     if doc.doctype == "Delivery Note":

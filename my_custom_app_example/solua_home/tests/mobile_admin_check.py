@@ -17,6 +17,13 @@ Environment().parse(page)
 assert "System Manager" in api and "get_sales_order_color_variants" in api
 assert "search_sales_order_items" in api and "Wholesale Selling 3" in api
 assert "def search_customers" in api and "def list_customers" in api and "def get_customer_addresses" in api and "def save_sales_order" in api
+assert "def _require_sales_order_draft_user" in api and "def save_employee_sales_order_draft" in api
+assert "def search_employee_sales_order_customers" in api and "def lookup_employee_sales_order_item" in api
+assert "def list_employee_sales_order_drafts" in api and "只能保存草稿" in api
+assert "validate_sales_order_stock(doc)" in api
+assert "_server_messages" in page
+assert page.count('"X-Frappe-CSRF-Token": "{{ csrf_token }}"') == 7
+assert 'window.frappe?.csrf_token || window.csrf_token || ""' not in page
 assert "def list_sales_orders" in api and "def _customer_price_list" in api
 assert "def _sales_order_relations_batch" in api and "_sales_order_relations_batch(names" in api
 assert "def search_item_suggestions" in api and 'solua_home.api.mobile.search_item_suggestions' in page
@@ -76,9 +83,31 @@ assert 'data-open-mobile-details="mobile-new-sales-order"' in page
 assert "soluaMobileFeedback" in page and "solua:orders-refresh" in page
 assert 'writeCall("solua_home.api.mobile.create_customer"' in page
 assert "mobile_orders" in page_context and 'view == "orders"' in page_context
+assert "mobile_pick_lists" not in page_context
+assert "mobile_ticket_center" in page_context and 'view == "ticket-center"' in page_context
 assert "mobile_sales" in page_context and 'view == "sales"' in page_context
 assert "mobile_reports" in page_context and 'view == "reports"' in page_context
 assert "download_sales_order_customer_pdf" in page and "download_sales_order_customer_xlsx" in page
+assert "data-wecom-send" in page and "send_sales_order_customer_pdf_to_wechat" in page and "send_sales_order_customer_xlsx_to_wechat" in page
+assert "send_document_pdf_to_wechat" in page and "send_document_xlsx_to_wechat" in page and "发 PDF 到微信" in page and "发表格到微信" in page
+assert "async function sendToWechat" in page and "发 PDF 到微信" in page and "发表格到微信" in page
+assert "list_pick_lists" in api and "list_document_center" in api and 'id="mobile-ticket-center"' in page
+assert "销售订单 / Sales Order" not in page and "拣货单 / Pick List" not in page and "交货单 / Delivery Note" not in page and "销售发票 / Sales Invoice" not in page
+assert "Nova Encomenda" in page and "employee-sales-order-save" in page
+assert "Guardar apenas como rascunho" not in page
+assert "mobile-search-wrap" in page and "employee-sales-order-customer-list" in page
+assert "employee-sales-order-drafts-refresh" in page and "order-entry" in page_context
+assert "get_employee_sales_order_draft" in api and "data-employee-draft" in page and "window.location.href = \"/app/sales-order/" not in page
+assert "mobile_user_initials" in page_context and "solua-order-entry-page" in page
+assert "len(user_parts) > 1" in page_context
+assert "Stock:" in page and '${num(row.grand_total)} ${esc(row.currency || "MZN")}' not in page and '${num(row.rate)} MZN' not in page
+assert "def _employee_stock_result" in api and 'fields=["name", "customer", "customer_name", "transaction_date", "modified"]' in api
+assert '"image", "color", "color_code"' in api and "mobile-employee-item-image" in page
+assert 'employee-sales-order-customer-query").addEventListener("input"' in page and 'employee-sales-order-item-query").addEventListener("input"' in page
+assert 'docstatus: $("mobile-orders-status").value' in page and 'docstatus=0#mobile-sales-list' in page
+assert "mobile-ticket-center-refresh" in page and "票据中心" in page and "list_document_center" in page
+assert '"票据中心", "/mobile?view=ticket-center"' in page and 'id="mobile-ticket-{{ key }}"' in page and '"sales-orders"' in page and '"pick-lists"' in page
+assert "view=pick-lists" not in page and "view=pick-lists" not in page_context
 assert "data-mobile-file" in page and "navigator.share" in page and "存储到文件" in page
 assert "销售中心" in page and "交付与开票" in page
 assert "create_delivery_note" in page and "create_sales_invoice" in page and "create_pick_list" in page
@@ -86,6 +115,7 @@ assert "data-create-pick-list" in page and "can_create_pick_list" in api
 assert '"Pick List": "pick-list"' in page and "打开拣货单" in page and "mobile-feedback-actions" in page
 assert 'const createdDoctype = result.doctype' in page and 'docButtons(result, createdDoctype' in page and "打开单据" in page
 assert '"pick_lists": order_pick_lists' in api and "renderPickList" in page and "已关联拣货单" in page
+assert 'mobile_sales or mobile_orders or mobile_pick_lists' not in page and 'mobile_admin and (mobile_sales or mobile_orders or mobile_ticket_center)' in page
 assert "报表中心" in page and "mobile-report-period" in page and "get_mobile_reports" in page
 assert "手机报表" in page and "get_mobile_report_detail" in page and "Profitability Analysis" in page and "Item-wise Sales History" in page
 assert "订单、开票、应收和实际收款" in page and "订单、开票、应收和已收" not in page

@@ -8,6 +8,7 @@ import types
 from jinja2 import Environment, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent))
 
 
 class Doc(dict):
@@ -230,6 +231,26 @@ fallback_colors = module._merge_customer_print_items([
 assert fallback_colors[0]["description"].endswith("Cores: Red: 2 Cx; Blue: 3 Cx")
 frappe.get_cached_value = saved_cached_value
 module._item_master = saved_item_master
+
+# Merged Delivery Notes use the same Portuguese per-colour box detail as Sales Orders.
+saved_collect = module._collect
+saved_refresh_images = module._refresh_customer_item_images
+saved_recover_delivery = module._recover_delivery_quantities
+module._item_master = lambda code: {
+    "STYLE": {"variant_of": "", "description": "Template description", "custom_item_description_pt": "Template description"},
+}.get(code, {})
+frappe.get_cached_value = lambda dt, code, field: "窗帘杆" if code == "STYLE" else "窗帘"
+module._collect = lambda doc, use_snapshot=True: {"items": [dict(row) for row in rod_rows], "has_order_linkage": False}
+module._refresh_customer_item_images = lambda data: None
+module._recover_delivery_quantities = lambda doc, data: None
+merged_delivery = module.get_wholesale_print_data(Doc(doctype="Delivery Note", docstatus=0,
+                                                       custom_print_merge_order_code=1, is_return=0))
+assert merged_delivery["items"][0]["description"] == "Template description; Cores: 1: 6 Cx; 2: 3 Cx"
+module._collect = saved_collect
+module._refresh_customer_item_images = saved_refresh_images
+module._recover_delivery_quantities = saved_recover_delivery
+module._item_master = saved_item_master
+frappe.get_cached_value = saved_cached_value
 assert len(merged_customer_rows) == 2
 assert merged_customer_rows[0]["qty"] == 15 and merged_customer_rows[0]["amount"] == 1500
 assert merged_customer_rows[0]["image"] == "/template.png"
@@ -249,8 +270,15 @@ install_source = (ROOT / "install.py").read_text(encoding="utf-8")
 assert "def _lock_customer_sku_print_format" in install_source
 assert "item.order_code if p.get('customer_merged') else item.item_code" in install_source
 assert "SOLUA_PDF_FIT_V6" in install_source
-assert "margin-top:12mm!important" in install_source
-assert "padding:0 8mm 8mm!important" in install_source
+assert "SOLUA_PDF_LAYOUT_V1" in install_source
+assert "custom_print_rate" in install_source and "custom_print_amount" in install_source
+assert "Customer PDFs keep color quantities in the description" in install_source
+assert "sales_order_wholesale_color_zh" in install_source
+assert "@page{size:A4!important;margin:8mm 8mm 10mm!important;}" in install_source
+assert "legacy_html_style_pattern" in install_source
+assert "current_html = re.sub(legacy_html_style_pattern" in install_source
+assert ".print-format tbody tr,.print-format tbody tr td,.print-format tfoot tr" in install_source
+assert "for name in SOLUA_A4_PRINT_FORMATS" in install_source
 assert "table.items{table-layout:auto!important;width:100%!important;}" in install_source
 assert "col-sku{width:27mm!important;}" in install_source
 assert "col-barcode{width:31mm!important;}" in install_source
@@ -558,7 +586,7 @@ order.custom_store_name = ""
 stock.validate_delivery_note(auto_store_note)
 assert auto_store_note.custom_store_name == "STORE-A"
 order.custom_store_name = "A"
-unique_delivery_defaults.update({"Vehicle": [Doc(name="唯一车辆")], "Driver": [Doc(name="唯一司机")]})
+unique_delivery_defaults.update({"Driver": [Doc(name="唯一司机")]})
 default_note = fixture("Delivery Note")
 default_note.items = [Doc(default_note["items"][0], against_sales_order="", so_detail="")]
 default_note.custom_store_phone = ""
@@ -568,7 +596,7 @@ default_note.driver_name = ""
 default_note.custom_driver_phone = ""
 stock.validate_delivery_note(default_note)
 assert default_note.custom_store_phone == "999"
-assert default_note.vehicle_no == "唯一车辆" and default_note.driver == "唯一司机"
+assert default_note.vehicle_no == "AOJ415MC" and default_note.driver == "唯一司机"
 assert default_note.driver_name == "唯一司机" and default_note.custom_driver_phone == "123"
 unique_delivery_defaults["Vehicle"] = [Doc(name="车辆1"), Doc(name="车辆2")]
 manual_default_note = fixture("Delivery Note")
@@ -584,7 +612,7 @@ def compatibility_sql(query, args, **kwargs):
     return [[6]]
 frappe.db.sql = compatibility_sql
 dn_format = json.loads((ROOT / "print_format" / "delivery_note_guia_remessa" / "delivery_note_guia_remessa.json").read_text(encoding="utf-8"))
-def render_delivery(rows, ordered_before=None, current_remaining=None, quantity=None):
+def render_delivery(rows, ordered_before=None, current_remaining=None, quantity=None, rate=None, amount=None):
     document = fixture("Delivery Note")
     document.docstatus = 1
     document.custom_wholesale_snapshot = None
@@ -595,6 +623,10 @@ def render_delivery(rows, ordered_before=None, current_remaining=None, quantity=
         document.custom_print_current_remaining = current_remaining
     if quantity is not None:
         document.custom_print_quantity = quantity
+    if rate is not None:
+        document.custom_print_rate = rate
+    if amount is not None:
+        document.custom_print_amount = amount
     data = module.get_wholesale_print_data(document)
     return env.from_string(dn_format["html"]).render(doc=document), data
 
@@ -614,6 +646,11 @@ assert "Esta entrega / Restante<br>本次 / 剩余" not in html and (('<th class
 assert "<td class='col-qty num'>2</td>" in html and "2.0" not in html
 html, _ = render_delivery([linked], quantity=0)
 assert 'class="col-qty"' not in html and "class='col-qty'" not in html and "Total Qty / 总数量" in html and "<b>2</b>" in html
+for rate, amount in ((0, 0), (1, 0), (0, 1), (1, 1)):
+    html, _ = render_delivery([linked], rate=rate, amount=amount)
+    assert ('<th class="col-rate">Preço /<br>单价</th>' in html) == bool(rate)
+    assert ('<th class="col-amount">Valor / 金额</th>' in html) == bool(amount)
+    assert ("Total / 含税合计:" in html) == bool(amount)
 html, _ = render_delivery([linked], ordered_before=0)
 assert "Quantidade encomendada / 订购数量" not in html
 missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
@@ -850,7 +887,7 @@ class InstallDoc(types.SimpleNamespace):
 def install_get_doc(arg,name=None):
     if isinstance(arg,dict):return InstallDoc(**arg)
     if arg=="Page":return InstallDoc(name="solua-home",module="Solua Wholesale")
-    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）" else "Solua Wholesale")
+    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）新版" else "Solua Wholesale")
     raise AssertionError(arg)
 frappe.get_doc=install_get_doc
 frappe.get_attr=lambda name:lambda:None
@@ -879,6 +916,8 @@ installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
 assert len(imports)==10 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
+assert any("sales_invoice_wholesale_color_v2" in path for path in imports)
+assert not any("sales_invoice_wholesale_color/sales_invoice_wholesale_color.json" in path.replace("\\", "/") for path in imports)
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()

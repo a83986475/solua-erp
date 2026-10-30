@@ -161,6 +161,15 @@ def _add_stock_requirement(target, item_code, warehouse, qty):
     target[key] = target.get(key, 0) + qty
 
 
+def _warehouse_names(warehouse):
+    from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
+
+    warehouses = list(get_child_warehouses(warehouse) or [])
+    if warehouse not in warehouses:
+        warehouses.append(warehouse)
+    return warehouses
+
+
 def get_sales_order_stock_requirements(doc):
     """Return remaining demand in Stock UOM, including Product Bundle components."""
     requirements = {}
@@ -204,11 +213,7 @@ def get_sales_order_stock_requirements(doc):
 def _lock_bin_rows(item_code, warehouse):
     if not warehouse:
         return
-    from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
-
-    warehouses = list(get_child_warehouses(warehouse) or [])
-    if warehouse not in warehouses:
-        warehouses.append(warehouse)
+    warehouses = _warehouse_names(warehouse)
     bin_table = frappe.qb.DocType("Bin")
     frappe.qb.from_(bin_table).select(bin_table.name).where(
         (bin_table.item_code == item_code) & bin_table.warehouse.isin(warehouses)
@@ -216,16 +221,19 @@ def _lock_bin_rows(item_code, warehouse):
 
 
 def validate_stock_requirements(requirements, company, self_reserved=None, message="库存不足"):
-    """Check actual stock less other reservations, locking Bin rows first."""
+    """Check actual stock less live Sales Order reservations, locking Bin rows first."""
     self_reserved = self_reserved or {}
     shortages = []
     from erpnext.stock.get_item_details import get_bin_details
+    from erpnext.stock.stock_balance import get_reserved_qty
 
     for (item_code, warehouse), required_qty in sorted(requirements.items()):
         _lock_bin_rows(item_code, warehouse)
         bin_details = get_bin_details(item_code, warehouse, company, include_child_warehouses=True) or {}
         actual_qty = flt(bin_details.get("actual_qty"))
-        reserved_qty = flt(bin_details.get("reserved_qty"))
+        # Bin.reserved_qty is a denormalized rollup refreshed after submit; use
+        # the native live Sales Order query while the Bin rows are locked.
+        reserved_qty = sum(flt(get_reserved_qty(item_code, child)) for child in _warehouse_names(warehouse))
         available_qty = actual_qty - reserved_qty + flt(self_reserved.get((item_code, warehouse)))
         if required_qty > available_qty + 0.000001:
             shortages.append(_("{0}（仓库：{1}，需求：{2}，实际：{3}，预留：{4}，可用：{5}）").format(
@@ -1012,10 +1020,8 @@ def validate_delivery_note(doc, method=None):
             if phone:
                 doc.custom_store_phone = phone
 
-        if not doc.get("vehicle_no") and doc.get("company"):
-            vehicles = frappe.get_all("Vehicle", filters={"company": doc.company}, fields=["name"], limit_page_length=2)
-            if len(vehicles) == 1:
-                doc.vehicle_no = vehicles[0].get("name")
+        if not doc.get("vehicle_no"):
+            doc.vehicle_no = "AOJ415MC"
 
         if not doc.get("driver"):
             driver_filters = {"status": "Active"}

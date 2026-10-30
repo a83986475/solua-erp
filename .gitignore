@@ -51,5 +51,6 @@ erpnext/www/banking.html
 /artifacts/
 /output/
 /outputs/
+/.codex-tmp/
 /tmp_*.py
 /xpos-client/xpos/

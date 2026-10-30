@@ -26,12 +26,16 @@ doc_events = {
         ],
     },
     "Sales Order": {
-        "before_validate": "solua_home.cash_discount.before_validate_sales_document",
+        "before_validate": [
+            "solua_home.cash_discount.before_validate_sales_document",
+            "solua_home.api.wecom.apply_customer_print_preference",
+        ],
         "validate": ["solua_home.api.sales.validate_sales_order", "solua_home.cash_discount.validate_sales_document"],
         "before_submit": [
             "solua_home.api.sales.validate_sales_order_stock",
             "solua_home.printing.wholesale.prepare_print_snapshot",
         ],
+        "on_submit": "solua_home.api.wecom.enqueue_sales_order_submit_send",
         "before_update_after_submit": "solua_home.api.sales.validate_sales_order_stock",
     },
     "Payment Entry": {
@@ -78,10 +82,8 @@ doc_events = {
         "on_submit": [
             "solua_home.api.stock.on_stock_entry_submitted",
             "solua_home.item_metrics.on_stock_voucher_change",
-            "solua_home.receipt_cost_sync.on_submit",
         ],
         "on_cancel": [
-            "solua_home.receipt_cost_sync.on_cancel",
             "solua_home.item_metrics.on_stock_voucher_change",
         ],
     },
@@ -180,6 +182,7 @@ override_whitelisted_methods = {
     "erpnext.selling.doctype.sales_order.mapper.create_pick_list": "solua_home.api.stock.create_pick_list",
     "erpnext.selling.page.point_of_sale.point_of_sale.get_items": "solua_home.api.pos.get_items",
     "frappe.desk.desktop.get_workspaces": "solua_home.api.workspace.get_workspaces",
+    "frappe.desk.query_report.run": "solua_home.api.gross_profit.run",
     # 强制 Page 文档不缓存进 localStorage（否则 pos_custom.js 等 page_js 更新不生效）
     "frappe.desk.desk_page.getpage": "solua_home.override.desk_page.getpage",
     "frappe.utils.print_format.download_multi_pdf": "solua_home.api.export.download_multi_pdf",
@@ -263,14 +266,14 @@ app_include_js = [
     "/assets/solua_home/js/business_form_simplify_v20261003.js?v=11",
     "/assets/solua_home/js/solua_home_global.js?v=related-links-new-tab-20261008b",
     "/assets/solua_home/js/item_quick_entry.js?v=item-price-sync-20260929-v6",
-    "/assets/solua_home/js/payment_entry_labels_v20261004.js?v=cash-discount-allocation-20261008a",
+    "/assets/solua_home/js/payment_entry_labels_v20261004.js?v=cash-discount-term-20261027a",
     "/assets/solua_home/js/quantity_validation.js?v=return-qty-20261005a",
     "/assets/solua_home/js/quantity_display_precision_v20261004.js?v=quantity-precision-20261004a",
     "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
     "/assets/solua_home/js/retail_settings_panel.js?v=retail-settings-20261005a",
     "/assets/solua_home/js/print_format_import_export.js?v=print-format-import-export-20261005a",
-    "/assets/solua_home/js/print_preview_pdfjs.js?v=pdfjs-print-preview-20260924",
+    "/assets/solua_home/js/print_preview_pdfjs.js?v=print-format-review-20261018a",
     "/assets/solua_home/js/print_button_v20261006.js?v=print-button-20261008a",
     # Point of Sale 是已打包的标准页面，page_js 不一定会被执行；
     # 全局引入后由 pos_custom.js 自己等待 POS 类加载，确保颜色弹窗可靠生效。
@@ -288,10 +291,10 @@ page_js = {
 doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
-	"Sales Invoice": ["public/js/sales_invoice_print_options_v20261005.js", "public/js/sales_invoice_print_button_v20261008.js", "public/js/sales_invoice_default_print_button_v20261009.js", "public/js/document_table_export_v20261005b.js", "public/js/sales_invoice_stock_guard_v20261003.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js"],
+    "Sales Invoice": ["public/js/sales_invoice_print_options_v20261005.js", "public/js/sales_invoice_print_button_v20261008.js", "public/js/sales_invoice_default_print_button_v20261009.js", "public/js/document_table_export_v20261005b.js", "public/js/sales_invoice_stock_guard_v20261003.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/document_wechat_send_v20261019.js"],
     "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20261005c.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/order_status_v20261009d.js", "public/js/sales_order_available_stock_v20261008.js", "public/js/sales_order_item_query_v20261014.js", "public/js/sales_order_wechat_send_v20261017b.js"],
-    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/delivery_note_return_action_v20261010.js"],
-    "Pick List": ["public/js/pick_list_order_reconciliation_v20261009d.js", "public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/pick_list_order_update_v20261016.js"],
+    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/delivery_note_return_action_v20261010.js", "public/js/document_wechat_send_v20261019.js"],
+    "Pick List": ["public/js/pick_list_order_reconciliation_v20261009d.js", "public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/pick_list_order_update_v20261016.js", "public/js/document_wechat_send_v20261019.js"],
     "Stock Entry": "public/js/wholesale_forms_additional_notes_loader_v19.js",
 
     "Purchase Receipt": "public/js/wholesale_forms_additional_notes_loader_v19.js",

@@ -37,6 +37,7 @@ const pdfjsLib = {
 	},
 };
 const frappe = {
+	meta: { get_print_formats: () => ["Standard", "Kept Format"] },
 	ui: { form: { PrintView: DesignerPrintView } },
 	router: { on() {} },
 	require: async () => {},
@@ -63,6 +64,11 @@ vm.runInNewContext(
 	fs.readFileSync(require.resolve("../public/js/print_preview_pdfjs.js"), "utf8"),
 	context
 );
+
+for (const doctype of ["Sales Order", "Pick List", "Delivery Note", "Sales Invoice"]) {
+	assert.deepEqual(Array.from(frappe.meta.get_print_formats(doctype)), ["Kept Format"]);
+}
+assert.deepEqual(Array.from(frappe.meta.get_print_formats("Quotation")), ["Standard", "Kept Format"]);
 
 const view = Object.assign(new DesignerPrintView(), {
 	frm: { doc: { doctype: "Sales Order", name: "SAL-ORD-1" } },
