@@ -75,13 +75,13 @@ setImmediate(async()=>{
  const actions=node('[data-role="actions"]').content;
  const quickActions=node('[data-role="quick-actions"]').content;
  const reportLinks=node('[data-role="report-links"]').content;
- for (const label of ["盈利能力分析","库存树报表","经营金额报表","送货汇总","物料销售明细"])
+ for (const label of ["盈利能力分析","库存树报表","销售订单预留明细","经营金额报表","送货汇总","物料销售明细"])
   assert(reportLinks.includes(label),"missing wholesale report link: "+label);
  assert(reportLinks.includes('data-report="Item-wise Sales History"'),"missing item-wise sales report link");
  assert(quickActions.includes("送货中心")&&quickActions.includes("/mobile?view=delivery&desktop=1"),"missing desktop delivery center link");
  assert(!actions.includes('data-workspace="Buying"'));
  assert(!actions.includes("新建采购订单"));
- for (const label of ["销售","新建销售订单","销售订单分析报表","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台","首页常用功能设置"])
+ for (const label of ["销售","新建销售订单","销售订单分析报表","新建交货单","按销售订单开交货单","交货单","送货汇总报表","拣货单","销售发票","销售发票明细报表","销售发票提交检查","POS 销售单","报价单","客户/门店","价格表","优惠/促销管理","库存","新建物料","物料列表","库存树报表","销售订单预留明细","库存余额报表","库存流水报表","库存入库","物料出库","领用","损耗","出入库记录","手机扫码盘点","盘点单","仓库与库位","财务","经营金额报表","应收账款报表","销售毛利报表","未收款发票","新建收款单","收付款单","打印与标签","打印设置","打印设计","A4 打印设计器","销售单格式","标签打印","其他入口","POS交班","公开色卡","xPos 收银台","首页常用功能设置"])
   assert(actions.includes(label),"missing homepage action: "+label);
  assert(!actions.includes('data-report="Item-wise Sales History"'),"item-wise sales history is only shown in wholesale reports");
  assert(actions.includes("Item Price")&&actions.includes("sales-invoice-approval"),"price list and invoice-submit check entry points are present");

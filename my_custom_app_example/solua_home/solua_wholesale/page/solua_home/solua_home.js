@@ -178,11 +178,11 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 		}
 		render_desk_panels(data);
 		root.find('[data-role="report-links"]').html([
-			[__("盈利能力分析"), "Profitability Analysis"], [__("库存树报表"), "Template Stock Tree"], [__("经营金额报表"), "Solua Business Totals"], [__("送货汇总"), "Solua Delivery Summary"], [__("物料销售明细"), "Item-wise Sales History"]
-		].filter(([, report]) => report === "Template Stock Tree" ? permissions.read_bin : report === "Solua Delivery Summary" ? permissions.read_delivery_note : report === "Item-wise Sales History" ? permissions.read_sales_order : permissions.read_sales_invoice).map(([label, report]) => {
+			[__("盈利能力分析"), "Profitability Analysis"], [__("库存树报表"), "Template Stock Tree"], [__("销售订单预留明细"), "Sales Order Reservations"], [__("经营金额报表"), "Solua Business Totals"], [__("送货汇总"), "Solua Delivery Summary"], [__("物料销售明细"), "Item-wise Sales History"]
+		].filter(([, report]) => report === "Template Stock Tree" ? permissions.read_bin : report === "Solua Delivery Summary" ? permissions.read_delivery_note : ["Item-wise Sales History", "Sales Order Reservations"].includes(report) ? permissions.read_sales_order : permissions.read_sales_invoice).map(([label, report]) => {
 			const today = data.query_time?.slice(0, 10);
 			const dates = ["Profitability Analysis", "Item-wise Sales History"].includes(report) && today ? {from_date: frappe.datetime.add_months(today, -1), to_date: today} : {};
-			const filters = {company: data.company, ...dates, ...(report === "Template Stock Tree" ? {warehouse: data.warehouse} : {})};
+			const filters = {company: data.company, ...dates, ...(["Template Stock Tree", "Sales Order Reservations"].includes(report) ? {warehouse: data.warehouse} : {})};
 			return remember_feature(`<button type="button" class="btn btn-default btn-sm" data-feature-key="${text(label)}" data-report="${text(report)}" data-report-filters="${text(JSON.stringify(filters))}">${text(label)}</button>`, label);
 		}).join(""));
 		root.find('[data-role="report-links"]').append(`<button type="button" class="btn btn-default btn-sm" data-sidebar-open="1">${__("打开批发侧栏")}</button>`);
@@ -378,6 +378,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				new_action(__("新建物料"), "Item", permissions.new_item),
 				view_action(__("物料列表"), "Item", permissions.read_item),
 				report_action(__("库存树报表"), "Template Stock Tree", permissions.read_bin, {warehouse: current_warehouse}),
+				report_action(__("销售订单预留明细"), "Sales Order Reservations", permissions.read_sales_order, {company: data.company, warehouse: current_warehouse}),
 				report_action(__("库存余额报表"), "Stock Balance", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
 				report_action(__("库存流水报表"), "Stock Ledger", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
 				action(__("库存入库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Receipt", stock_entry_type: "Material Receipt" }),
