@@ -119,7 +119,7 @@ fake_frappe.db = types.SimpleNamespace(get_value=lambda *args, **kwargs: "SO-1")
 class StatusOrder:
     docstatus = 1
     status = "To Deliver"
-    per_billed = 100
+    per_billed = 0
     items = [Row(qty=25, delivered_qty=5, returned_qty=20)]
 
     def db_set(self, fieldname, value, update_modified=False):

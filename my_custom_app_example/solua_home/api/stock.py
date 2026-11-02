@@ -42,7 +42,7 @@ def validate_transaction_quantities(doc, method=None):
 
 
 def close_sales_order_after_return(doc, method=None):
-    """Close fully delivered and billed Sales Orders after a submitted return."""
+    """Close Sales Orders whose delivered quantities are fully accounted for after a return."""
     if not doc.get("is_return") or doc.get("docstatus") != 1:
         return
 
@@ -54,8 +54,6 @@ def close_sales_order_after_return(doc, method=None):
     for order_name in order_names:
         order = frappe.get_doc("Sales Order", order_name)
         if order.docstatus != 1 or order.status in ("Closed", "Cancelled"):
-            continue
-        if flt(order.per_billed) < 100:
             continue
         if any(
             flt(row.qty) > 0
