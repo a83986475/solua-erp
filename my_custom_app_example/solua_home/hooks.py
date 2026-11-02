@@ -99,7 +99,10 @@ doc_events = {
         ],
         "after_insert": "solua_home.api.stock.sync_delivery_contact_phone",
         "on_update": "solua_home.api.stock.sync_delivery_contact_phone",
-        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_submit": [
+            "solua_home.item_metrics.on_stock_voucher_change",
+            "solua_home.api.stock.close_sales_order_after_return",
+        ],
         "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
         "before_submit": [
             "solua_home.api.stock.validate_delivery_route",

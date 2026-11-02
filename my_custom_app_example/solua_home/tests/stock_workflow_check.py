@@ -33,6 +33,7 @@ assert {
     "_pick_list_order_comparison",
     "get_pick_list_sales_order_comparison",
 }.issubset(stock_functions)
+assert "close_sales_order_after_return" in stock_functions
 
 stock_source = stock.read_text(encoding="utf-8-sig")
 assert "pick_list_item" in stock_source
@@ -43,6 +44,7 @@ assert "get_reserved_qty(item_code, child)" in stock_source
 assert "custom_shortage_note" in stock_source
 assert "custom_sales_order" in stock_source
 assert "销售订单对比未通过" in stock_source
+assert "退货退款后不再继续交付" in stock_source
 
 sales_source = sales.read_text(encoding="utf-8-sig")
 assert "get_sales_order_stock_requirements" in sales_source
@@ -112,6 +114,41 @@ assert abs(loaded.get_sales_order_stock_requirements(bundle)[("COMP", "WH")] - (
 fake_frappe.get_meta = lambda doctype: types.SimpleNamespace(has_field=lambda fieldname: True)
 fake_frappe.throw = lambda message: (_ for _ in ()).throw(RuntimeError(message))
 fake_frappe.db = types.SimpleNamespace(get_value=lambda *args, **kwargs: "SO-1")
+
+
+class StatusOrder:
+    docstatus = 1
+    status = "To Deliver"
+    per_billed = 100
+    items = [Row(qty=25, delivered_qty=5, returned_qty=20)]
+
+    def db_set(self, fieldname, value, update_modified=False):
+        setattr(self, fieldname, value)
+
+    def update_status(self, status):
+        self.status = status
+
+
+returned_order = StatusOrder()
+fake_frappe.get_doc = lambda doctype, name: returned_order
+loaded.close_sales_order_after_return(Doc(
+    is_return=1,
+    docstatus=1,
+    items=[Row(against_sales_order="SO-RETURN")],
+))
+assert returned_order.status == "Closed"
+assert returned_order.custom_order_end_reason == "退货退款后不再继续交付"
+
+partial_order = StatusOrder()
+partial_order.items = [Row(qty=25, delivered_qty=10, returned_qty=5)]
+fake_frappe.get_doc = lambda doctype, name: partial_order
+loaded.close_sales_order_after_return(Doc(
+    is_return=1,
+    docstatus=1,
+    items=[Row(against_sales_order="SO-PARTIAL")],
+))
+assert partial_order.status == "To Deliver"
+
 partial = Doc(
     purpose="Delivery",
     custom_pick_result="部分拣货",

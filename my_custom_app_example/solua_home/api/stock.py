@@ -41,6 +41,34 @@ def validate_transaction_quantities(doc, method=None):
             validate_positive_integer_qty(value, "数量", item.item_code)
 
 
+def close_sales_order_after_return(doc, method=None):
+    """Close fully delivered and billed Sales Orders after a submitted return."""
+    if not doc.get("is_return") or doc.get("docstatus") != 1:
+        return
+
+    order_names = {
+        _row_value(row, "against_sales_order")
+        for row in (doc.get("items") or [])
+        if _row_value(row, "against_sales_order")
+    }
+    for order_name in order_names:
+        order = frappe.get_doc("Sales Order", order_name)
+        if order.docstatus != 1 or order.status in ("Closed", "Cancelled"):
+            continue
+        if flt(order.per_billed) < 100:
+            continue
+        if any(
+            flt(row.qty) > 0
+            and flt(row.delivered_qty) + flt(row.returned_qty) < flt(row.qty) - 0.000001
+            for row in order.items
+        ):
+            continue
+
+        if frappe.get_meta("Sales Order").has_field("custom_order_end_reason"):
+            order.db_set("custom_order_end_reason", "退货退款后不再继续交付", update_modified=False)
+        order.update_status("Closed")
+
+
 def _row_value(row, fieldname, default=None):
     value = row.get(fieldname) if hasattr(row, "get") else getattr(row, fieldname, default)
     return default if value is None else value
