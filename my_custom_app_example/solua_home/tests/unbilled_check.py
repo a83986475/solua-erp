@@ -35,6 +35,22 @@ assert m.allocate_sales_order_qty([
     {'name':'DN2','parent':'DN2','qty':6,'posting_date':'2026-10-02','direct_invoiced_qty':0},
     {'name':'DN1','parent':'DN1','qty':4,'posting_date':'2026-10-01','direct_invoiced_qty':0},
 ], 6)=={'DN1':4,'DN2':2}
+assert m.closed_order_invoice_quantities(
+    [types.SimpleNamespace(name='SO-ROW', conversion_factor=1)],
+    [
+        {'name':'DN-ROW','so_detail':'SO-ROW','stock_qty':10,'is_return':0},
+        {'name':'DN-RETURN','so_detail':'SO-ROW','stock_qty':2,'is_return':1},
+    ],
+    [
+        {'so_detail':'','dn_detail':'DN-ROW','stock_qty':5,'is_return':0},
+    ],
+) == {'SO-ROW':3}
+assert m.closed_order_invoice_quantities(
+    [types.SimpleNamespace(name='SO-ROW', conversion_factor=2)],
+    [{'name':'DN-ROW','so_detail':'SO-ROW','stock_qty':12,'is_return':0}],
+    [{'so_detail':'SO-ROW','dn_detail':'','stock_qty':4,'is_return':0},
+     {'so_detail':'SO-ROW','dn_detail':'','stock_qty':2,'is_return':1}],
+) == {'SO-ROW':4}
 print('PASS: quantity billing, direct-SO FIFO, price changes, returns, pre-invoiced delivery and free items')
 
 # Sales Order invoices count by quantity; credit notes do not create negative billable quantity.

@@ -46,6 +46,45 @@ def allocate_sales_order_qty(delivery_rows, invoiced_qty):
     return result
 
 
+def closed_order_invoice_quantities(items, delivery_rows, invoice_rows):
+    """Return Sales Order quantities that are delivered but not yet invoiced."""
+    delivered_stock = {}
+    delivery_to_order_item = {}
+    for row in delivery_rows:
+        name = row.get("name") if hasattr(row, "get") else getattr(row, "name", None)
+        detail = row.get("so_detail") if hasattr(row, "get") else getattr(row, "so_detail", None)
+        if name:
+            delivery_to_order_item[name] = detail
+        if not detail:
+            continue
+        stock_qty = abs(flt(row.get("stock_qty") if hasattr(row, "get") else getattr(row, "stock_qty", 0)))
+        is_return = row.get("is_return") if hasattr(row, "get") else getattr(row, "is_return", 0)
+        delivered_stock[detail] = delivered_stock.get(detail, 0) + (-stock_qty if is_return else stock_qty)
+
+    billed_stock = {}
+    for row in invoice_rows:
+        detail = row.get("so_detail") if hasattr(row, "get") else getattr(row, "so_detail", None)
+        if not detail:
+            dn_detail = row.get("dn_detail") if hasattr(row, "get") else getattr(row, "dn_detail", None)
+            detail = delivery_to_order_item.get(dn_detail)
+        if not detail:
+            continue
+        is_return = row.get("is_return") if hasattr(row, "get") else getattr(row, "is_return", 0)
+        if is_return:
+            continue
+        stock_qty = abs(flt(row.get("stock_qty") if hasattr(row, "get") else getattr(row, "stock_qty", 0)))
+        billed_stock[detail] = billed_stock.get(detail, 0) + stock_qty
+
+    result = {}
+    for item in items:
+        name = item.get("name") if hasattr(item, "get") else getattr(item, "name", None)
+        factor = flt(item.get("conversion_factor") if hasattr(item, "get") else getattr(item, "conversion_factor", 0)) or 1
+        qty = max(0, delivered_stock.get(name, 0) - billed_stock.get(name, 0)) / factor
+        if qty > 0.000001:
+            result[name] = qty
+    return result
+
+
 def _submitted_invoice_rows(company):
     if not _can_read("Sales Invoice"):
         return []
@@ -183,6 +222,66 @@ def make_sales_invoice_from_sales_order(source_name, target_doc=None, ignore_per
     from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice as native_make_sales_invoice
 
     return native_make_sales_invoice(source_name, target_doc, ignore_permissions, args)
+
+
+@frappe.whitelist()
+def make_sales_invoice_from_closed_sales_order(source_name, target_doc=None):
+    """Create only the delivered, unbilled rows from a closed Sales Order."""
+    source = frappe.get_doc("Sales Order", source_name)
+    source.check_permission("read")
+    if source.docstatus != 1 or source.status != "Closed":
+        frappe.throw("此按钮只适用于已结束的销售订单")
+    if not _can_create("Sales Invoice"):
+        frappe.throw("没有创建销售发票的权限", frappe.PermissionError)
+
+    drafts = _draft_sales_invoices_for_source("sales_order", source_name)
+    if drafts:
+        frappe.throw("此订单已有销售发票草稿，请先检查草稿后再继续")
+
+    if not _can_read("Delivery Note") or not _can_read("Sales Invoice"):
+        frappe.throw("需要交货单和销售发票的读取权限才能核对已交付未开票数量", frappe.PermissionError)
+
+    details = tuple(row.name for row in source.items)
+    if not details:
+        frappe.throw("此订单没有明细行")
+    delivery_rows = frappe.db.sql(
+        """SELECT dni.name, dni.so_detail, dni.stock_qty, dn.is_return
+             FROM `tabDelivery Note Item` dni
+             JOIN `tabDelivery Note` dn ON dn.name = dni.parent
+            WHERE dn.company = %(company)s AND dn.docstatus = 1
+              AND dni.so_detail IN %(details)s""",
+        {"company": source.company, "details": details},
+        as_dict=True,
+    )
+    invoice_rows = frappe.db.sql(
+        """SELECT sii.so_detail, sii.dn_detail, sii.stock_qty, si.is_return
+             FROM `tabSales Invoice Item` sii
+             JOIN `tabSales Invoice` si ON si.name = sii.parent
+             LEFT JOIN `tabDelivery Note Item` dni ON dni.name = sii.dn_detail
+            WHERE si.company = %(company)s AND si.docstatus = 1
+              AND (sii.so_detail IN %(details)s OR dni.so_detail IN %(details)s)""",
+        {"company": source.company, "details": details},
+        as_dict=True,
+    )
+    quantities = closed_order_invoice_quantities(source.items, delivery_rows, invoice_rows)
+    if not quantities:
+        frappe.throw("此订单没有已交付但未开票的数量")
+
+    from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice as native_make_sales_invoice
+
+    invoice = native_make_sales_invoice(
+        source_name,
+        target_doc,
+        False,
+        args={"filtered_children": list(quantities)},
+    )
+    invoice.items = [row for row in invoice.items if row.so_detail in quantities]
+    for row in invoice.items:
+        row.qty = min(flt(row.qty), quantities[row.so_detail])
+    if not invoice.items:
+        frappe.throw("此订单没有已交付但未开票的数量")
+    invoice.run_method("calculate_taxes_and_totals")
+    return invoice
 
 
 def get_rows(company, start, end, customer=None):

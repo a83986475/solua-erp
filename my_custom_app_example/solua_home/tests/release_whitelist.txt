@@ -4,8 +4,10 @@ my_custom_app_example/solua_home/api/price_difference.py
 my_custom_app_example/solua_home/api/export.py
 my_custom_app_example/solua_home/api/home.py
 my_custom_app_example/solua_home/api/order_status.py
+my_custom_app_example/solua_home/api/unbilled.py
 my_custom_app_example/solua_home/override/delivery_note.py
 my_custom_app_example/solua_home/public/js/order_status_v20261009d.js
+my_custom_app_example/solua_home/public/js/sales_order_closed_invoice_v20261103.js
 my_custom_app_example/solua_home/public/js/sales_order_available_stock_v20261102.js
 my_custom_app_example/solua_home/public/js/pick_list_customer_filter_v20261010.js
 my_custom_app_example/solua_home/api/stock.py
