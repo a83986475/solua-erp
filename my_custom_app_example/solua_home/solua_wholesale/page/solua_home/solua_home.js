@@ -378,7 +378,7 @@ frappe.pages["solua-home"].on_page_load = function (wrapper) {
 				new_action(__("新建物料"), "Item", permissions.new_item),
 				view_action(__("物料列表"), "Item", permissions.read_item),
 				report_action(__("库存树报表"), "Template Stock Tree", permissions.read_bin, {warehouse: current_warehouse}),
-				report_action(__("销售订单预留明细"), "Sales Order Reservations", permissions.read_sales_order, {company: data.company, warehouse: current_warehouse}),
+				report_action(__("销售订单预留明细"), "Sales Order Reservations", permissions.read_sales_order, {warehouse: current_warehouse}),
 				report_action(__("库存余额报表"), "Stock Balance", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
 				report_action(__("库存流水报表"), "Stock Ledger", permissions.read_stock_ledger && permissions.read_item, {warehouse: current_warehouse ? [current_warehouse] : []}),
 				action(__("库存入库"), "Stock Entry", null, permissions.new_stock_entry, { purpose: "Material Receipt", stock_entry_type: "Material Receipt" }),
