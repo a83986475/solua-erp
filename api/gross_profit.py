@@ -307,3 +307,28 @@ def run(
 
     parsed_filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
     return _fix_amount_only_returns(result, parsed_filters)
+
+
+def _export_with_gross_profit_rows(native_export, query_report, report_name):
+    """Make export reruns use the same Gross Profit rows as the report UI."""
+    if report_name != "Gross Profit":
+        return native_export()
+
+    native_run = query_report.run
+    query_report.run = run
+    try:
+        return native_export()
+    finally:
+        query_report.run = native_run
+
+
+@frappe.whitelist()
+def export_query():
+    """Keep collapsed Gross Profit exports aligned with the visible tree rows."""
+    import frappe.desk.query_report as query_report
+
+    return _export_with_gross_profit_rows(
+        query_report.export_query,
+        query_report,
+        frappe.local.form_dict.get("report_name"),
+    )

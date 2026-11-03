@@ -183,6 +183,7 @@ override_whitelisted_methods = {
     "erpnext.selling.page.point_of_sale.point_of_sale.get_items": "solua_home.api.pos.get_items",
     "frappe.desk.desktop.get_workspaces": "solua_home.api.workspace.get_workspaces",
     "frappe.desk.query_report.run": "solua_home.api.gross_profit.run",
+    "frappe.desk.query_report.export_query": "solua_home.api.gross_profit.export_query",
     # 强制 Page 文档不缓存进 localStorage（否则 pos_custom.js 等 page_js 更新不生效）
     "frappe.desk.desk_page.getpage": "solua_home.override.desk_page.getpage",
     "frappe.utils.print_format.download_multi_pdf": "solua_home.api.export.download_multi_pdf",
