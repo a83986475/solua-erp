@@ -170,7 +170,7 @@ def send_sales_order_customer_xlsx_to_wechat(name):
     doc = get_export_document("Sales Order", name)
     filename = f"{_sales_order_customer_pdf_filename(doc)[:-4]}.xlsx"
     merge_customer = bool(int(doc.get("custom_print_merge_order_code") or 0))
-    xlsx = _xlsx_bytes(_customer_sales_order_table(doc, merge_customer=merge_customer), "客户表格")
+    xlsx = _xlsx_bytes(_customer_sales_order_table(doc, merge_customer=merge_customer), "客户表格", wrap_columns=(3,))
     return _send_file(
         webhook_url,
         key,
@@ -210,10 +210,12 @@ def send_document_xlsx_to_wechat(doctype, name):
         frappe.throw("只支持发送交货单、拣货单和销售发票")
     webhook_url, key = _webhook_config()
 
-    from solua_home.api.export import _xlsx_bytes, build_table, get_export_document
+    from solua_home.api.export import _selected_columns, _xlsx_bytes, build_table, get_export_document
 
     doc = get_export_document(doctype, name)
-    xlsx = _xlsx_bytes(build_table(doc), "单据表格")
+    selected = _selected_columns(doctype, None)
+    wrap_columns = (selected.index("description"),) if "description" in selected else ()
+    xlsx = _xlsx_bytes(build_table(doc, selected), "单据表格", wrap_columns=wrap_columns)
     return _send_file(
         webhook_url,
         key,

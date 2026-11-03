@@ -242,10 +242,10 @@ def _send_csv(table, filename):
     provide_binary_file(filename, "csv", ("\ufeff" + buffer.getvalue()).encode("utf-8"))
 
 
-def _send_xlsx(table, filename):
+def _send_xlsx(table, filename, wrap_columns=()):
     from frappe.desk.utils import provide_binary_file
 
-    provide_binary_file(filename, "xlsx", _xlsx_bytes(table, filename))
+    provide_binary_file(filename, "xlsx", _xlsx_bytes(table, filename, wrap_columns=wrap_columns))
 
 
 def _xlsx_text_width(value):
@@ -257,22 +257,26 @@ def _xlsx_text_width(value):
     )
 
 
-def _xlsx_column_widths(table):
+def _xlsx_column_widths(table, wrap_columns=()):
     column_count = max((len(row) for row in table), default=0)
-    # ponytail: bound content-based sizing so long notes wrap instead of creating unusably wide sheets.
+    wrap_columns = set(wrap_columns)
+    # Keep the description readable without letting one long color summary widen the whole workbook.
     return [
         min(
             max(max((_xlsx_text_width(row[index]) for row in table if index < len(row)), default=0) + 2, 10),
-            80,
+            42 if index in wrap_columns else 80,
         )
         for index in range(column_count)
     ]
 
 
-def _xlsx_styles(column_count, row_count, quantity_columns=()):
+def _xlsx_styles(column_count, row_count, quantity_columns=(), wrap_columns=()):
     quantity_columns = set(quantity_columns)
+    wrap_columns = set(wrap_columns)
     cell_styles = {
-        (row_index, column_index): [2 if column_index in quantity_columns else 1]
+        (row_index, column_index): [
+            3 if column_index in wrap_columns else (2 if column_index in quantity_columns else 1)
+        ]
         for row_index in range(1, row_count)
         for column_index in range(column_count)
     }
@@ -281,6 +285,7 @@ def _xlsx_styles(column_count, row_count, quantity_columns=()):
             {"bold": True, "valign": "vcenter"},
             {"valign": "vcenter"},
             {"valign": "vcenter", "num_format": "0"},
+            {"valign": "vcenter", "text_wrap": True},
         ],
         # Frappe applies column styles after widths and resets the width to its default.
         # Cell styles preserve both the explicit width and the quantity number format.
@@ -319,17 +324,19 @@ def get_export_options(doctype):
 def export_document_table(doctype, name, columns=None, fmt="xlsx", include_header=1, include_total=1, merge_order_code=0):
     """下载单据明细表格：fmt=xlsx（默认）或 csv。"""
     doc = get_export_document(doctype, name)
+    selected = _selected_columns(doctype, columns)
     if cint(merge_order_code) and doctype in ("Sales Order", "Sales Invoice", "Delivery Note"):
         from copy import copy
 
         doc = copy(doc)
         doc.set("custom_print_merge_order_code", 1)
-    table = build_table(doc, columns, include_header, include_total)
+    table = build_table(doc, selected, include_header, include_total)
     filename = "-".join([frappe.scrub(doctype).replace("_", "-"), doc.name, nowdate()])
     if str(fmt or "").lower() == "csv":
         _send_csv(table, filename)
     else:
-        _send_xlsx(table, filename)
+        wrap_columns = (selected.index("description"),) if "description" in selected else ()
+        _send_xlsx(table, filename, wrap_columns=wrap_columns)
     return filename
 
 
@@ -598,13 +605,13 @@ def _customer_sales_order_table(doc, merge_customer=True):
     for row in rows:
         # The customer sheet merges same-template rows and exposes only the template code.
         row = dict(row)
-        row["item_code"] = row.get("order_code") or row.get("item_code") or ""
+        row["item_code"] = (row.get("order_code") if merge_customer else row.get("item_code")) or ""
         table.append([_cell(row.get(key), key) for key in columns])
     table.append(_total_row(rows, columns))
     return table
 
 
-def _xlsx_bytes(table, sheet_name, quantity_columns=None):
+def _xlsx_bytes(table, sheet_name, quantity_columns=None, wrap_columns=()):
     from frappe.utils.xlsxutils import make_xlsx
 
     normalized = [["" if cell is None else cell for cell in row] for row in table]
@@ -617,8 +624,13 @@ def _xlsx_bytes(table, sheet_name, quantity_columns=None):
     workbook = make_xlsx(
         normalized,
         sheet_name,
-        column_widths=_xlsx_column_widths(normalized),
-        styles=_xlsx_styles(max((len(row) for row in normalized), default=0), len(normalized), quantity_columns),
+        column_widths=_xlsx_column_widths(normalized, wrap_columns=wrap_columns),
+        styles=_xlsx_styles(
+            max((len(row) for row in normalized), default=0),
+            len(normalized),
+            quantity_columns,
+            wrap_columns=wrap_columns,
+        ),
     )
     return workbook.getvalue() if hasattr(workbook, "getvalue") else workbook
 
@@ -938,7 +950,7 @@ def download_sales_order_customer_xlsx(name):
     doc = get_export_document("Sales Order", name)
     customer = _safe_sales_order_filename(doc.get("customer_name") or doc.get("customer"))
     filename = f"{_document_date(doc, 'transaction_date')}_{_safe_sales_order_filename(doc.name)}_{customer}_客户表格"
-    _send_xlsx(_customer_sales_order_table(doc), filename)
+    _send_xlsx(_customer_sales_order_table(doc), filename, wrap_columns=(3,))
 
 
 @frappe.whitelist()
