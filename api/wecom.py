@@ -240,6 +240,8 @@ def _template_stock_tree_table(filters):
     table = [
         [_("公司"), filters.get("company") or ""],
         [_("仓库"), filters.get("warehouse") or _("全部有权限仓库")],
+        [_("开始日期"), filters.get("from_date") or ""],
+        [_("截止日期"), filters.get("to_date") or ""],
         [],
         [column.get("label") or field for column, field in zip(columns, fields)],
     ]

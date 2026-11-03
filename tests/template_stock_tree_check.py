@@ -5,8 +5,8 @@ from pathlib import Path
 
 source = Path(__file__).parents[1] / "solua_wholesale/report/template_stock_tree/template_stock_tree.py"
 tree = ast.parse(source.read_text(encoding="utf-8"))
-functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_filter_items", "_report_values", "group_rows", "_sum_sales_order_items"}]
-namespace = {"json": json, "flt": float}
+functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_filter_items", "_report_values", "group_rows", "_sum_sales_order_items", "_summarize_stock_ledger"}]
+namespace = {"json": json, "flt": float, "getdate": lambda value: value}
 namespace["cint"] = int
 exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
 items = {
@@ -22,19 +22,20 @@ bins = [dict(item_code="RED", warehouse="A", actual_qty=20, reserved_qty=6),
         dict(item_code="RED", warehouse="B", actual_qty=2, reserved_qty=3)]
 rows = namespace["group_rows"](items, bins)
 assert len(rows) == 3
-assert (rows[0]["actual_qty"], rows[0]["reserved_qty"], rows[0]["available_qty"]) == (None, None, None)
+template_row = next(row for row in rows if row["item_code"] == "TPL")
+assert (template_row["actual_qty"], template_row["reserved_qty"], template_row["available_qty"]) == (56, 9, 47)
 opening_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34})
-assert next(row for row in opening_rows if row["item_code"] == "TPL")["opening_qty"] is None
+assert next(row for row in opening_rows if row["item_code"] == "TPL")["opening_qty"] == 54
 assert next(row for row in opening_rows if row["item_code"] == "RED")["opening_qty"] == 20
 sales_rows = namespace["group_rows"](items, bins, opening_quantities={"RED": 20, "BLUE": 34}, sold_quantities={"RED": 4, "BLUE": 12})
-assert next(row for row in sales_rows if row["item_code"] == "TPL")["sold_qty"] is None
+assert next(row for row in sales_rows if row["item_code"] == "TPL")["sold_qty"] == 16
 assert next(row for row in sales_rows if row["item_code"] == "RED")["sold_qty"] == 4
 assert namespace["_sum_sales_order_items"]([
     dict(item_code="RED", stock_qty=24, qty=2, conversion_factor=12),
     dict(item_code="RED", stock_qty=0, qty=3, conversion_factor=12),
 ]) == {"RED": 60}
 assert rows[1]["parent_id"] == rows[0]["node_id"] and rows[1]["indent"] == 1
-assert namespace["group_rows"](items, [bins[2]])[2]["available_qty"] == -1
+assert next(row for row in namespace["group_rows"](items, [bins[2]]) if row["item_code"] == "RED")["available_qty"] == -1
 assert len({row["node_id"] for row in rows}) == len(rows)
 assert namespace["group_rows"]({"RED": items["RED"]}, bins) == []
 items["BLUE"]["stock_uom"] = "箱"
@@ -59,7 +60,7 @@ rod_rows = namespace["group_rows"](rod_items, [dict(item_code="ROD-1", warehouse
 rod_parent = next(row for row in rod_rows if row["item_code"] == "ROD")
 rod_child = next(row for row in rod_rows if row["item_code"] == "ROD-1")
 assert rod_parent["stock_uom"] == rod_child["stock_uom"] == "箱/Caixa"
-assert (rod_parent["actual_qty"], rod_parent["reserved_qty"], rod_parent["available_qty"]) == (None, None, None)
+assert (rod_parent["actual_qty"], rod_parent["reserved_qty"], rod_parent["available_qty"]) == (2, 1, 1)
 assert (rod_child["actual_qty"], rod_child["reserved_qty"], rod_child["available_qty"]) == (2, 1, 1)
 pvc_items = {
     "PVC": dict(name="PVC", item_name="PVC", has_variants=1, stock_uom="Nos", report_uom="卷", report_factor=1),
@@ -69,4 +70,12 @@ pvc_rows = namespace["group_rows"](pvc_items, [dict(item_code="PVC-1", warehouse
 pvc_child = next(row for row in pvc_rows if row["item_code"] == "PVC-1")
 assert pvc_child["stock_uom"] == "卷"
 assert (pvc_child["actual_qty"], pvc_child["reserved_qty"], pvc_child["available_qty"]) == (25, 4, 21)
+ledger = [
+    dict(item_code="RED", posting_date="2026-10-31", actual_qty=20, voucher_type="Stock Entry"),
+    dict(item_code="RED", posting_date="2026-11-02", actual_qty=5, voucher_type="Stock Entry"),
+    dict(item_code="RED", posting_date="2026-11-03", actual_qty=-2, voucher_type="Delivery Note"),
+    dict(item_code="RED", posting_date="2026-11-05", actual_qty=3, voucher_type="Stock Entry"),
+]
+summary = namespace["_summarize_stock_ledger"](ledger, "2026-11-02", "2026-11-03")
+assert summary == ({"RED": 20}, {"RED": 5}, {"RED": 2}, {"RED": 23}, {"RED": 2})
 print("template_stock_tree_check: OK")

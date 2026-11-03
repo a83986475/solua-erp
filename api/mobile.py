@@ -246,6 +246,8 @@ def _mobile_stock_report(company, warehouse, from_date, to_date, page, page_leng
     _, data = execute(frappe._dict({
         "company": company,
         "warehouse": warehouse,
+        "from_date": from_date,
+        "to_date": to_date,
         "exclude_legacy": 1,
     }))
     rows = [{
@@ -253,6 +255,10 @@ def _mobile_stock_report(company, warehouse, from_date, to_date, page, page_leng
         "item_name": row.get("item_name") or "",
         "indent": int(row.get("indent") or 0),
         "actual_qty": flt(row.get("actual_qty")),
+        "opening_qty": flt(row.get("opening_qty")),
+        "in_qty": flt(row.get("in_qty")),
+        "out_qty": flt(row.get("out_qty")),
+        "closing_qty": flt(row.get("closing_qty")),
         "reserved_qty": flt(row.get("reserved_qty")),
         "available_qty": flt(row.get("available_qty")),
         "stock_uom": row.get("stock_uom") or "",
