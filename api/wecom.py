@@ -3,6 +3,7 @@
 from urllib.parse import parse_qs, urlparse
 
 import frappe
+from frappe import _
 
 
 def _response_json(response, action):
@@ -220,6 +221,63 @@ def send_document_xlsx_to_wechat(doctype, name):
         webhook_url,
         key,
         f"{name}.xlsx",
+        xlsx,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def _template_stock_tree_table(filters):
+    """Convert the current Template Stock Tree report result to an XLSX table."""
+    from solua_home.solua_wholesale.report.template_stock_tree.template_stock_tree import execute
+    from frappe.utils import flt
+
+    columns, rows = execute(filters)
+    fields = [column["fieldname"] for column in columns]
+    numeric_fields = {
+        column["fieldname"] for column in columns if column.get("fieldtype") == "Float"
+    }
+    table = [
+        [_("公司"), filters.get("company") or ""],
+        [_("仓库"), filters.get("warehouse") or _("全部有权限仓库")],
+        [],
+        [column.get("label") or field for column, field in zip(columns, fields)],
+    ]
+    for row in rows:
+        values = []
+        for field in fields:
+            value = row.get(field)
+            if field == "item_name" and value:
+                value = f"{'  ' * int(row.get('indent') or 0)}{value}"
+            elif field in numeric_fields:
+                value = flt(value or 0)
+                if float(value).is_integer():
+                    value = int(value)
+            values.append("" if value is None else value)
+        table.append(values)
+    return table
+
+
+@frappe.whitelist()
+def send_template_stock_tree_xlsx_to_wechat(filters=None):
+    """Send the current, permission-filtered Template Stock Tree as an XLSX file."""
+    if not any(role in frappe.get_roles() for role in ("Stock User", "Stock Manager", "System Manager")):
+        frappe.throw("没有库存树报表权限", frappe.PermissionError)
+
+    webhook_url, key = _webhook_config()
+    filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    if not isinstance(filters, dict):
+        frappe.throw("库存树报表筛选条件无效")
+
+    from solua_home.api.export import _xlsx_bytes
+    from frappe.utils import nowdate
+
+    table = _template_stock_tree_table(frappe._dict(filters))
+    filename = f"库存树_{nowdate().replace('-', '')}.xlsx"
+    xlsx = _xlsx_bytes(table, "库存树报表")
+    return _send_file(
+        webhook_url,
+        key,
+        filename,
         xlsx,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

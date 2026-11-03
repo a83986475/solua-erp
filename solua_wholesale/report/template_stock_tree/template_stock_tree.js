@@ -1,5 +1,21 @@
 frappe.query_reports["Template Stock Tree"] = {
- onload: (report) => report.page.set_title(__("库存树报表")),
+ onload: (report) => {
+  report.page.set_title(__("库存树报表"));
+  report.page.add_inner_button(__("发送表格到微信"), () => {
+   frappe.call({
+    method: "solua_home.api.wecom.send_template_stock_tree_xlsx_to_wechat",
+    args: {filters: frappe.query_report.get_filter_values()},
+    freeze: true,
+    freeze_message: __("正在生成并发送表格..."),
+   }).then((response) => {
+    const filename = response.message && response.message.filename;
+    frappe.show_alert({
+     message: filename ? __("已发送：{0}", [filename]) : __("表格已发送到微信"),
+     indicator: "green",
+    });
+   });
+  });
+ },
  tree: true,
  name_field: "node_id",
  parent_field: "parent_id",
