@@ -313,6 +313,8 @@ def _query_report_xlsx_table(report_name, filters):
             table.append([str(key), str(value)])
     table.extend([[], [column.get("label") or field for column, field in zip(columns, fields)]])
     for row in rows:
+        if not isinstance(row, dict):
+            row = dict(zip(fields, row))
         values = []
         for field in fields:
             value = row.get(field)
