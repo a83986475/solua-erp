@@ -1,5 +1,6 @@
 """Enterprise WeChat group-bot delivery for customer-facing documents."""
 
+import re
 from urllib.parse import parse_qs, urlparse
 
 import frappe
@@ -274,6 +275,77 @@ def send_template_stock_tree_xlsx_to_wechat(filters=None):
     table = _template_stock_tree_table(frappe._dict(filters))
     filename = f"库存树_{nowdate().replace('-', '')}.xlsx"
     xlsx = _xlsx_bytes(table, "库存树报表")
+    return _send_file(
+        webhook_url,
+        key,
+        filename,
+        xlsx,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+QUERY_REPORT_WECHAT_ALLOWLIST = {
+    "Item-wise Sales History",
+    "Profitability Analysis",
+    "Solua Business Totals",
+    "Solua Delivery Summary",
+}
+
+
+def _query_report_xlsx_table(report_name, filters):
+    from frappe.desk.query_report import generate_report_result, get_report_doc
+    from frappe.utils import flt, strip_html
+
+    report = get_report_doc(report_name)
+    result = generate_report_result(report, filters=filters, is_tree=bool(report.get("tree")))
+    columns = result.get("columns") or []
+    rows = result.get("result") or []
+    fields = [column.get("fieldname") for column in columns]
+    numeric_fields = {
+        column.get("fieldname")
+        for column in columns
+        if column.get("fieldtype") in ("Int", "Float", "Currency", "Percent")
+    }
+    text_fields = [field for field in fields if field and field not in numeric_fields]
+    table = [[_("报表"), report_name]]
+    for key, value in filters.items():
+        if value not in (None, ""):
+            table.append([str(key), str(value)])
+    table.extend([[], [column.get("label") or field for column, field in zip(columns, fields)]])
+    for row in rows:
+        values = []
+        for field in fields:
+            value = row.get(field)
+            if field == text_fields[0] and value and row.get("indent"):
+                value = f"{'  ' * int(row.get('indent') or 0)}{value}"
+            if isinstance(value, str) and "<" in value:
+                value = strip_html(value)
+            if field in numeric_fields:
+                value = flt(value or 0)
+                if float(value).is_integer():
+                    value = int(value)
+            values.append("" if value is None else value)
+        table.append(values)
+    return table
+
+
+@frappe.whitelist()
+def send_query_report_xlsx_to_wechat(report_name, filters=None):
+    """Send an allowed report's current filtered result as an XLSX file."""
+    if report_name not in QUERY_REPORT_WECHAT_ALLOWLIST:
+        frappe.throw("该报表暂不支持发送到微信")
+    webhook_url, key = _webhook_config()
+    filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    if not isinstance(filters, dict):
+        frappe.throw("报表筛选条件无效")
+
+    from frappe.utils import nowdate
+    from solua_home.api.export import _xlsx_bytes
+
+    table = _query_report_xlsx_table(report_name, frappe._dict(filters))
+    stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", report_name).strip(" .")
+    filename = f"{stem}_{nowdate().replace('-', '')}.xlsx"
+    xlsx = _xlsx_bytes(table, "报表")
     return _send_file(
         webhook_url,
         key,
