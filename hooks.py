@@ -275,6 +275,7 @@ app_include_js = [
     "/assets/solua_home/js/print_format_import_export.js?v=print-format-import-export-20261005a",
     "/assets/solua_home/js/print_preview_pdfjs.js?v=print-format-review-20261018a",
     "/assets/solua_home/js/print_button_v20261006.js?v=print-button-20261008a",
+    "/assets/solua_home/js/query_report_wechat_v20261103.js?v=query-report-wechat-20261103a",
     # Point of Sale 是已打包的标准页面，page_js 不一定会被执行；
     # 全局引入后由 pos_custom.js 自己等待 POS 类加载，确保颜色弹窗可靠生效。
     "/assets/solua_home/js/pos_custom.js?v=pos-custom-20261022a",

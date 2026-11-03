@@ -287,6 +287,14 @@ def send_template_stock_tree_xlsx_to_wechat(filters=None):
 
 
 QUERY_REPORT_WECHAT_ALLOWLIST = {
+    "Stock Balance",
+    "Stock Ledger",
+    "Sales Order Analysis",
+    "Sales Register",
+    "Item-wise Sales Register",
+    "Accounts Receivable",
+    "Accounts Receivable Summary",
+    "General Ledger",
     "Item-wise Sales History",
     "Profitability Analysis",
     "Solua Business Totals",
