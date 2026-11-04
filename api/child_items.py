@@ -18,7 +18,15 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 	has_notes = any("additional_notes" in row or "pos_additional_notes" in row for row in data)
 	before = frappe.get_doc(parent_doctype, parent_doctype_name)
 	before_names = {row.name for row in before.get(child_docname) or []}
-	result = native_update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname)
+	previous_request_doc = getattr(frappe.flags, "_solua_stock_previous_doc", None)
+	frappe.flags._solua_stock_previous_doc = before
+	try:
+		result = native_update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname)
+	finally:
+		if previous_request_doc is None:
+			delattr(frappe.flags, "_solua_stock_previous_doc")
+		else:
+			frappe.flags._solua_stock_previous_doc = previous_request_doc
 
 	after = frappe.get_doc(parent_doctype, parent_doctype_name)
 	after.flags._stock_previous_doc = before

@@ -493,9 +493,14 @@ def validate_sales_order_stock(doc, method=None):
     requirements = get_sales_order_stock_requirements(doc)
     self_reserved = {}
     flags = getattr(doc, "flags", None)
-    if getattr(flags, "_stock_reservation_persisted", False) or getattr(flags, "ignore_validate_update_after_submit", False):
+    if getattr(flags, "_stock_reservation_persisted", False):
         # The submitted-child update already wrote this order before validating it.
         self_reserved = requirements
+    elif getattr(flags, "ignore_validate_update_after_submit", False):
+        # Native child updates validate before saving the changed parent, so live
+        # reservations still belong to the previous version of this order.
+        previous = getattr(frappe.flags, "_solua_stock_previous_doc", None)
+        self_reserved = get_sales_order_stock_requirements(previous) if previous else requirements
     elif doc.get("docstatus") == 1 and doc.get("name"):
         # Updating a submitted order must replace its old reservation, not count
         # the newly edited quantity as its own available stock.
