@@ -485,9 +485,12 @@ def validate_sales_order(doc, method=None):
         if getdate(doc.delivery_date) < getdate(doc.transaction_date):
             frappe.throw(_("交货日期不能早于销售单日期"))
 
+    if doc.get("docstatus") == 0:
+        validate_sales_order_stock(doc)
+
 
 def validate_sales_order_stock(doc, method=None):
-    """Block submitted Sales Orders whose remaining quantity exceeds available stock."""
+    """Block Sales Orders whose remaining quantity exceeds available stock."""
     from solua_home.api.stock import get_sales_order_stock_requirements, validate_stock_requirements
 
     requirements = get_sales_order_stock_requirements(doc)
