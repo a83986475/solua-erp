@@ -290,6 +290,13 @@ def copy_sales_order_pick_notes(doc, method=None):
 @frappe.whitelist()
 def make_delivery_note(source_name, target_doc=None, kwargs=None):
     """Reuse an existing draft before opening the native mapped Delivery Note."""
+    active_pick_lists = _active_pick_lists_for_sales_order(source_name)
+    if active_pick_lists:
+        frappe.throw(
+            _(
+                "销售订单 {0} 已有有效 Pick List {1}，请继续拣货或从 Pick List 生成交货单；如需直送，请先取消该 Pick List。"
+            ).format(source_name, ", ".join(row["name"] for row in active_pick_lists))
+        )
     if target_doc is None:
         existing = get_existing_draft_delivery_note(source_name)
         if existing:
@@ -753,18 +760,81 @@ def get_pick_list_sales_order_comparison(pick_list):
     return _pick_list_order_comparison(doc)
 
 
-def _active_pick_list_for_sales_order_item(sales_order_item):
-    if not sales_order_item:
-        return None
+def _pick_list_remaining_qty(row):
+    picked_qty = flt(_row_value(row, "picked_qty"))
+    planned_qty = picked_qty if picked_qty > 0 else flt(_row_value(row, "stock_qty"))
+    return max(planned_qty - flt(_row_value(row, "delivered_qty")), 0)
+
+
+def _active_pick_lists_for_sales_order(sales_order):
+    if not sales_order:
+        return []
     rows = frappe.db.sql(
-        """SELECT i.parent, i.name FROM `tabPick List Item` i
+        """SELECT p.name, p.docstatus, p.status, p.delivery_status,
+        i.name AS pick_list_item, i.item_code, i.sales_order_item,
+        i.stock_qty, i.picked_qty, i.delivered_qty
+        FROM `tabPick List Item` i
         JOIN `tabPick List` p ON p.name=i.parent
-        WHERE p.docstatus=1 AND i.sales_order_item=%s
-        LIMIT 1""",
+        WHERE i.sales_order=%s AND p.docstatus<2
+        AND COALESCE(p.status, '') NOT IN ('Completed', 'Cancelled')
+        ORDER BY p.creation, i.idx""",
+        (sales_order,),
+        as_dict=True,
+    )
+    active = {}
+    for row in rows:
+        remaining_qty = _pick_list_remaining_qty(row)
+        if remaining_qty <= 0.000001:
+            continue
+        pick = active.setdefault(
+            row.name,
+            {
+                "name": row.name,
+                "docstatus": cint(row.docstatus),
+                "status": row.status or "Draft",
+                "delivery_status": row.delivery_status or "Not Delivered",
+                "items": [],
+            },
+        )
+        pick["items"].append(
+            {
+                "pick_list_item": row.pick_list_item,
+                "sales_order_item": row.sales_order_item,
+                "item_code": row.item_code,
+                "remaining_qty": remaining_qty,
+            }
+        )
+    return list(active.values())
+
+
+def _active_pick_lists_for_sales_order_item(sales_order_item):
+    if not sales_order_item:
+        return []
+    rows = frappe.db.sql(
+        """SELECT p.name, p.docstatus, p.status, p.delivery_status,
+        i.parent, i.name AS pick_list_item, i.item_code, i.sales_order_item,
+        i.stock_qty, i.picked_qty, i.delivered_qty
+        FROM `tabPick List Item` i
+        JOIN `tabPick List` p ON p.name=i.parent
+        WHERE p.docstatus<2 AND i.sales_order_item=%s
+        AND COALESCE(p.status, '') NOT IN ('Completed', 'Cancelled')
+        ORDER BY p.creation, i.idx""",
         (sales_order_item,),
         as_dict=True,
     )
+    return [row for row in rows if _pick_list_remaining_qty(row) > 0.000001]
+
+
+def _active_pick_list_for_sales_order_item(sales_order_item):
+    rows = _active_pick_lists_for_sales_order_item(sales_order_item)
     return rows[0] if rows else None
+
+
+@frappe.whitelist()
+def get_active_pick_lists_for_sales_order(sales_order):
+    doc = frappe.get_doc("Sales Order", sales_order)
+    doc.check_permission("read")
+    return _active_pick_lists_for_sales_order(sales_order)
 
 
 def _validate_delivery_pick_rows(doc):
@@ -871,9 +941,15 @@ def validate_delivery_route(doc, method=None):
             continue
         active_pick = _active_pick_list_for_sales_order_item(_row_value(row, "so_detail"))
         if active_pick:
-            frappe.throw(_("销售订单行 {0} 已有有效 Pick List，请从 Pick List 生成交货单；如需直送，请先取消该 Pick List。").format(
-                _row_value(row, "so_detail")
-            ))
+            frappe.throw(
+                _(
+                    "销售订单行 {0} 已有有效 Pick List {1}（{2}），请继续拣货或从 Pick List 生成交货单；如需直送，请先取消该 Pick List。"
+                ).format(
+                    _row_value(row, "so_detail"),
+                    active_pick.name,
+                    active_pick.status or "Draft",
+                )
+            )
 
     requirements, self_reserved = _get_direct_delivery_requirements(doc)
     validate_stock_requirements(
