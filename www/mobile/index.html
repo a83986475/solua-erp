@@ -54,6 +54,8 @@
     .mobile-view-toggle { display: inline-flex; gap: 4px; padding: 3px; border-radius: 8px; background: var(--mobile-soft); }
     .mobile-view-toggle button { min-height: 32px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--mobile-blue); font-size: 12px; }
     .mobile-view-toggle button.active { background: #fff; box-shadow: 0 1px 4px rgba(22, 58, 95, .16); font-weight: 700; }
+    .mobile-stock-filter { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--mobile-muted); font-size: 13px; }
+    .mobile-stock-filter input { width: 18px; height: 18px; margin: 0; }
     .mobile-camera { display: none; margin-top: 10px; }
     .mobile-camera video { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 10px; background: #111; }
     .mobile-camera-actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -443,6 +445,7 @@
 
     <div class="mobile-panel" id="mobile-product-panel">
         <div class="mobile-step-head"><span id="mobile-product-step">{% if mobile_order or mobile_sales %}3. 添加商品{% else %}库存查询{% endif %}</span>{% if mobile_order or mobile_sales or mobile_stock %}<span class="mobile-view-toggle" id="mobile-product-view-toggle"><button type="button" data-mobile-product-view="detail">{% if mobile_order or mobile_sales %}单列详情{% else %}单列{% endif %}</button><button type="button" data-mobile-product-view="order">{% if mobile_order or mobile_sales %}双列下单{% else %}双列{% endif %}</button></span>{% else %}<span class="mobile-muted">可扫码、精确搜索变体货号或输入名称</span>{% endif %}</div>
+        {% if mobile_order or mobile_sales %}<label class="mobile-stock-filter"><input id="mobile-stock-only" type="checkbox">只显示有库存的商品</label>{% endif %}
         <form class="mobile-search" id="mobile-search">
             <div class="mobile-query-wrap">
                 <input id="mobile-query" class="form-control" type="search" inputmode="text" autocomplete="off" autofocus
@@ -1211,11 +1214,11 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     const orderMode = ["order", "sales"].includes(new URLSearchParams(window.location.search).get("view"));
     const productViewStorageKey = orderMode ? "solua-mobile-product-view" : "solua-mobile-stock-product-view";
     const salesDraftStorageKey = "solua-mobile-sales-draft-v1";
-    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, cameraReader: null, cameraControls: null, cameraBusy: false, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false, draftSaveTimer: 0, productView: localStorage.getItem(productViewStorageKey) || (orderMode ? "order" : "detail") };
+    const state = { company: "", warehouse: "", currency: "MZN", scanning: false, stream: null, cameraReader: null, cameraControls: null, cameraBusy: false, selected: "", suggestionTimer: 0, suggestionRequest: 0, customerTimer: 0, customerRequest: 0, customer: "", address: "", cart: [], orderName: "", submitted: false, orderBusy: false, draftSaveTimer: 0, productView: localStorage.getItem(productViewStorageKey) || (orderMode ? "order" : "detail"), stockOnly: orderMode && localStorage.getItem("solua-mobile-sales-stock-only-v1") === "1", lastLookupData: null };
     const $ = (id) => document.getElementById(id);
     const t = {
         loading: "{{ _('加载中…') }}", ready: "{{ _('请输入条码、货号或名称') }}", searching: "{{ _('查询中…') }}",
-        noData: "{{ _('没有找到可用的颜色变体') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请在上方手动输入条码、货号或名称') }}",
+        noData: "{{ _('没有找到可用的颜色变体') }}", noStockData: "{{ _('没有可用库存的商品') }}", scanUnsupported: "{{ _('当前浏览器不支持自动扫码，请在上方手动输入条码、货号或名称') }}",
         cameraFailed: "{{ _('摄像头无法打开，请检查权限；也可以在上方手动输入条码、货号或名称') }}", selected: "{{ _('已选择') }}",
         noPermission: "{{ _('没有读取商品数据的权限') }}", error: "{{ _('请求失败，请稍后重试') }}", customerFirst: "{{ _('请先选择客户') }}", saved: "{{ _('草稿已保存') }}", submitted: "{{ _('订单已提交') }}"
     };
@@ -1296,7 +1299,8 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     function render(data) {
         const templates = data.templates || [];
         const template = templates[0]?.template || {};
-        const variants = data.variants || [];
+        const allVariants = data.variants || [];
+        const variants = state.stockOnly ? allVariants.filter((row) => Number(row.available_sales_qty ?? row.available_qty ?? 0) > 0) : allVariants;
         $("mobile-results").hidden = false;
         $("mobile-result-title").textContent = data.title || template.item_name || template.item_code || "";
         $("mobile-result-meta").textContent = variants.length ? `${variants.length} 项` : "";
@@ -1315,7 +1319,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                         <button class="btn btn-primary" type="button" data-add-code="${esc(row.item_code)}" aria-label="加入购物车" title="加入购物车"><svg class="mobile-cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"></path></svg></button>
                     </div>` : ""}
                 </div>
-            </article>`).join("") : `<div class="mobile-empty">${esc(t.noData)}</div>`;
+            </article>`).join("") : `<div class="mobile-empty">${esc(state.stockOnly && allVariants.length ? t.noStockData : t.noData)}</div>`;
         $("mobile-grid").querySelectorAll("[data-image-code]").forEach((node) => node.addEventListener("click", () => {
             openImage(node.dataset.imageUrl, node.dataset.imageCode);
         }));
@@ -1328,6 +1332,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             const qty = Number(qtyInput?.value || 0);
             addToCart(row, qty);
         }));
+        return variants.length;
     }
 
     function applyProductView(view) {
@@ -1615,6 +1620,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
         hideSuggestions();
         if (!options.keepCamera) stopCamera();
         state.selected = "";
+        state.lastLookupData = null;
         setStatus(t.searching);
         try {
             const data = await call("solua_home.api.mobile.lookup", { barcode, warehouse: $("mobile-warehouse").value.trim(), customer: state.customer });
@@ -1627,14 +1633,15 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
                 setStatus(t.noData);
                 return;
             }
-            render(data);
+            state.lastLookupData = data;
+            const visibleCount = render(data);
             if (options.fromCamera) {
                 $("mobile-query").value = "";
                 $("mobile-query").focus();
                 $("mobile-camera-status").textContent = "已识别，可继续扫描…";
                 setStatus("已识别，可继续扫描");
             } else {
-                setStatus(t.ready);
+                setStatus(visibleCount ? t.ready : (state.stockOnly ? t.noStockData : t.noData));
             }
         } catch (error) {
             setStatus(error.message || t.error);
@@ -1726,6 +1733,17 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     $("mobile-restore-draft")?.addEventListener("click", restoreDraft);
     $("mobile-discard-draft")?.addEventListener("click", () => { clearSavedDraft(); setStatus("已清空未完成的开单草稿"); });
     document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
+    if ($("mobile-stock-only")) {
+        $("mobile-stock-only").checked = state.stockOnly;
+        $("mobile-stock-only").addEventListener("change", () => {
+            state.stockOnly = $("mobile-stock-only").checked;
+            localStorage.setItem("solua-mobile-sales-stock-only-v1", state.stockOnly ? "1" : "0");
+            if (state.lastLookupData) {
+                const visibleCount = render(state.lastLookupData);
+                setStatus(visibleCount ? t.ready : t.noStockData);
+            }
+        });
+    }
     document.addEventListener("click", (event) => {
         if (!event.target.closest(".mobile-query-wrap")) hideSuggestions();
         if (!event.target.closest(".mobile-customer-wrap")) hideCustomerSuggestions();
