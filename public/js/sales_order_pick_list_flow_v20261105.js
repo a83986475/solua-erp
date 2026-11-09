@@ -15,7 +15,7 @@
         }
 
         frappe.call({
-            method: "erpnext.stock.doctype.pick_list.mapper.create_dn_for_pick_lists",
+            method: "erpnext.stock.doctype.pick_list.pick_list.create_dn_for_pick_lists",
             args: {
                 source_name: pick_list.name,
                 kwargs: JSON.stringify({sales_order: frm.doc.name}),

@@ -45,7 +45,7 @@ const frm = {
     await new Promise(resolve => setImmediate(resolve));
     action();
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(calls.at(-1).method, "erpnext.stock.doctype.pick_list.mapper.create_dn_for_pick_lists");
+    assert.equal(calls.at(-1).method, "erpnext.stock.doctype.pick_list.pick_list.create_dn_for_pick_lists");
     assert.deepEqual(routes.at(-1), ["Form", "Delivery Note", "DN-1"]);
     console.log("PASS: Sales Order routes Draft Pick Lists to picking and submitted Pick Lists to Delivery Note");
 })().catch(error => { console.error(error); process.exitCode = 1; });
