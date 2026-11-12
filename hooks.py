@@ -327,3 +327,4 @@ doctype_list_js = {
 
 # Route Sales Order delivery actions through active Pick Lists.
 doctype_js["Sales Order"].append("public/js/sales_order_pick_list_flow_v20261105.js")
+doctype_js["Sales Order"].append("public/js/sales_order_async_item_guard_v20261111.js")
