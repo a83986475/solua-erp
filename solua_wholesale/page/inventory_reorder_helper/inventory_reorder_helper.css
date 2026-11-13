@@ -1,0 +1,142 @@
+.solua-reorder-page {
+	padding: 24px;
+	background: #f8fafc;
+	min-height: calc(100vh - 120px);
+}
+
+.solua-reorder-toolbar {
+	display: flex;
+	justify-content: space-between;
+	gap: 24px;
+	align-items: flex-start;
+	margin-bottom: 18px;
+}
+
+.solua-reorder-eyebrow {
+	color: #d4a83c;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.solua-reorder-toolbar h1 {
+	margin: 6px 0;
+	font-size: 28px;
+}
+
+.solua-reorder-toolbar p {
+	margin: 0;
+}
+
+.solua-reorder-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.solua-reorder-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 14px;
+	padding: 16px;
+	margin-bottom: 14px;
+	background: #fff;
+	border: 1px solid #e6eaf0;
+	border-radius: 10px;
+}
+
+.solua-reorder-filters label {
+	min-width: 180px;
+	font-weight: 600;
+}
+
+.solua-reorder-filters input {
+	margin-top: 6px;
+}
+
+.solua-reorder-formula {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	color: #52606d;
+	font-size: 13px;
+	padding: 6px 0;
+}
+
+.solua-reorder-summary {
+	margin: 10px 0;
+}
+
+.solua-reorder-table-wrap {
+	overflow: auto;
+	background: #fff;
+	border: 1px solid #e6eaf0;
+	border-radius: 10px;
+}
+
+.solua-reorder-table {
+	margin: 0;
+	min-width: 1400px;
+}
+
+.solua-reorder-table th {
+	white-space: nowrap;
+	background: #f4f6f8;
+}
+
+.solua-reorder-table td {
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.solua-reorder-table .form-control {
+	min-width: 90px;
+}
+
+.solua-reorder-status {
+	display: inline-flex;
+	padding: 3px 8px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.solua-reorder-status.is-danger {
+	color: #b42318;
+	background: #fee4e2;
+}
+
+.solua-reorder-status.is-warning {
+	color: #9a6700;
+	background: #fff3cd;
+}
+
+.solua-reorder-status.is-ok {
+	color: #18794e;
+	background: #dcfce7;
+}
+
+.solua-reorder-status.is-muted {
+	color: #52606d;
+	background: #eef2f6;
+}
+
+.solua-reorder-preview {
+	margin: 14px 0;
+}
+
+.solua-reorder-preview-card {
+	padding: 16px;
+	background: #fffdf5;
+	border: 1px solid #eed58a;
+	border-radius: 10px;
+}
+
+.solua-reorder-preview-card > div:first-child {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
