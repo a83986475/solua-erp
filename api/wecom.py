@@ -51,6 +51,68 @@ def _send_file(webhook_url, key, filename, content, content_type):
     return {"filename": filename}
 
 
+def _invoice_30_day_digest(today):
+    from frappe.utils import add_days
+
+    posting_date = add_days(today, -30)
+    invoices = frappe.get_all(
+        "Sales Invoice",
+        filters={
+            "docstatus": 1,
+            "is_return": 0,
+            "posting_date": posting_date,
+            "outstanding_amount": [">", 0],
+        },
+        fields=["name", "customer", "customer_name"],
+        order_by="customer_name asc, name asc",
+    )
+    if not invoices:
+        return None
+
+    lines = [f"{today}｜开票满 30 天仍未结清：{len(invoices)} 张"]
+    footer = f"余额请在 ERP 查看（开票日 {posting_date}）。"
+    for index, invoice in enumerate(invoices):
+        customer = " ".join((invoice.customer_name or invoice.customer).split())
+        line = f"{customer}｜{invoice.name}"
+        overflow = f"另有 {len(invoices) - index} 张。"
+        if len("\n".join([*lines, line, overflow, footer]).encode("utf-8")) > 2000:
+            lines.append(overflow)
+            break
+        lines.append(line)
+    return "\n".join([*lines, footer])
+
+
+def send_invoice_30_day_reminder():
+    """Send one internal group digest when submitted invoices first reach day 30."""
+    import requests
+    from frappe.defaults import set_global_default
+    from frappe.utils import nowdate
+    from frappe.utils.synchronization import filelock
+
+    today = nowdate()
+    key = "solua_wecom_invoice_30_day_sent_on"
+    with filelock(key):
+        if frappe.db.get_value("DefaultValue", {"parent": "__default", "defkey": key}, "defvalue") == today:
+            return
+        content = _invoice_30_day_digest(today)
+        if not content:
+            return
+
+        try:
+            response = requests.post(
+                _webhook_config()[0],
+                json={"msgtype": "text", "text": {"content": content}},
+                timeout=20,
+            )
+        except requests.RequestException:
+            raise RuntimeError("企业微信群机器人请求失败") from None
+        payload = _response_json(response, "发票提醒")
+        if payload.get("errcode") not in (0, "0"):
+            frappe.throw("企业微信群机器人未确认发送发票提醒")
+        set_global_default(key, today)
+        frappe.db.commit()
+
+
 def apply_customer_print_preference(doc, method=None):
     """Copy the customer's default merge choice into a new or reassigned Sales Order."""
     if doc.doctype != "Sales Order" or not doc.get("customer"):

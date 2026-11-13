@@ -243,6 +243,9 @@ scheduler_events = {
         "0 2 * * *": [
             "solua_home.tasks.custom_cron_task",
         ],
+        "0 9 * * *": [
+            "solua_home.api.wecom.send_invoice_30_day_reminder",
+        ],
         "*/5 * * * *": [
             "solua_home.api.whatsapp.notify_due_reminders",
         ],
