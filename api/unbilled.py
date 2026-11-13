@@ -168,21 +168,25 @@ def _draft_sales_invoices_for_source(fieldname, source_name):
 @frappe.whitelist()
 def make_sales_invoice(source_name, target_doc=None, args=None):
     """Reuse a Delivery Note invoice draft before invoking the native mapper."""
+    from solua_home.api.receivable_store import apply_invoice_store
+
     drafts = _draft_sales_invoices_for_source("delivery_note", source_name)
     if drafts:
-        return frappe.get_doc("Sales Invoice", drafts[0])
-    return billing_module().make_sales_invoice(source_name, target_doc, args=args)
+        return apply_invoice_store(frappe.get_doc("Sales Invoice", drafts[0]))
+    return apply_invoice_store(billing_module().make_sales_invoice(source_name, target_doc, args=args))
 
 
 @frappe.whitelist()
 def make_sales_invoice_from_sales_order(source_name, target_doc=None, ignore_permissions=False, args=None):
     """Reuse a Sales Order invoice draft before invoking the native mapper."""
+    from solua_home.api.receivable_store import apply_invoice_store
+
     drafts = _draft_sales_invoices_for_source("sales_order", source_name)
     if drafts:
-        return frappe.get_doc("Sales Invoice", drafts[0])
+        return apply_invoice_store(frappe.get_doc("Sales Invoice", drafts[0]))
     from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice as native_make_sales_invoice
 
-    return native_make_sales_invoice(source_name, target_doc, ignore_permissions, args)
+    return apply_invoice_store(native_make_sales_invoice(source_name, target_doc, ignore_permissions, args))
 
 
 def get_rows(company, start, end, customer=None):

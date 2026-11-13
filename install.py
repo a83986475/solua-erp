@@ -1324,6 +1324,7 @@ def add_wholesale_fields(commit=True):
         for dt in ("Sales Order", "Delivery Note")
     ] + [
         {"dt": "Sales Order", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
+        {"dt": "Sales Invoice", "fieldname": "custom_store_name", "label": "门店名称", "fieldtype": "Data", "read_only": 1, "no_copy": 1, "print_hide": 1, "insert_after": "customer_name"},
         {"dt": "Sales Order", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
         {"dt": "Sales Order", "fieldname": "custom_store_address", "label": "客户门店地址记录", "fieldtype": "Link", "options": "Address", "hidden": 1, "read_only": 1, "no_copy": 1, "insert_after": "custom_store_phone"},
         {"dt": "Sales Order", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},

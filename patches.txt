@@ -4,3 +4,4 @@
 solua_home.patches.v20261004_profitability_analysis
 solua_home.patches.v20261005_item_wise_sales_history
 solua_home.patches.v20261007_delivery_locations
+solua_home.patches.v20261113_receivable_store_name

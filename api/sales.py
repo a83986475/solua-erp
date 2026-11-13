@@ -13,6 +13,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from solua_home.api.receivable_store import apply_invoice_store
 from solua_home.api.stock import validate_transaction_quantities
 
 # 折扣审批改为「密码审批」（2026-08-08）：
@@ -231,6 +232,7 @@ def validate_sales_invoice(doc, method=None):
     """销售发票保存时验证"""
     validate_transaction_quantities(doc)
     _validate_invoice_source_quantities(doc)
+    apply_invoice_store(doc)
 
     if requires_large_invoice_approval(doc):
         if not doc.get("custom_approver"):
