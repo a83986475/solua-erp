@@ -51,11 +51,18 @@
                 const cache = listview.solua_status_cache || (listview.solua_status_cache = Object.create(null));
                 const generation = listview.solua_status_generation = (listview.solua_status_generation || 0) + 1;
                 const missing = names.filter(name => !cache[name]);
-                const render_cached = () => listview.$result.find(".list-row-container").each(function () {
-                    const name = decodeURIComponent($(this).find(".list-row-checkbox").attr("data-name") || "");
-                    const row = cache[name];
-                    if (row && !$(this).find("[data-solua-order-status]").length) $(this).append(`<div data-solua-order-status style="padding:0 12px 8px 38px">${details(row)}</div>`);
-                });
+                const render_cached = () => {
+                    listview.$result.find(".list-row-container").each(function () {
+                        const container = $(this);
+                        const name = decodeURIComponent(container.find(".list-row-checkbox").attr("data-name") || "");
+                        const row = cache[name];
+                        if (row && !container.find("[data-solua-order-status]").length) {
+                            container.append(`<div data-solua-order-status style="padding:0 12px 8px 38px">${details(row)}</div>`);
+                        }
+                    });
+                    // Frappe measures the result before the asynchronous summaries arrive.
+                    if (listview.$result.is(":visible")) listview.set_result_height?.();
+                };
                 if (!missing.length) return render_cached();
                 const batches = [];
                 for (let i = 0; i < missing.length; i += 50) batches.push(frappe.call({method: "solua_home.api.order_status.get_order_statuses", args: {names: JSON.stringify(missing.slice(i, i + 50))}}));

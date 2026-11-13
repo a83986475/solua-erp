@@ -1,5 +1,6 @@
 """Pick List submit behavior for explicit warehouse shortage reporting."""
 
+from frappe import _
 from erpnext.stock.doctype.pick_list.pick_list import PickList
 
 
@@ -83,6 +84,36 @@ def _reconcile_sales_order_locations(doc):
 
 class CustomPickList(PickList):
     """Do not silently turn an unreported shortage into a full pick."""
+
+    def validate_sales_order_percentage(self):
+        """Validate mapped Sales Order rows, not the order-wide picked percentage."""
+        import frappe
+        from frappe.utils import flt
+
+        for location in self.get("locations") or []:
+            if not location.sales_order or not location.sales_order_item:
+                return super().validate_sales_order_percentage()
+
+            source = frappe.db.get_value(
+                "Sales Order Item",
+                location.sales_order_item,
+                ["qty", "picked_qty", "delivered_qty", "conversion_factor"],
+                as_dict=True,
+            )
+            if not source:
+                return super().validate_sales_order_percentage()
+
+            factor = flt(source.conversion_factor) or 1
+            remaining_qty = flt(source.qty) - max(
+                flt(source.picked_qty) / factor,
+                flt(source.delivered_qty),
+            )
+            if remaining_qty <= 0.000001:
+                frappe.throw(
+                    _("Row #{0}: item {1} has been picked already.").format(
+                        location.idx, location.item_code
+                    )
+                )
 
     def set_item_locations(self, save=False):
         # Let ERPNext allocate first, then correct only a single-order Delivery Pick List.

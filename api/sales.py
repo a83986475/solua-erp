@@ -335,6 +335,13 @@ def on_invoice_submitted(doc, method=None):
         "Customer", doc.customer, "custom_last_transaction_date", frappe.utils.nowdate()
     )
 
+    from solua_home.api.billing_reconcile import reconcile_linked_billing
+
+    reconcile_linked_billing(
+        [row.get("so_detail") for row in doc.get("items", [])],
+        [row.get("dn_detail") for row in doc.get("items", [])],
+    )
+
     # 示例：调用外部 API
     # if doc.custom_sync_required:
     #     sync_to_external_system(doc)
@@ -343,6 +350,13 @@ def on_invoice_submitted(doc, method=None):
 def on_invoice_cancelled(doc, method=None):
     """销售发票取消时执行"""
     frappe.msgprint(_("发票 {0} 已取消").format(doc.name))
+
+    from solua_home.api.billing_reconcile import reconcile_linked_billing
+
+    reconcile_linked_billing(
+        [row.get("so_detail") for row in doc.get("items", [])],
+        [row.get("dn_detail") for row in doc.get("items", [])],
+    )
 
 
 @frappe.whitelist()
@@ -489,6 +503,14 @@ def validate_sales_order(doc, method=None):
 
     if doc.get("docstatus") == 0:
         validate_sales_order_stock(doc)
+
+
+def sort_sales_order_items_by_rate(doc, method=None):
+    """Keep every submitted Sales Order's item rows in ascending unit-price order."""
+    items = doc.get("items") or []
+    items.sort(key=lambda row: flt(row.get("rate")))
+    for idx, row in enumerate(items, start=1):
+        row.idx = idx
 
 
 def validate_sales_order_stock(doc, method=None):

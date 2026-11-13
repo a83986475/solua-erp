@@ -75,6 +75,9 @@
         frm.add_custom_button(__("物料排序"), () => openItemSortDialog(frm), __("工具"));
       }
     },
+    before_submit(frm) {
+      sortItems(frm, "rate_asc");
+    },
   });
 
   if (typeof window !== "undefined") {

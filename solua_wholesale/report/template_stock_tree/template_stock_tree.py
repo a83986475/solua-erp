@@ -144,14 +144,28 @@ def _summarize_stock_ledger(rows, from_date, to_date):
     outbound = {}
     closing = {}
     delivered = {}
+    balances = {}
+    opening_by_warehouse = {}
+    closing_by_warehouse = {}
+    rows = sorted(rows, key=lambda row: (
+        getdate(row.get("posting_date")),
+        row.get("posting_time") or "",
+        row.get("name") or "",
+    ))
     for row in rows:
         item_code = row.get("item_code")
+        warehouse = row.get("warehouse") or ""
+        balance_key = (item_code, warehouse)
         qty = flt(row.get("actual_qty"))
         posting_date = getdate(row.get("posting_date"))
+        if row.get("qty_after_transaction") is not None:
+            balances[balance_key] = flt(row.get("qty_after_transaction"))
+        else:
+            balances[balance_key] = balances.get(balance_key, 0) + qty
         if posting_date < from_date:
-            opening[item_code] = opening.get(item_code, 0) + qty
+            opening_by_warehouse[balance_key] = balances[balance_key]
         if posting_date <= to_date:
-            closing[item_code] = closing.get(item_code, 0) + qty
+            closing_by_warehouse[balance_key] = balances[balance_key]
         if from_date <= posting_date <= to_date:
             if qty > 0:
                 inbound[item_code] = inbound.get(item_code, 0) + qty
@@ -159,6 +173,10 @@ def _summarize_stock_ledger(rows, from_date, to_date):
                 outbound[item_code] = outbound.get(item_code, 0) - qty
             if row.get("voucher_type") in {"Delivery Note", "Sales Invoice"}:
                 delivered[item_code] = delivered.get(item_code, 0) - qty
+    for (item_code, _), qty in opening_by_warehouse.items():
+        opening[item_code] = opening.get(item_code, 0) + qty
+    for (item_code, _), qty in closing_by_warehouse.items():
+        closing[item_code] = closing.get(item_code, 0) + qty
     return opening, inbound, outbound, closing, delivered
 
 
@@ -220,7 +238,8 @@ def execute(filters=None):
                 "posting_date": ["<=", to_date],
                 "is_cancelled": 0,
             },
-            fields=["item_code", "posting_date", "actual_qty", "voucher_type"], limit_page_length=0,
+            fields=["name", "item_code", "warehouse", "posting_date", "posting_time", "actual_qty",
+                    "qty_after_transaction", "voucher_type"], limit_page_length=0,
         )
         opening_quantities, inbound_quantities, outbound_quantities, closing_quantities, delivered_quantities = _summarize_stock_ledger(
             ledger_rows, from_date, to_date

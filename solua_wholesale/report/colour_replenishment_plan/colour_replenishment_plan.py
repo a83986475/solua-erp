@@ -18,8 +18,8 @@ SALES_VOUCHERS = ("Delivery Note", "Sales Invoice")
 def _days(filters, field, minimum, maximum):
     value = flt(filters.get(field))
     if not minimum <= value <= maximum or value != int(value):
-        frappe.throw(_("{0}������ {1} �� {2} ֮�������").format(
-            _({"history_days": "�ؿ�����", "lead_days": "��������", "cover_days": "�����󱸻�����"}[field]),
+        frappe.throw(_("{0}必须是 {1} 到 {2} 之间的整数").format(
+            _({"history_days": "回看天数", "lead_days": "到货周期", "cover_days": "到货后备货天数"}[field]),
             minimum, maximum,
         ))
     return int(value)
@@ -84,37 +84,37 @@ def _incoming(item_codes, warehouses, company, today, deadline):
 
 def _columns():
     return [
-        {"fieldname": "item_code", "label": _("��ɫ����"), "fieldtype": "Link", "options": "Item", "width": 190},
-        {"fieldname": "colour", "label": _("ɫ��"), "fieldtype": "Data", "width": 85},
-        {"fieldname": "item_name", "label": _("��Ʒ����"), "fieldtype": "Data", "width": 180},
-        {"fieldname": "stock_uom", "label": _("��浥λ"), "fieldtype": "Link", "options": "UOM", "width": 90},
+        {"fieldname": "item_code", "label": _("颜色货号"), "fieldtype": "Link", "options": "Item", "width": 190},
+        {"fieldname": "colour", "label": _("色号"), "fieldtype": "Data", "width": 85},
+        {"fieldname": "item_name", "label": _("商品名称"), "fieldtype": "Data", "width": 180},
+        {"fieldname": "stock_uom", "label": _("库存单位"), "fieldtype": "Link", "options": "UOM", "width": 90},
         *[
             {"fieldname": field, "label": _(label), "fieldtype": "Float", "precision": precision, "width": width}
             for field, label, precision, width in (
-                ("net_shipped", "��ʷ������", 2, 100),
-                ("stock_days", "�л�����", 0, 90),
-                ("out_days", "�޻�����", 0, 90),
-                ("daily_rate", "�л��վ�����", 2, 115),
-                ("on_hand", "��ǰ�ֻ�", 2, 95),
-                ("reserved", "������ռ��", 2, 100),
-                ("incoming", "�ɹ�δ����", 2, 105),
-                ("due", "�ƻ����ڵ���", 2, 115),
-                ("suggested_qty", "���鶩����", 0, 110),
+                ("net_shipped", "历史净出货", 2, 100),
+                ("stock_days", "有货天数", 0, 90),
+                ("out_days", "无货天数", 0, 90),
+                ("daily_rate", "有货日均出货", 2, 115),
+                ("on_hand", "当前现货", 2, 95),
+                ("reserved", "销售已占用", 2, 100),
+                ("incoming", "采购未到货", 2, 105),
+                ("due", "计划期内到货", 2, 115),
+                ("suggested_qty", "建议订货量", 0, 110),
             )
         ],
-        {"fieldname": "note", "label": _("��ע"), "fieldtype": "Data", "width": 150},
+        {"fieldname": "note", "label": _("备注"), "fieldtype": "Data", "width": 150},
     ]
 
 
 def execute(filters=None):
     filters = frappe._dict(filters or {})
     if not filters.company or not filters.template:
-        frappe.throw(_("��ѡ��˾�Ϳ�ʽģ��"))
+        frappe.throw(_("请选择公司和款式模板"))
     if not frappe.get_list("Company", filters={"name": filters.company}, pluck="name", limit_page_length=1):
-        frappe.throw(_("�޷��鿴��ѡ��˾"), frappe.PermissionError)
+        frappe.throw(_("无法查看所选公司"), frappe.PermissionError)
     for doctype in ("Bin", "Stock Ledger Entry", "Purchase Order"):
         if not frappe.has_permission(doctype, "read"):
-            frappe.throw(_("�˱�����Ҫ��ȡ {0} ��Ȩ��").format(_(doctype)), frappe.PermissionError)
+            frappe.throw(_("此报表需要读取 {0} 的权限").format(_(doctype)), frappe.PermissionError)
     history_days = _days(filters, "history_days", 14, 365)
     lead_days = _days(filters, "lead_days", 1, 365)
     cover_days = _days(filters, "cover_days", 1, 365)
@@ -128,11 +128,11 @@ def execute(filters=None):
         warehouse_filter["name"] = filters.warehouse
     warehouses = frappe.get_list("Warehouse", filters=warehouse_filter, pluck="name", limit_page_length=0)
     if not warehouses:
-        frappe.throw(_("û�пɶ�ȡ�Ĳֿ�"))
+        frappe.throw(_("没有可读取的仓库"))
     items = frappe.get_list("Item", filters={"variant_of": filters.template, "disabled": 0, "is_stock_item": 1},
                            fields=["name", "item_name", "stock_uom", "custom_color_code"], limit_page_length=0)
     if not items:
-        return _columns(), [], _("��ѡ��ʽû�пɶ�ȡ����Ч�����ɫ��")
+        return _columns(), [], _("所选款式没有可读取的有效库存颜色。")
     item_codes = [row.name for row in items]
     scope = {"item_code": ["in", item_codes], "warehouse": ["in", warehouses]}
     ledger_scope = {**scope, "company": filters.company, "is_cancelled": 0}
@@ -180,11 +180,10 @@ def execute(filters=None):
             "net_shipped": net_shipped[code], "stock_days": stocked, "out_days": out, "daily_rate": rate,
             "on_hand": on_hand[code], "reserved": reserved[code], "incoming": incoming.get(code, 0), "due": due_qty,
             "suggested_qty": suggested,
-            "note": _("�л����� {0} �죬�˹�ȷ��").format(MIN_STOCK_DAYS) if suggested is None else "",
+            "note": _("有货不足 {0} 天，人工确认").format(MIN_STOCK_DAYS) if suggested is None else "",
         })
     rows.sort(key=lambda row: (row["colour"] or row["item_code"], row["item_code"]))
-    message = _("��ʷ���� {0} �� {1}�����ױʿ����ˮ����㣬��������ʵ���漴��Ϊ�л����������ѿ������˻���"
-                "���ۼ��ӽ��쵽 {2} Ԥ�Ƶ����Ĳɹ��������ڼ���ͣ�Ĳɹ������Ⱥ˶ԡ�"
-                "����������浥λ����ȡ����δָ���ֿ�ʱ���ܹ�˾�¿ɶ�ȡ�Ĳֿ⡣").format(start, end, deadline)
+    message = _("历史区间 {0} 至 {1}。从首笔库存流水起计算，当天曾有实物库存即计为有货。净出货已扣销售退货。"
+                "仅扣减从今天到 {2} 预计到货的采购量，逾期及暂停的采购单请先核对。"
+                "建议量按库存单位向上取整。未指定仓库时汇总公司下可读取的仓库。").format(start, end, deadline)
     return _columns(), rows, message
-

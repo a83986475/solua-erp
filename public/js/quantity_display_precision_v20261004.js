@@ -8,6 +8,27 @@
 		const number = Number(value);
 		return Number.isFinite(number) ? Math.sign(number) * Math.round(Math.abs(number)) : value;
 	};
+	const isOrderQuantity = (doctype, table, fieldname) =>
+		doctype === "Sales Order Item" && table === "items" && fieldname === "qty";
+	const hasQuantity = (value) => value != null && value !== "" && Number.isFinite(Number(value));
+
+	const floatControl = frappe.ui.form.ControlFloat.prototype;
+	const formatFloatInput = floatControl.format_for_input;
+	floatControl.format_for_input = function (value) {
+		if (isOrderQuantity(this.doctype, this.grid?.df?.fieldname, this.df.fieldname) && hasQuantity(value)) {
+			return format_number(roundForDisplay(value), this.get_number_format(), 0);
+		}
+		return formatFloatInput.call(this, value);
+	};
+
+	const formatFloat = frappe.form.formatters.Float;
+	frappe.form.formatters.Float = function (value, df, options, doc) {
+		if (isOrderQuantity(doc?.doctype, doc?.parentfield, df.fieldname) && hasQuantity(value)) {
+			value = roundForDisplay(value);
+			df = { ...df, precision: "0" };
+		}
+		return formatFloat.call(this, value, df, options, doc);
+	};
 	const reportFields = {
 		"Item-wise Sales History": new Set(["quantity", "delivered_quantity"]),
 		"Sales Order Analysis": new Set(["qty", "delivered_qty", "pending_qty", "billed_qty", "qty_to_bill"]),

@@ -41,6 +41,32 @@ def validate_transaction_quantities(doc, method=None):
             validate_positive_integer_qty(value, "数量", item.item_code)
 
 
+def close_sales_order_after_return(doc, method=None):
+    """Close Sales Orders whose delivered quantities are fully accounted for after a return."""
+    if not doc.get("is_return") or doc.get("docstatus") != 1:
+        return
+
+    order_names = {
+        _row_value(row, "against_sales_order")
+        for row in (doc.get("items") or [])
+        if _row_value(row, "against_sales_order")
+    }
+    for order_name in order_names:
+        order = frappe.get_doc("Sales Order", order_name)
+        if order.docstatus != 1 or order.status in ("Closed", "Cancelled"):
+            continue
+        if any(
+            flt(row.qty) > 0
+            and flt(row.delivered_qty) + flt(row.returned_qty) < flt(row.qty) - 0.000001
+            for row in order.items
+        ):
+            continue
+
+        if frappe.get_meta("Sales Order").has_field("custom_order_end_reason"):
+            order.db_set("custom_order_end_reason", "退货退款后不再继续交付", update_modified=False)
+        order.update_status("Closed")
+
+
 def _row_value(row, fieldname, default=None):
     value = row.get(fieldname) if hasattr(row, "get") else getattr(row, fieldname, default)
     return default if value is None else value
@@ -161,6 +187,15 @@ def _add_stock_requirement(target, item_code, warehouse, qty):
     target[key] = target.get(key, 0) + qty
 
 
+def _warehouse_names(warehouse):
+    from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
+
+    warehouses = list(get_child_warehouses(warehouse) or [])
+    if warehouse not in warehouses:
+        warehouses.append(warehouse)
+    return warehouses
+
+
 def get_sales_order_stock_requirements(doc):
     """Return remaining demand in Stock UOM, including Product Bundle components."""
     requirements = {}
@@ -199,15 +234,6 @@ def get_sales_order_stock_requirements(doc):
         remaining = max(_row_stock_qty(item) - delivered_qty * factor, 0)
         _add_stock_requirement(requirements, item_code, warehouse, remaining)
     return requirements
-
-
-def _warehouse_names(warehouse):
-    from erpnext.stock.doctype.warehouse.warehouse import get_child_warehouses
-
-    warehouses = list(get_child_warehouses(warehouse) or [])
-    if warehouse not in warehouses:
-        warehouses.append(warehouse)
-    return warehouses
 
 
 def _lock_bin_rows(item_code, warehouse):

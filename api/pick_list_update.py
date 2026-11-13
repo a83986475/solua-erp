@@ -54,10 +54,11 @@ def _changes(before, after):
     return changes
 
 
-def _prepare(pick_list, lock=False):
+def _prepare(pick_list, lock=False, check_permissions=True):
     doc = frappe.get_doc("Pick List", pick_list, for_update=lock)
-    doc.check_permission("read")
-    doc.check_permission("write")
+    if check_permissions:
+        doc.check_permission("read")
+        doc.check_permission("write")
     if doc.docstatus != 0 or doc.purpose != "Delivery":
         frappe.throw(_("仅出货用途的拣货单草稿可以按最新订单更新。"))
     if doc.get("custom_pick_result") not in (None, "", "待拣货"):
@@ -75,10 +76,11 @@ def _prepare(pick_list, lock=False):
     if len(orders) != 1:
         frappe.throw(_("此功能仅支持关联一张销售订单的拣货单。"))
     order = frappe.get_doc("Sales Order", orders.pop(), for_update=lock)
-    order.check_permission("read")
+    if check_permissions:
+        order.check_permission("read")
     if order.docstatus != 1 or order.status in ("Closed", "Cancelled", "On Hold", "Completed"):
         frappe.throw(_("销售订单必须已提交且仍可交付，才能更新拣货单。"))
-    if order.company != doc.company or order.customer != doc.customer:
+    if order.company != doc.company or (doc.customer and order.customer != doc.customer):
         frappe.throw(_("销售订单的公司或客户与拣货单不一致。"))
     for doctype in ("Delivery Note Item", "Sales Invoice Item"):
         if frappe.db.exists(doctype, {"against_pick_list": doc.name, "docstatus": ["!=", 2]}):
@@ -112,7 +114,7 @@ def _prepare(pick_list, lock=False):
     payload = [str(doc.modified), str(order.modified), before, after]
     token = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return doc, after, {
-        "pick_list": doc.name, "sales_order": order.name, "token": token,
+        "pick_list": doc.name, "sales_order": order.name, "customer": order.customer, "token": token,
         "changes": _changes(before, after), "changed": before != after,
         "before_rows": len(before), "after_rows": len(after), "unplanned": unplanned,
     }
@@ -130,5 +132,30 @@ def apply(pick_list, token):
         frappe.throw(_("订单、拣货单或可拣库存已变化，请重新点击按最新订单更新并确认差异。"))
     if result["changed"]:
         doc.set("locations", rows)
+        if not doc.customer:
+            doc.customer = result["customer"]
         doc.save()
     return {"name": doc.name, "docstatus": doc.docstatus, "updated": result["changed"]}
+
+
+def update_draft_pick_lists_after_sales_order(doc, method=None):
+    """Refresh one safe draft after its submitted Sales Order changes."""
+    if doc.get("docstatus") != 1:
+        return
+
+    from solua_home.api.stock import get_existing_draft_pick_list
+
+    draft = get_existing_draft_pick_list(doc.name)
+    if not draft or draft.get("pick_manually") or draft.get("custom_pick_result") not in (None, "", "待拣货"):
+        return
+
+    try:
+        draft, rows, result = _prepare(draft.name, check_permissions=False)
+        if not result["changed"]:
+            return
+        draft.set("locations", rows)
+        if not draft.customer:
+            draft.customer = doc.customer
+        draft.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), _("自动更新销售订单拣货草稿失败：{0}").format(doc.name))

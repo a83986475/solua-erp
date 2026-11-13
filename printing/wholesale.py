@@ -73,7 +73,7 @@ def get_solua_print_css(with_logo=True):
 .print-format .col-traceability {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 .print-format .col-sku {{ min-width: 24mm; width: 24mm; }}
 .print-format .col-barcode {{ min-width: 30mm; width: 30mm; }}
-.print-format .col-qty {{ min-width: 17mm; width: 17mm; }}
+.print-format .col-qty, .print-format .col-picked {{ min-width: 17mm; width: 17mm; white-space: nowrap; }}
 .print-format .col-uom {{ min-width: 10mm; width: 10mm; }}
 .print-format .col-rate, .print-format .col-amount {{ min-width: 22mm; width: 22mm; }}
 .print-format .col-description {{ min-width: 42mm; white-space: normal; overflow-wrap: break-word; word-break: normal; }}

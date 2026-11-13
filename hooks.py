@@ -32,11 +32,13 @@ doc_events = {
         ],
         "validate": ["solua_home.api.sales.validate_sales_order", "solua_home.cash_discount.validate_sales_document"],
         "before_submit": [
+            "solua_home.api.sales.sort_sales_order_items_by_rate",
             "solua_home.api.sales.validate_sales_order_stock",
             "solua_home.printing.wholesale.prepare_print_snapshot",
         ],
         "on_submit": "solua_home.api.wecom.enqueue_sales_order_submit_send",
         "before_update_after_submit": "solua_home.api.sales.validate_sales_order_stock",
+        "on_update_after_submit": "solua_home.api.pick_list_update.update_draft_pick_lists_after_sales_order",
     },
     "Payment Entry": {
         "before_validate": "solua_home.cash_discount.validate_payment_entry",
@@ -99,7 +101,10 @@ doc_events = {
         ],
         "after_insert": "solua_home.api.stock.sync_delivery_contact_phone",
         "on_update": "solua_home.api.stock.sync_delivery_contact_phone",
-        "on_submit": "solua_home.item_metrics.on_stock_voucher_change",
+        "on_submit": [
+            "solua_home.item_metrics.on_stock_voucher_change",
+            "solua_home.api.stock.close_sales_order_after_return",
+        ],
         "on_cancel": "solua_home.item_metrics.on_stock_voucher_change",
         "before_submit": [
             "solua_home.api.stock.validate_delivery_route",
@@ -164,6 +169,10 @@ doc_events = {
     },
 }
 
+before_request = [
+    "solua_home.api.delete_guard.install",
+]
+
 # ------------------- 类重写 -------------------
 extend_doctype_class = {
     "Sales Invoice": "solua_home.override.sales_invoice.CustomSalesInvoice",
@@ -173,6 +182,8 @@ extend_doctype_class = {
 }
 
 override_whitelisted_methods = {
+    "frappe.client.delete": "solua_home.api.delete_guard.delete",
+    "frappe.desk.reportview.delete_items": "solua_home.api.delete_guard.delete_items",
     "erpnext.selling.doctype.sales_order.sales_order.update_status": "solua_home.api.order_status.update_status",
     "erpnext.selling.doctype.sales_order.sales_order.close_or_unclose_sales_orders": "solua_home.api.order_status.close_or_unclose_sales_orders",
     "erpnext.controllers.accounts_controller.update_child_qty_rate": "solua_home.api.child_items.update_child_qty_rate",
@@ -272,7 +283,9 @@ app_include_js = [
     "/assets/solua_home/js/item_quick_entry.js?v=item-price-sync-20260929-v6",
     "/assets/solua_home/js/payment_entry_labels_v20261004.js?v=cash-discount-term-20261027a",
     "/assets/solua_home/js/quantity_validation.js?v=return-qty-20261005a",
-    "/assets/solua_home/js/quantity_display_precision_v20261004.js?v=quantity-precision-20261004a",
+    "/assets/solua_home/js/quantity_display_precision_v20261004.js?v=order-qty-integer-20261105",
+    "/assets/solua_home/js/query_report_custom_columns_v20261109.js?v=query-report-custom-columns-20261109a",
+    "/assets/solua_home/js/linked_delete_guard_v20261111.js?v=linked-delete-guard-20261111b",
     "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
     "/assets/solua_home/js/retail_settings_panel.js?v=retail-settings-20261005a",
@@ -297,13 +310,13 @@ doctype_js = {
     "Item": "public/js/item_color_stock.js",
     # 销售单 / 销售订单 / 交货单 / 拣货单：明细表格导出（Excel/CSV）与底部总数量
 	"Sales Invoice": ["public/js/sales_invoice_print_options_v20261005.js", "public/js/sales_invoice_print_button_v20261008.js", "public/js/sales_invoice_default_print_button_v20261009.js", "public/js/document_table_export_v20261005b.js", "public/js/sales_invoice_stock_guard_v20261003.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/document_wechat_send_v20261019.js"],
-    "Sales Order": ["public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20261005c.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/order_status_v20261009d.js", "public/js/sales_order_available_stock_v20261008.js", "public/js/sales_order_item_query_v20261014.js", "public/js/sales_order_wechat_send_v20261017b.js"],
-    "Delivery Note": ["public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/document_wechat_send_v20261019.js"],
-    "Pick List": ["public/js/pick_list_order_reconciliation_v20261009d.js", "public/js/wholesale_forms_additional_notes_loader_v19.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/pick_list_order_update_v20261016.js", "public/js/document_wechat_send_v20261019.js"],
-    "Stock Entry": "public/js/wholesale_forms_additional_notes_loader_v19.js",
+    "Sales Order": ["public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js", "public/js/document_table_export_v20261005c.js", "public/js/price_difference_details_v20261005.js", "public/js/print_data_refresh_v20261005.js", "public/js/order_status_v20261009d.js", "public/js/sales_order_closed_invoice_v20261103.js", "public/js/sales_order_available_stock_v20261102.js", "public/js/sales_order_item_query_v20261014.js", "public/js/sales_order_wechat_send_v20261017b.js"],
+    "Delivery Note": ["public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/delivery_note_return_action_v20261010.js", "public/js/document_wechat_send_v20261019.js"],
+    "Pick List": ["public/js/pick_list_order_reconciliation_v20261009d.js", "public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js", "public/js/document_table_export_v20260930c.js", "public/js/print_data_refresh_v20261005.js", "public/js/pick_list_order_update_v20261016.js", "public/js/document_wechat_send_v20261019.js"],
+    "Stock Entry": ["public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js"],
 
-    "Purchase Receipt": "public/js/wholesale_forms_additional_notes_loader_v19.js",
-    "Stock Reconciliation": "public/js/wholesale_forms_additional_notes_loader_v19.js",
+    "Purchase Receipt": ["public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js"],
+    "Stock Reconciliation": ["public/js/wholesale_forms_buttons_v20261111.js", "public/js/wholesale_forms_additional_notes_loader_v20261111.js"],
     # 打印格式的「单据类型」下拉只列本项目会用到的单据类型（与 DocType 列表同一份白名单）
     "Print Format": "public/js/doctype_module_filter.js",
 }

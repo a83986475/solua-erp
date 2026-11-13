@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solua Home 工作台</title>
+  <link rel="icon" href="/files/solua-logo.jpg" type="image/jpeg">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --canvas: light-dark(#faf7f1, #1e1915);
+      --surface: light-dark(#fff, #28211b);
+      --ink: light-dark(#352a20, #f4ebe0);
+      --muted: light-dark(#6f6051, #c5b6a5);
+      --line: light-dark(#e8ded1, #493b30);
+      --gold: light-dark(#c8a070, #d7b284);
+      --accent: light-dark(#75502d, #e2bd91);
+      --on-accent: light-dark(#fff, #2b1d11);
+      --soft: light-dark(#f7ede0, #392c21);
+      --shadow: light-dark(#5039230d, #0003);
+      font: 15px/1.55 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+    * { box-sizing: border-box; }
+    body, h1, h2, h3, p { margin: 0; }
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    header { background: var(--surface); border-bottom: 1px solid var(--line); }
+    .header-inner, main { max-width: 1180px; margin: auto; padding-inline: clamp(16px, 4vw, 40px); }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; min-height: 82px; gap: 16px; }
+    .brand { position: relative; flex: 0 0 102px; height: 72px; overflow: hidden; border-radius: 8px; background: #fff; }
+    .brand img { position: absolute; width: 124px; height: auto; max-width: none; top: -32px; left: -14px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .button:hover, .entry:hover { background: var(--soft); }
+    main { padding-block: clamp(24px, 5vw, 54px) 32px; }
+    h1 { font-size: clamp(28px, 4vw, 36px); line-height: 1.2; margin-bottom: 22px; }
+    h1::before { content: ""; display: block; width: 36px; height: 3px; margin-bottom: 12px; border-radius: 2px; background: var(--gold); }
+    h2 { font-size: 18px; }
+    .home-grid, .directory-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .panel { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 0 16px 8px; }
+    .home-grid .panel { box-shadow: 0 4px 18px var(--shadow); }
+    .panel h2 { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
+    .panel h2 .icon { box-sizing: content-box; padding: 7px; border-radius: 8px; color: var(--accent); background: var(--soft); }
+    .panel h3 { padding: 12px 4px 10px; }
+    .panel h3 { font-size: 15px; }
+    .entry { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 7px 4px; border-top: 1px solid var(--line); }
+    .entry small { display: block; color: var(--muted); }
+    .entry > span[aria-hidden] { color: var(--accent); }
+    .primary { width: 100%; margin-bottom: 8px; background: var(--accent); color: var(--on-accent); }
+    .primary:hover { background: var(--accent); filter: brightness(.92); }
+    dialog { width: min(920px, calc(100% - 24px)); max-height: calc(100dvh - 24px); background: var(--canvas); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: clamp(12px, 3vw, 22px); }
+    dialog::backdrop { background: rgb(40 29 20 / 55%); }
+    .directory-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .directory-header h2 { font-size: 22px; }
+    .directory-header p { color: var(--muted); font-size: 13px; }
+    .directory-search { width: 100%; min-height: 44px; margin-bottom: 14px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+    .directory-footer { margin-top: 14px; }
+    [hidden] { display: none; }
+    @media (max-width: 760px) {
+      .home-grid { grid-template-columns: minmax(0, 1fr); }
+      .directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 430px) {
+      .directory-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <span class="brand"><img src="/files/solua-logo.jpg" width="2480" height="3508" alt="Solua Home"></span>
+      <button type="button" class="button" id="open-directory" aria-haspopup="dialog" aria-controls="directory">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+        全部功能
+      </button>
+    </div>
+  </header>
+  <main>
+    <h1>工作台</h1>
+    <div class="home-grid">
+      <section class="panel">
+        <h2><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 13h5M12.5 10.5v5"/></svg>开订单</h2>
+        <div id="orders"></div>
+      </section>
+      <section class="panel">
+        <h2><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11v11H4zM15 10h3l3 3v4h-6"/><circle cx="8" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>完成订单</h2>
+        <div id="fulfillment"></div>
+      </section>
+      <section class="panel">
+        <h2><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16M8 16v-4M12 16V8M16 16v-6"/></svg>看数据</h2>
+        <div id="reports"></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="directory" aria-labelledby="directory-title">
+    <div class="directory-header">
+      <div><h2 id="directory-title">全部功能</h2><p>入口会在新标签打开，访问权限由 ERP 管理。</p></div>
+      <button type="button" class="button" id="close-directory">关闭</button>
+    </div>
+    <input id="directory-search" class="directory-search" type="search" aria-label="搜索功能" placeholder="搜索功能，例如调拨、收款、打印">
+    <div class="directory-grid" id="directory-groups"></div>
+    <p id="no-results" role="status" hidden>没有匹配的功能。</p>
+    <div class="directory-footer"><a class="button" href="/desk/solua-home" target="_blank" rel="noopener">打开原 ERP 首页</a></div>
+  </dialog>
+  <script>
+    const desk = (path) => "/desk/" + path;
+    const report = (name) => desk("query-report/" + encodeURIComponent(name));
+    const filtered = (doctype, filters) => desk(doctype + "?" + new URLSearchParams(filters));
+    const newOrder = desk("sales-order/new-sales-order-1");
+    const drafts = filtered("pick-list", {docstatus: 0, purpose: "Delivery"});
+    const readyToDeliver = filtered("pick-list", {docstatus: 1, purpose: "Delivery", status: "Open"});
+    const readyToInvoice = filtered("delivery-note", {docstatus: 1, is_return: 0, per_billed: '["<",100]'});
+    const home = desk("solua-home");
+    const sales = ["经营金额报表", report("Solua Business Totals")];
+    const profit = ["销售毛利报表", report("Gross Profit")];
+    const stock = ["库存树", report("Template Stock Tree")];
+    const reservations = ["销售订单预留明细", report("Sales Order Reservations")];
+    const groups = [
+      ["销售与交付", [
+        ["新建销售订单", newOrder], ["销售订单", desk("sales-order")], ["报价单", desk("quotation")],
+        ["客户／门店", desk("customer")], ["拣货单", desk("pick-list")], ["交货单", desk("delivery-note")],
+        ["送货中心", "/mobile?view=delivery&desktop=1"], ["销售发票", desk("sales-invoice")],
+        ["发票草稿", filtered("sales-invoice", {docstatus: 0})], ["销售退货", filtered("sales-invoice", {is_return: 1})],
+      ]],
+      ["库存与盘点", [
+        ["库存入库", filtered("stock-entry/new-stock-entry-1", {stock_entry_type: "Material Receipt"})],
+        ["物料出库", filtered("stock-entry/new-stock-entry-1", {stock_entry_type: "Material Issue"})],
+        ["库存调拨", filtered("stock-entry/new-stock-entry-1", {stock_entry_type: "Material Transfer"})],
+        ["出入库记录", desk("stock-entry")], ["盘点单", desk("stock-reconciliation")],
+        ["仓库与库位", desk("warehouse")], stock, reservations,
+        ["库存余额", report("Stock Balance")], ["库存流水", report("Stock Ledger")],
+      ]],
+      ["商品与价格", [
+        ["物料列表", desk("item")], ["物料分组", desk("item-group")], ["物料价格", desk("item-price")],
+        ["价目表", desk("price-list")], ["促销规则", desk("pricing-rule")], ["公开色卡", "/colors"],
+      ]],
+      ["采购与供应商", [
+        ["供应商", desk("supplier")], ["采购订单", desk("purchase-order")], ["采购收货单", desk("purchase-receipt")],
+        ["采购发票", desk("purchase-invoice")], ["物料需求单", desk("material-request")],
+      ]],
+      ["财务与收款", [
+        ["收付款单", desk("payment-entry")], ["未收款发票", filtered("sales-invoice", {docstatus: 1, outstanding_amount: '[">",0]'})],
+        ["销售发票提交检查", desk("sales-invoice-approval")], ["应收账款", report("Accounts Receivable")],
+        ["应付账款", report("Accounts Payable")], ["总账", report("General Ledger")],
+      ]],
+      ["经营报表", [
+        sales, profit, ["销售订单分析", report("Sales Order Analysis")], ["销售发票明细", report("Sales Register")],
+        ["送货汇总", report("Solua Delivery Summary")], ["盈利能力分析", report("Profitability Analysis")],
+        ["报表中心", "/mobile?view=reports"],
+      ]],
+      ["收银与打印", [
+        ["xPos 收银台", desk("x-pos?sidebar=X%20POS")], ["POS 销售单", desk("pos-invoice")],
+        ["POS 交班记录", desk("pos-closing-entry")], ["打印格式", desk("print-format")], ["打印设置", desk("print-settings")],
+        ["打印设计", desk("print-designer")], ["A4 打印设计器", desk("a4-print-designer")],
+      ]],
+      ["其他工具", [
+        ["员工开单", "/mobile?view=order-entry"], ["票据中心", "/mobile?view=ticket-center"],
+        ["客户中心", "/mobile?view=customer"], ["首页常用功能设置", desk("solua-home-settings")],
+        ["标签打印、领用及损耗（原首页）", home],
+      ]],
+    ];
+
+    function makeEntry([label, path, detail], primary = false) {
+      const link = document.createElement("a");
+      link.href = path;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.className = primary ? "button primary" : "entry";
+      const text = document.createElement("span");
+      text.textContent = label;
+      if (detail) {
+        const subtitle = document.createElement("small");
+        subtitle.textContent = detail;
+        text.append(subtitle);
+      }
+      link.append(text);
+      if (!primary) {
+        const arrow = document.createElement("span");
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "›";
+        link.append(arrow);
+      }
+      return link;
+    }
+
+    document.getElementById("orders").append(
+      makeEntry(["＋ 新建销售订单", newOrder], true),
+      makeEntry(["查看销售订单", desk("sales-order")])
+    );
+    document.getElementById("fulfillment").append(
+      makeEntry(["继续拣货", drafts, "查看交付用的拣货草稿"]),
+      makeEntry(["开交货单", readyToDeliver, "从已提交的拣货单继续"]),
+      makeEntry(["开销售发票", readyToInvoice, "查看已交付且尚有数量未开票的交货单"])
+    );
+    document.getElementById("reports").append(...[sales, profit, stock, reservations].map((entry) => makeEntry(entry)));
+
+    const directory = document.getElementById("directory");
+    const search = document.getElementById("directory-search");
+    const groupContainer = document.getElementById("directory-groups");
+    const noResults = document.getElementById("no-results");
+    const directoryGroups = groups.map(([name, entries]) => {
+      const section = document.createElement("section");
+      section.className = "panel";
+      const title = document.createElement("h3");
+      title.textContent = name;
+      const links = entries.map((entry) => makeEntry(entry));
+      section.append(title, ...links);
+      groupContainer.append(section);
+      return {name, section, links};
+    });
+
+    document.getElementById("open-directory").addEventListener("click", () => {
+      directory.showModal();
+      search.focus();
+    });
+    document.getElementById("close-directory").addEventListener("click", () => directory.close());
+    search.addEventListener("input", () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      for (const {name, section, links} of directoryGroups) {
+        for (const link of links) {
+          link.hidden = !(name + link.firstElementChild.textContent).toLocaleLowerCase().includes(query);
+        }
+        section.hidden = links.every((link) => link.hidden);
+      }
+      noResults.hidden = directoryGroups.some(({section}) => !section.hidden);
+    });
+  </script>
+</body>
+</html>

@@ -1732,7 +1732,6 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     $("mobile-submit-order").addEventListener("click", () => saveOrder(true));
     $("mobile-restore-draft")?.addEventListener("click", restoreDraft);
     $("mobile-discard-draft")?.addEventListener("click", () => { clearSavedDraft(); setStatus("已清空未完成的开单草稿"); });
-    document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
     if ($("mobile-stock-only")) {
         $("mobile-stock-only").checked = state.stockOnly;
         $("mobile-stock-only").addEventListener("change", () => {
@@ -1744,6 +1743,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             }
         });
     }
+    document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
     document.addEventListener("click", (event) => {
         if (!event.target.closest(".mobile-query-wrap")) hideSuggestions();
         if (!event.target.closest(".mobile-customer-wrap")) hideCustomerSuggestions();
