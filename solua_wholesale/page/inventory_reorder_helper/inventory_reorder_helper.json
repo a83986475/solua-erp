@@ -1,0 +1,9 @@
+{
+  "doctype": "Page",
+  "name": "inventory-reorder-helper",
+  "page_name": "inventory-reorder-helper",
+  "module": "Solua Wholesale",
+  "standard": "Yes",
+  "title": "库存预警辅助填写",
+  "roles": []
+}
