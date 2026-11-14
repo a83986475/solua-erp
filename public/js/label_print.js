@@ -573,6 +573,34 @@ frappe.provide("solua_home.label_print");
         });
     }
 
+    function _wait_for_print_ready(print_win) {
+        var doc = print_win.document;
+        var svgs = Array.prototype.slice.call(doc.querySelectorAll("svg[data-barcode-ready]"));
+        var svg_ready = svgs.every(function (svg) {
+            return svg.id && svg.getAttribute("preserveAspectRatio") === "xMidYMid meet"
+                && svg.getAttribute("data-barcode-format")
+                && svg.querySelector("rect");
+        });
+        if (!svg_ready) {
+            return Promise.reject(new Error("条码 SVG 尚未完成"));
+        }
+
+        var images = Array.prototype.slice.call(doc.images).map(function (image) {
+            if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+            return new Promise(function (resolve, reject) {
+                image.addEventListener("load", resolve, { once: true });
+                image.addEventListener("error", reject, { once: true });
+            });
+        });
+        var fonts = doc.fonts && doc.fonts.ready ? doc.fonts.ready : Promise.resolve();
+        return Promise.all([Promise.all(images), fonts]).then(function () {
+            return new Promise(function (resolve) {
+                var raf = print_win.requestAnimationFrame || function (fn) { setTimeout(fn, 0); };
+                raf(function () { raf(resolve); });
+            });
+        });
+    }
+
     function _open_print_window(html, count) {
         var print_win = window.open("", "_blank", "width=800,height=600");
         if (!print_win) {
@@ -582,7 +610,11 @@ frappe.provide("solua_home.label_print");
         print_win.document.write(html);
         print_win.document.close();
         print_win.onload = function () {
-            setTimeout(function () { print_win.print(); }, 500);
+            _wait_for_print_ready(print_win).then(function () {
+                print_win.print();
+            }).catch(function (error) {
+                frappe.show_alert({ message: "打印内容未完成：" + error.message, indicator: "red" });
+            });
         };
         frappe.show_alert({ message: "已生成 " + count + " 张标签，打印窗口已弹出", indicator: "green" });
     }
