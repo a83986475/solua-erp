@@ -607,6 +607,12 @@ frappe.provide("solua_home.label_print");
             frappe.show_alert({ message: "弹出窗口被浏览器拦截，请允许弹窗后重试", indicator: "orange" });
             return;
         }
+        // Keep the 60x20 layout on one physical page even if an older
+        // backend worker returns the pre-fix flex basis for the SVG.
+        html = String(html).replace(
+            "</head>",
+            "<style id=\"lp-print-layout-fix\">.label-page .solua-item-label svg{flex:0 0 12mm!important;min-height:0!important;}</style></head>"
+        );
         print_win.document.write(html);
         print_win.document.close();
         print_win.onload = function () {
