@@ -731,7 +731,8 @@ body {{ overflow-x: hidden; }}
     display: block;
     width: 26mm !important;
     height: 12mm !important;
-    flex: 0 0 26mm;
+    flex: 0 0 12mm;
+    min-height: 0;
     margin: 0;
     overflow: visible;
     shape-rendering: crispEdges;
