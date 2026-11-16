@@ -205,7 +205,7 @@ def _barcode_svg(value, barcode_type, barcode_id):
     return (
         f'<svg id="{escape(barcode_id, quote=True)}" '
         f'viewBox="0 0 {view_width:g} {view_height}" '
-        f'width="28mm" height="9mm" preserveAspectRatio="none" '
+        f'width="28mm" height="9mm" preserveAspectRatio="xMidYMid meet" '
         f'shape-rendering="crispEdges" '
         f'role="img" aria-label="{safe_value}" data-barcode-ready="true" '
         f'data-barcode-value="{safe_value}" data-barcode-format="{barcode_type}" '
