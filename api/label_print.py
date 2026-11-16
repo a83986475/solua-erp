@@ -199,7 +199,7 @@ def _barcode_svg(value, barcode_type, barcode_id):
     return (
         f'<svg id="{escape(barcode_id, quote=True)}" '
         f'viewBox="0 0 {view_width:g} {view_height}" '
-        f'width="26mm" height="12mm" preserveAspectRatio="xMidYMid meet" '
+        f'width="28mm" height="12mm" preserveAspectRatio="xMidYMid meet" '
         f'shape-rendering="crispEdges" '
         f'role="img" aria-label="{safe_value}" data-barcode-ready="true" '
         f'data-barcode-value="{safe_value}" data-barcode-format="{barcode_type}" '
@@ -724,7 +724,7 @@ body {{ overflow-x: hidden; }}
 .label-page:not(:last-child) {{ page-break-after: always; break-after: page; }}
 .label-cell {{
     box-sizing: border-box;
-    width: 26mm;
+    width: 28mm;
     height: 100%;
     min-width: 0;
     overflow: visible;
@@ -768,7 +768,7 @@ body {{ overflow-x: hidden; }}
 }}
 .label-page .solua-item-label {{
     box-sizing: border-box;
-    width: 26mm !important;
+    width: 28mm !important;
     height: 100%;
     overflow: visible;
     text-align: center;
@@ -789,7 +789,7 @@ body {{ overflow-x: hidden; }}
 }}
 .label-page .solua-item-label svg {{
     display: block;
-    width: 26mm !important;
+    width: 28mm !important;
     height: 12mm !important;
     flex: 0 0 12mm;
     min-height: 0;
