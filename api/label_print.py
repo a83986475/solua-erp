@@ -142,9 +142,8 @@ def _ean13_check_digit(value):
 
 
 def _barcode_type_for_value(value):
-    """Choose once per item; both cells receive this exact result."""
-    value = str(value or "")
-    return "ean13" if _ean13_check_digit(value) == value[-1] else "code128"
+    """Use the same Code128 symbology as the native item label."""
+    return "code128"
 
 
 def _barcode_modules(value, barcode_type):
@@ -158,9 +157,17 @@ def _barcode_modules(value, barcode_type):
         bits += "".join(_EAN13_R[int(digit)] for digit in value[7:])
         return bits + "101"
 
-    codes = [104] + [ord(char) - 32 for char in value]
-    codes.append(sum(index * code for index, code in enumerate(codes)) % 103)
-    return "".join(_CODE128[code] for code in codes) + _CODE128[106]
+    # Match the native template's Code128C encoding for numeric values,
+    # including the Code B switch for an odd final digit.
+    if value.isdigit() and len(value) >= 2:
+        pairs = len(value) - (len(value) % 2)
+        codes = [105] + [int(value[index:index + 2]) for index in range(0, pairs, 2)]
+        if pairs != len(value):
+            codes.extend([100, ord(value[-1]) - 32])
+    else:
+        codes = [104] + [ord(char) - 32 for char in value]
+    checksum = sum(index * code for index, code in enumerate(codes)) % 103
+    return "".join(_CODE128[code] for code in codes + [checksum, 106])
 
 
 def _barcode_svg(value, barcode_type, barcode_id):
