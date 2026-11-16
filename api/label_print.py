@@ -60,6 +60,24 @@ _LABEL_FORMATS = {
         "barcode_type": "code128",
         "template_key": "item_60x20_double",
     },
+    "物料标签 60x20 双列（可视化）": {
+        # The Print Designer document already contains both 60x20mm columns.
+        # Keep one rendered template per physical page; do not duplicate it.
+        "page_width_mm": 60,
+        "page_height_mm": 20,
+        "columns": 1,
+        "label_width_mm": 60,
+        "label_height_mm": 20,
+        "column_widths_mm": [60],
+        "column_gap_mm": 0,
+        "padding_left_mm": 0,
+        "padding_top_mm": 0,
+        "padding_right_mm": 0,
+        "padding_bottom_mm": 0,
+        "orientation": "portrait",
+        "barcode_type": "code128",
+        "template_key": "visual_print_format",
+    },
     "XPOS Item Barcode Label": {
         "page_width_mm": 50,
         "page_height_mm": 30,
@@ -445,11 +463,17 @@ def generate_label_html(item_codes, format_name="价格标签 50x30", quantities
         try:
             from frappe.www.printview import get_rendered_template
 
+            print_format_doc = frappe.get_doc("Print Format", format_name)
             label_html = get_rendered_template(
                 frappe.get_doc("Item", item_code),
-                print_format=frappe.get_doc("Print Format", format_name),
+                print_format=print_format_doc,
                 no_letterhead=True,
             )
+            # Native Item printview applies the Print Format CSS after rendering.
+            # The custom label tool must include the same CSS for Print Designer
+            # formats, otherwise the visual layout falls back to unstyled HTML.
+            if getattr(print_format_doc, "css", None):
+                label_html += f"<style>{print_format_doc.css}</style>"
         except Exception:
             label_html = _render_fallback_label(item_code, config)
 
@@ -608,6 +632,16 @@ def _render_label_page(label_html, config):
     """将一个格式模板渲染成一个物理打印页。"""
     if config["template_key"] == "item_60x20_double":
         return f'<section class="label-page">{label_html}</section>'
+    if config["template_key"] == "visual_print_format":
+        # The visual Print Designer template already contains the left and right
+        # labels. Render it once, exactly as the native Item print page does.
+        return (
+            '<section class="label-page visual-print-page">'
+            '<div class="label-cell visual-print-cell">'
+            '<div class="print-format visual-print-format">'
+            f'{label_html}'
+            '</div></div></section>'
+        )
 
     cells = "".join(
         f'<div class="label-cell">{label_html}</div>'
@@ -699,6 +733,32 @@ body {{ overflow-x: hidden; }}
     justify-content: center;
     page-break-inside: avoid;
     break-inside: avoid;
+}}
+.label-page.visual-print-page {{
+    display: block;
+    padding: 0;
+    overflow: hidden;
+}}
+.label-page.visual-print-page .visual-print-cell {{
+    display: block;
+    width: 60mm;
+    height: 20mm;
+    overflow: hidden;
+}}
+.label-page.visual-print-page .visual-print-format {{
+    box-sizing: border-box !important;
+    width: 60mm !important;
+    min-width: 60mm !important;
+    max-width: 60mm !important;
+    height: 20mm !important;
+    min-height: 20mm !important;
+    max-height: 20mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}}
+.label-page.visual-print-page #__print_designer {{
+    margin: 0 !important;
 }}
 .label-page > .solua-label-stock {{
     display: contents;
