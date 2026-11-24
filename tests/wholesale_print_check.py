@@ -87,18 +87,26 @@ so.custom_store_phone = "111"
 so.driver = so.driver_name = so.vehicle_no = ""
 module.prepare_print_snapshot(so, "before_submit")
 assert json.loads(so.custom_wholesale_snapshot)["company"]["nuit"] == "COMPANY-NUIT"
+assert json.loads(so.custom_wholesale_snapshot)["order"]["name"] == so.name
 assert module.get_customer_print_info(so)["address"] == "Store address"
 assert module.get_customer_print_info(so)["phone"] == "111"
 legacy_so = Doc(so)
 legacy_snapshot = json.loads(so.custom_wholesale_snapshot)
+legacy_snapshot.update(legacy=True, order={"name": ""})
 for legacy_item in legacy_snapshot["items"]:
     legacy_item["barcode"] = ""
     legacy_item["description"] = ""
 legacy_so.custom_wholesale_snapshot = json.dumps(legacy_snapshot)
-legacy_display = module.get_wholesale_print_data(legacy_so)["items"][0]
+legacy_so.docstatus = 1
+recovered = module.get_wholesale_print_data(legacy_so)
+assert recovered["legacy"] is False and recovered["order"]["name"] == legacy_so.name
+legacy_display = recovered["items"][0]
 assert legacy_display["barcode"] == "6901234567892"
 assert legacy_display["description"] == "Cortina vermelha"
 assert json.loads(legacy_so.custom_wholesale_snapshot)["items"][0]["barcode"] == ""
+legacy_so.custom_wholesale_snapshot = None
+assert module.get_wholesale_print_data(legacy_so)["legacy"] is True
+assert module.get_wholesale_print_data(legacy_so, live=True)["legacy"] is False
 dn = fixture("Delivery Note")
 module.prepare_print_snapshot(dn, "before_submit")
 stored = dn.custom_wholesale_snapshot
