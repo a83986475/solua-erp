@@ -1,6 +1,7 @@
 (() => {
 	const pdfLabel = __("发送到微信");
 	const tableLabel = __("发送表格到微信");
+	const bothLabel = __("发送 PDF 和表格到微信");
 	const autoSendLabel = __("订单更新后自动发送");
 	const configureAutoSend = async () => {
 		const enabled = await frappe.xcall("solua_home.api.wecom.get_sales_order_auto_send");
@@ -33,8 +34,16 @@
 				freeze_message: __("正在发送到微信…"),
 			}).then((response) => {
 				if (response?.exc) throw new Error(response.exc);
+				const {failed, results, filename} = response.message || {};
+				if (failed?.length) {
+					const sent = Object.keys(results).join("、");
+					frappe.msgprint(sent
+						? __("已发送 {0}，{1} 发送失败。可单独重发失败的附件。", [sent, failed.join("、")])
+						: __("PDF 和表格均发送失败，请稍后重试。"));
+					return;
+				}
 				frappe.show_alert({
-					message: __("已发送：{0}", [response.message?.filename || frm.doc.name]),
+					message: results ? __("PDF 和表格已发送到企业微信群") : __("已发送：{0}", [filename || frm.doc.name]),
 					indicator: "green",
 				});
 			}).catch((error) => {
@@ -51,6 +60,7 @@
 		refresh(frm) {
 			frm.remove_custom_button?.(pdfLabel, __("工具"));
 			frm.remove_custom_button?.(tableLabel, __("工具"));
+			frm.remove_custom_button?.(bothLabel, __("工具"));
 			frm.remove_custom_button?.(autoSendLabel, __("工具"));
 			if (frappe.session.user === "Administrator" || frappe.user.has_role("System Manager")) {
 				frm.add_custom_button(autoSendLabel, configureAutoSend, __("工具"));
@@ -61,6 +71,9 @@
 			}, __("工具"));
 			frm.add_custom_button(tableLabel, () => {
 				send(frm, "solua_home.api.wecom.send_sales_order_customer_xlsx_to_wechat", __("将当前销售订单表格发送到企业微信群，继续吗？"));
+			}, __("工具"));
+			frm.add_custom_button(bothLabel, () => {
+				send(frm, "solua_home.api.wecom.send_sales_order_customer_files_to_wechat", __("将当前已保存订单的 PDF 和表格发送到企业微信群，继续吗？"));
 			}, __("工具"));
 		},
 	});

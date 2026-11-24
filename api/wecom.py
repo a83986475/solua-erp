@@ -261,18 +261,8 @@ def send_submitted_sales_order_to_wechat(sales_order, updated=False):
 
 def _send_sales_order_files(doc, stem):
     sales_order = doc.name
-
     _set_sales_order_wecom_status(sales_order, "发送中")
-    results = {}
-    errors = []
-    for label, sender in (
-        ("PDF", _send_sales_order_pdf),
-        ("XLSX", _send_sales_order_xlsx),
-    ):
-        try:
-            results[label] = _send_with_retries(sender, doc, f"{stem}.{label.lower()}")
-        except Exception as error:
-            errors.append(f"{label}: {error}")
+    results, errors = _deliver_sales_order_files(doc, stem, retry=True)
 
     if errors:
         status = "部分成功" if results else "失败"
@@ -283,6 +273,32 @@ def _send_sales_order_files(doc, stem):
 
     _set_sales_order_wecom_status(sales_order, "已发送", sent_at=frappe.utils.now_datetime())
     return {"status": "sent", "results": results}
+
+
+def _deliver_sales_order_files(doc, stem, *, retry=False):
+    results = {}
+    errors = []
+    for label, sender in (("PDF", _send_sales_order_pdf), ("XLSX", _send_sales_order_xlsx)):
+        filename = f"{stem}.{label.lower()}"
+        try:
+            results[label] = _send_with_retries(sender, doc, filename) if retry else sender(doc, filename)
+        except Exception as error:
+            if not retry:
+                # Transport exceptions can contain the private webhook URL.
+                error = type(error).__name__
+            errors.append(f"{label}: {error}")
+    return results, errors
+
+
+@frappe.whitelist(methods=["POST"])
+def send_sales_order_customer_files_to_wechat(name):
+    from solua_home.api.export import _sales_order_customer_pdf_filename, get_export_document
+
+    doc = get_export_document("Sales Order", name)
+    results, errors = _deliver_sales_order_files(doc, _sales_order_customer_pdf_filename(doc)[:-4])
+    if errors:
+        frappe.log_error(", ".join(errors), f"Manual Sales Order WeCom send failed: {doc.name}")
+    return {"results": results, "failed": [label for label in ("PDF", "XLSX") if label not in results]}
 
 
 @frappe.whitelist()
