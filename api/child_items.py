@@ -34,9 +34,16 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 	from solua_home.api.sales import validate_sales_order_stock
 	if after.docstatus == 1:
 		validate_sales_order_stock(after)
-	if not has_notes:
-		return result
+	if has_notes:
+		_save_item_notes(after, child_docname, before_names, data)
+		after.reload()
 
+	from solua_home.api.wecom import enqueue_sales_order_update_send
+	enqueue_sales_order_update_send(after, previous=before)
+	return result
+
+
+def _save_item_notes(after, child_docname, before_names, data):
 	by_name = {row.name: row for row in after.get(child_docname) or []}
 	new_by_code = {}
 	for row in after.get(child_docname) or []:
@@ -44,7 +51,7 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 			new_by_code.setdefault(row.item_code, []).append(row)
 
 	for row in data:
-		if "additional_notes" not in row:
+		if "additional_notes" not in row and "pos_additional_notes" not in row:
 			continue
 		target = by_name.get(row.get("docname"))
 		if not target and row.get("item_code"):
@@ -59,5 +66,3 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 		for fieldname in fields:
 			if getattr(target, fieldname, None) != note:
 				frappe.db.set_value("Sales Order Item", target.name, fieldname, note)
-
-	return result

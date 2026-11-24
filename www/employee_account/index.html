@@ -1,0 +1,96 @@
+{% extends "templates/web.html" %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block page_footer %}{% endblock %}
+
+{% block head_include %}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    html, body { min-height: 100%; background: #f3f6f1; }
+    body.solua-employee-account-page { overflow-x: hidden; }
+    .solua-account-shell { min-height: 100vh; padding: 24px 14px 48px; }
+    .solua-account-card { position: relative; width: min(620px, 100%); margin: 0 auto; padding: 28px 34px 34px; border: 1px solid rgba(50,77,59,.1); border-radius: 22px; background: rgba(255,255,255,.96); box-shadow: 0 22px 60px rgba(38,65,47,.14); }
+    .solua-account-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:22px; }
+    .solua-account-brand { color:#356247; font-weight:700; letter-spacing:.02em; }
+    .solua-account-language { min-height:32px; padding:5px 10px; border:1px solid #dbe4dc; border-radius:999px; background:#fff; color:#53665a; font-size:12px; font-weight:700; cursor:pointer; }
+    .solua-account-card h1 { margin:0 0 8px; color:#23362a; font-size:28px; }
+    .solua-account-muted { color:#66756b; font-size:14px; }
+    .solua-account-section { margin-top:22px; padding-top:20px; border-top:1px solid #e2eae3; }
+    .solua-account-section h2 { margin:0 0 12px; color:#356247; font-size:19px; }
+    .solua-account-form { display:grid; gap:10px; }
+    .solua-account-form label { display:grid; gap:6px; color:#43564a; font-size:13px; font-weight:600; }
+    .solua-account-form input { min-height:44px; border:1px solid #dbe4dc; border-radius:10px; padding:8px 11px; background:#fbfdfb; }
+    .solua-account-form button { min-height:44px; margin-top:4px; border:0; border-radius:10px; background:#356247; color:#fff; font-weight:700; cursor:pointer; }
+    .solua-account-form button:disabled { opacity:.55; cursor:wait; }
+    .solua-account-message { min-height:22px; margin-top:12px; color:#356247; font-size:14px; }
+    .solua-account-message.error { color:#a04436; }
+    .solua-account-links { display:flex; flex-wrap:wrap; gap:14px; margin-top:24px; font-size:14px; }
+    .solua-account-links a { color:#4f7d5d; }
+    @media (max-width: 560px) { .solua-account-shell { padding:12px 8px 30px; } .solua-account-card { padding:24px 20px 28px; border-radius:18px; } }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<main class="solua-account-shell" id="solua-account" data-csrf="{{ csrf_token }}">
+    <section class="solua-account-card">
+        <div class="solua-account-head"><span class="solua-account-brand">Solua Home</span><button class="solua-account-language" id="account-language" type="button"></button></div>
+        <h1 data-zh="员工账号" data-pt="Conta de colaborador"></h1>
+        {% if not logged_in %}
+        <p class="solua-account-muted" data-zh="使用管理员提供的授权码注册员工账号。" data-pt="Registe uma conta de colaborador com o código de autorização do administrador."></p>
+        <section class="solua-account-section">
+            <h2 data-zh="自助注册" data-pt="Registo"></h2>
+            <form class="solua-account-form" id="employee-register-form">
+                <label><span data-zh="姓名" data-pt="Nome"></span><input name="full_name" required autocomplete="name"></label>
+                <label><span data-zh="邮箱" data-pt="E-mail"></span><input name="email" type="email" required autocomplete="email"></label>
+                <label><span data-zh="密码" data-pt="Palavra-passe"></span><input name="password" type="password" required autocomplete="new-password"></label>
+                <label><span data-zh="确认密码" data-pt="Confirmar palavra-passe"></span><input name="confirm_password" type="password" required autocomplete="new-password"></label>
+                <label><span data-zh="授权码" data-pt="Código de autorização"></span><input name="authorization_code" type="password" required autocomplete="off"></label>
+                <button type="submit" data-zh="注册账号" data-pt="Criar conta"></button>
+            </form>
+            <div class="solua-account-message" id="employee-register-message" role="status" aria-live="polite"></div>
+        </section>
+        {% elif not account_allowed %}
+        <p class="solua-account-muted" data-zh="当前账号没有员工账号管理权限。" data-pt="Esta conta não tem permissão para gerir a conta de colaborador."></p>
+        {% else %}
+        <p class="solua-account-muted"><span data-zh="当前账号：" data-pt="Conta atual: "></span>{{ current_user }}<br><span data-zh="当前邮箱：" data-pt="E-mail atual: "></span>{{ current_email or "未绑定 / Não associado" }}</p>
+        <section class="solua-account-section">
+            <h2 data-zh="修改密码" data-pt="Alterar palavra-passe"></h2>
+            <form class="solua-account-form" id="employee-password-form">
+                <label><span data-zh="当前密码" data-pt="Palavra-passe atual"></span><input name="current_password" type="password" required autocomplete="current-password"></label>
+                <label><span data-zh="新密码" data-pt="Nova palavra-passe"></span><input name="new_password" type="password" required autocomplete="new-password"></label>
+                <label><span data-zh="确认新密码" data-pt="Confirmar nova palavra-passe"></span><input name="confirm_password" type="password" required autocomplete="new-password"></label>
+                <button type="submit" data-zh="保存新密码" data-pt="Guardar palavra-passe"></button>
+            </form>
+            <div class="solua-account-message" id="employee-password-message" role="status" aria-live="polite"></div>
+        </section>
+        <section class="solua-account-section">
+            <h2 data-zh="绑定邮箱" data-pt="Associar e-mail"></h2>
+            <form class="solua-account-form" id="employee-email-form">
+                <label><span data-zh="邮箱" data-pt="E-mail"></span><input name="email" type="email" value="{{ current_email or '' }}" required autocomplete="email"></label>
+                <label><span data-zh="当前密码" data-pt="Palavra-passe atual"></span><input name="current_password" type="password" required autocomplete="current-password"></label>
+                <button type="submit" data-zh="保存邮箱" data-pt="Guardar e-mail"></button>
+            </form>
+            <div class="solua-account-message" id="employee-email-message" role="status" aria-live="polite"></div>
+        </section>
+        {% endif %}
+        <nav class="solua-account-links"><a href="/stock" data-zh="员工库存查询" data-pt="Consulta de stock"></a></nav>
+    </section>
+</main>
+<script>
+(() => {
+    const root = document.getElementById("solua-account");
+    const copy = (element) => element.getAttribute(document.documentElement.lang === "zh-CN" ? "data-zh" : "data-pt") || "";
+    const detect = () => { try { const saved = localStorage.getItem("solua-login-language"); if (saved === "zh" || saved === "pt") return saved; } catch (_) {} return /^zh(?:-|$)/i.test(navigator.language || "") ? "zh" : "pt"; };
+    let language = detect();
+    const apply = () => { document.documentElement.lang = language === "zh" ? "zh-CN" : "pt-PT"; document.querySelectorAll("[data-zh][data-pt]").forEach((element) => { element.textContent = copy(element); }); document.getElementById("account-language").textContent = language === "zh" ? "Português" : "中文"; };
+    document.getElementById("account-language").addEventListener("click", () => { language = language === "zh" ? "pt" : "zh"; try { localStorage.setItem("solua-login-language", language); } catch (_) {} apply(); });
+    const serverMessage = (payload) => { if (payload._server_messages) { try { return JSON.parse(payload._server_messages).map((item) => { try { return JSON.parse(item).message || item; } catch (_) { return item; } }).join("\n"); } catch (_) {} } return payload.message || ""; };
+    const submit = (form, endpoint, message) => form?.addEventListener("submit", async (event) => { event.preventDefault(); message.className = "solua-account-message"; message.textContent = language === "zh" ? "处理中…" : "A processar…"; const button = form.querySelector("button"); button.disabled = true; try { const response = await fetch(endpoint, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Frappe-CSRF-Token": root.dataset.csrf, Accept: "application/json"}, body: new URLSearchParams(new FormData(form))}); const payload = await response.json().catch(() => ({})); if (!response.ok || payload.exc) throw new Error(serverMessage(payload) || (language === "zh" ? "操作失败。" : "A operação falhou.")); message.textContent = language === "zh" ? "操作成功。" : "Operação concluída."; form.reset(); } catch (error) { message.className = "solua-account-message error"; message.textContent = error.message || (language === "zh" ? "操作失败。" : "A operação falhou."); } finally { button.disabled = false; } });
+    submit(document.getElementById("employee-password-form"), "/api/method/solua_home.api.employee_account.change_employee_password", document.getElementById("employee-password-message"));
+    submit(document.getElementById("employee-email-form"), "/api/method/solua_home.api.employee_account.bind_employee_email", document.getElementById("employee-email-message"));
+    submit(document.getElementById("employee-register-form"), "/api/method/solua_home.api.employee_account.register_employee", document.getElementById("employee-register-message"));
+    apply();
+})();
+</script>
+{% endblock %}

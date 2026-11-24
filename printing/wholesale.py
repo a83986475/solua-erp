@@ -322,6 +322,8 @@ def get_driver_phone(doc, use_snapshot=True):
 
 
 def get_delivery_order_info(doc, use_snapshot=True):
+    if doc.doctype == "Sales Order":
+        return {"name": doc.name}
     frozen = _snapshot(doc) if use_snapshot else None
     if frozen:
         return frozen["order"]
@@ -826,16 +828,18 @@ def get_wholesale_print_data(doc, live=False, color_language="pt"):
         )
         if live_rows and same_rows:
             # Snapshot keeps stable display data; transaction values must follow the edited order.
-            for live, saved in zip(live_rows, snapshot_rows):
+            for current, saved in zip(live_rows, snapshot_rows):
                 for key in ("uom", "qty", "rate", "amount", "warehouse"):
-                    saved[key] = live.get(key)
+                    saved[key] = current.get(key)
                 saved["additional_notes"] = (
-                    live.get("additional_notes") or live.get("pos_additional_notes")
-                    or live.get("custom_additional_notes") or saved.get("additional_notes") or ""
+                    current.get("additional_notes") or current.get("pos_additional_notes")
+                    or current.get("custom_additional_notes") or saved.get("additional_notes") or ""
                 )
             data["total_qty"] = _sum_qty(snapshot_rows, "qty")
         elif live_rows:
             data = _collect(doc)
+    if doc.doctype == "Sales Order":
+        data["order"] = get_delivery_order_info(doc)
     _recover_sales_order_item_display(doc, data)
     _recover_item_spu_display(doc, data)
     customer_print = doc.doctype in ("Sales Order", "Sales Invoice", "Delivery Note")
@@ -870,6 +874,5 @@ def get_wholesale_print_data(doc, live=False, color_language="pt"):
         )
     data["cash_discount"] = get_cash_discount_info(doc)
     data["total_qty"] = _sum_qty(data.get("items") or [], "qty")
-    if not frozen:
-        data["legacy"] = doc.get("docstatus") != 0
+    data["legacy"] = not frozen and not live and doc.get("docstatus") != 0
     return _format_print_uoms(data)

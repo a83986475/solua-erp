@@ -1,12 +1,15 @@
 """Administrator-only mobile lookup API."""
 
+import json
+
 import frappe
 from frappe import _
 from frappe.utils import add_months, flt, getdate, nowdate
 
-from solua_home.api.home import _resolve_company, _resolve_warehouse
+from solua_home.api.home import DEFAULT_COMPANY, _resolve_company, _resolve_warehouse
 from solua_home.api.sales import (
     _json_value,
+    _resolve_sales_item,
     _resolve_sales_rows,
     _positive_integer,
     get_sales_order_color_variants,
@@ -23,6 +26,11 @@ def _require_admin():
 def _require_sales_order_draft_user():
     if frappe.session.user == "Guest" or not frappe.has_permission("Sales Order", ptype="create"):
         frappe.throw(_("没有创建销售订单草稿的权限"), frappe.PermissionError)
+
+
+def _require_stock_viewer():
+    if frappe.session.user == "Guest" or "Solua Stock Viewer" not in frappe.get_roles():
+        frappe.throw(_("您没有库存查询权限"), frappe.PermissionError)
 
 
 def _defaults():
@@ -1170,6 +1178,177 @@ def _employee_stock_result(result):
         "variants": [{key: row.get(key) for key in fields if row.get(key) is not None} for row in result.get("variants") or []],
         "errors": result.get("errors") or [],
     }
+
+
+@frappe.write_only()
+def _log_employee_stock_query(query, result):
+    """Keep an immutable backend record without exposing audit writes to the viewer."""
+    try:
+        request = getattr(frappe.local, "request", None)
+        user_agent = str(getattr(request, "headers", {}).get("User-Agent", ""))[:500] if request else ""
+        doc = frappe.get_doc({
+            "doctype": "Solua Employee Stock Query Log",
+            "query_time": frappe.utils.now_datetime(),
+            "user": frappe.session.user,
+            "user_full_name": frappe.db.get_value("User", frappe.session.user, "full_name") or frappe.session.user,
+            "query_value": str(query or "").strip()[:140],
+            "status": result.get("state") or "error",
+            "result_count": len(result.get("variants") or []),
+            "result_summary": json.dumps(result.get("variants") or [], ensure_ascii=False, separators=(",", ":")),
+            "ip_address": str(getattr(frappe.local, "request_ip", "") or "")[:140],
+            "user_agent": user_agent,
+        })
+        doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+    except Exception:
+        frappe.logger("solua_home").exception("员工库存查询审计记录写入失败")
+
+
+@frappe.write_only()
+def _log_employee_stock_login_event(user, operation):
+    """Archive employee login events without recording passwords or tokens."""
+    try:
+        if user == "Guest" or "Solua Stock Viewer" not in frappe.get_roles(user):
+            return
+        request = getattr(frappe.local, "request", None)
+        user_agent = str(getattr(request, "headers", {}).get("User-Agent", ""))[:500] if request else ""
+        doc = frappe.get_doc({
+            "doctype": "Solua Employee Stock Login Log",
+            "event_time": frappe.utils.now_datetime(),
+            "user": user,
+            "user_full_name": frappe.db.get_value("User", user, "full_name") or user,
+            "operation": operation,
+            "status": "Success",
+            "ip_address": str(getattr(frappe.local, "request_ip", "") or "")[:140],
+            "user_agent": user_agent,
+        })
+        doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+    except Exception:
+        frappe.logger("solua_home").exception("员工登录审计记录写入失败")
+
+
+def log_employee_stock_login(login_manager=None):
+    _log_employee_stock_login_event(str(getattr(login_manager, "user", "") or frappe.session.user), "Login")
+
+
+def log_employee_stock_logout(login_manager=None):
+    _log_employee_stock_login_event(str(getattr(login_manager, "user", "") or frappe.session.user), "Logout")
+
+
+def _employee_stock_read_result(result):
+    fields = ("item_code", "item_name", "image", "available_qty")
+    return {
+        "state": result.get("state"),
+        "variants": [{**{key: row.get(key) for key in fields if row.get(key) is not None}, "uom": row.get("stock_uom") or row.get("uom") or ""} for row in result.get("variants") or []],
+    }
+
+
+def _employee_stock_defaults():
+    company = frappe.db.get_value("Company", DEFAULT_COMPANY, ["name", "default_currency"], as_dict=True)
+    if not company:
+        company = next(iter(frappe.get_all("Company", fields=["name", "default_currency"], order_by="name asc", limit_page_length=1)), None)
+    if not company:
+        return {"company": "", "currency": "MZN", "warehouse": ""}
+    warehouse = frappe.db.get_single_value("Stock Settings", "default_warehouse")
+    warehouse = frappe.db.get_value("Warehouse", {"name": warehouse, "company": company.name, "is_group": 0}, "name") if warehouse else None
+    if not warehouse:
+        warehouse_rows = frappe.get_all("Warehouse", filters={"company": company.name, "is_group": 0}, fields=["name"], order_by="name asc", limit_page_length=1)
+        warehouse = warehouse_rows[0].name if warehouse_rows else None
+    return {"company": company.name, "currency": company.default_currency or "MZN", "warehouse": warehouse or ""}
+
+
+def _employee_stock_items(query):
+    query = str(query or "").strip()
+    if not query:
+        return []
+    meta = frappe.get_meta("Item")
+    fields = ["name", "item_code", "item_name", "variant_of", "has_variants", "disabled", "item_group", "stock_uom", "sales_uom"]
+    for field in ("custom_order_code", "custom_label_barcode", "custom_color_code"):
+        if meta.has_field(field):
+            fields.append(field)
+    exact_codes = {query}
+    if not query.upper().startswith("SH"):
+        exact_codes.add(f"SH{query}")
+    exact_filters = [[field, "in", list(exact_codes)] for field in ("name", "item_code")]
+    exact_filters.extend([[field, "=", query] for field in ("custom_order_code", "custom_label_barcode", "custom_color_code") if field in fields])
+    rows = frappe.get_all("Item", filters={"disabled": 0}, or_filters=exact_filters, fields=fields, limit_page_length=20)
+    barcode_parents = frappe.db.sql("select parent from `tabItem Barcode` where barcode=%s limit 20", query, as_dict=True)
+    parent_names = [row.parent for row in barcode_parents if row.parent]
+    if parent_names:
+        rows.extend(frappe.get_all("Item", filters={"name": ["in", parent_names], "disabled": 0}, fields=fields, limit_page_length=20))
+    if not rows:
+        like = f"%{query}%"
+        rows = frappe.get_all("Item", filters={"disabled": 0}, or_filters=[
+            [field, "like", like] for field in ("name", "item_code", "item_name", "custom_order_code", "custom_label_barcode") if field in fields
+        ], fields=fields, order_by="has_variants desc, name asc", limit_page_length=100)
+    unique = {row.name: row for row in rows}
+    expanded = []
+    for row in unique.values():
+        if row.has_variants:
+            expanded.extend(frappe.get_all("Item", filters={"variant_of": row.name, "disabled": 0}, fields=fields, order_by="name asc", limit_page_length=100))
+        else:
+            expanded.append(row)
+    return list({row.name: row for row in expanded}.values())
+
+
+def _employee_stock_display_unit(item):
+    stock_uom = item.get("stock_uom") or ""
+    sales_uom = item.get("sales_uom") or ""
+    if not sales_uom:
+        if item.get("item_group") == "窗帘":
+            return "Pc", 1
+        if item.get("item_group") in ("地革", "地板革"):
+            return "Rolo", 1
+        return stock_uom, 1
+    parents = [item.name]
+    if item.get("variant_of"):
+        parents.append(item.variant_of)
+    conversion = next(iter(frappe.get_all(
+        "UOM Conversion Detail",
+        filters={"parent": ["in", parents], "uom": sales_uom},
+        fields=["conversion_factor"],
+        order_by="parent asc",
+        limit_page_length=1,
+    )), None)
+    factor = flt(conversion.conversion_factor) if conversion else 0
+    if factor <= 0:
+        return stock_uom, 1
+    labels = {"条": "Pc", "箱/Caixa": "Caixa", "卷": "Rolo"}
+    return labels.get(sales_uom, sales_uom), factor
+
+
+def _lookup_employee_stock_item(barcode):
+    defaults = _employee_stock_defaults()
+    if not defaults["company"] or not defaults["warehouse"]:
+        return {"state": "no_permission", "variants": []}
+    context = {
+        "company": defaults["company"],
+        "set_warehouse": defaults["warehouse"],
+        "price_list": "Wholesale Selling",
+        "selling_price_list": "Wholesale Selling",
+    }
+    rows, errors = [], []
+    for item in _employee_stock_items(barcode):
+        row, row_errors = _resolve_sales_item({"item_code": item.name, "qty": 1, "warehouse": defaults["warehouse"]}, context, strict=False)
+        if row:
+            display_uom, conversion_factor = _employee_stock_display_unit(item)
+            row["available_qty"] = flt(row.get("available_qty")) / conversion_factor
+            row["stock_uom"] = display_uom or row.get("stock_uom") or ""
+            rows.append(row)
+        errors.extend(row_errors)
+    return {"state": "ok" if rows else "no_data", "variants": rows, "errors": errors}
+
+
+@frappe.whitelist()
+@frappe.read_only()
+def lookup_employee_stock(barcode):
+    """Return only the current default-warehouse stock fields for authorized staff."""
+    _require_stock_viewer()
+    raw_result = _lookup_employee_stock_item(barcode)
+    result = _employee_stock_read_result(raw_result)
+    _log_employee_stock_query(barcode, result)
+    return result
 
 
 @frappe.whitelist()

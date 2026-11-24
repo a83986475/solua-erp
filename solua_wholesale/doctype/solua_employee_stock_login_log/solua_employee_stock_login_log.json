@@ -1,0 +1,23 @@
+{
+  "name": "Solua Employee Stock Login Log",
+  "module": "Solua Wholesale",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "allow_rename": 0,
+  "fields": [
+    {"fieldname": "event_time", "fieldtype": "Datetime", "label": "事件时间", "reqd": 1, "index": 1},
+    {"fieldname": "user", "fieldtype": "Link", "label": "用户", "options": "User", "reqd": 1, "index": 1},
+    {"fieldname": "user_full_name", "fieldtype": "Data", "label": "姓名", "read_only": 1},
+    {"fieldname": "operation", "fieldtype": "Select", "label": "操作", "options": "Login\nLogout", "reqd": 1, "index": 1},
+    {"fieldname": "status", "fieldtype": "Select", "label": "状态", "options": "Success\nFailed", "reqd": 1, "index": 1},
+    {"fieldname": "ip_address", "fieldtype": "Data", "label": "IP 地址", "read_only": 1},
+    {"fieldname": "user_agent", "fieldtype": "Small Text", "label": "浏览器信息", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "export": 1, "print": 1},
+    {"role": "Administrator", "read": 1, "export": 1, "print": 1}
+  ],
+  "sort_field": "event_time",
+  "sort_order": "DESC"
+}

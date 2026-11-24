@@ -10,6 +10,7 @@ PICK_LIST_PRINT_FORMAT = "拣货单"
 SALES_INVOICE_CASH_PRINT_FORMAT = "Sales Invoice with Item Image（现金折扣版）"
 WHATSAPP_MODULE = "WhatsApp Inbox"
 WHATSAPP_ROLES = ("WhatsApp Support", "WhatsApp Supervisor")
+STOCK_VIEWER_ROLE = "Solua Stock Viewer"
 
 SOLUA_A4_PRINT_FORMATS = (
     "ORDER CONFIRMACAO(PT）",
@@ -110,6 +111,24 @@ def ensure_whatsapp_module():
     return module
 
 
+def ensure_stock_viewer_role():
+    """Create the deskless role used by the read-only employee stock page."""
+    if not frappe.db.exists("Role", STOCK_VIEWER_ROLE):
+        frappe.get_doc({
+            "doctype": "Role",
+            "role_name": STOCK_VIEWER_ROLE,
+            "desk_access": 0,
+            "is_custom": 1,
+        }).insert(ignore_permissions=True)
+    return STOCK_VIEWER_ROLE
+
+
+def ensure_stock_viewer_item_select_permission():
+    """Allow ERPNext's stock resolver to select Item names without Item read access."""
+    if not frappe.db.exists("Custom DocPerm", {"parent": "Item", "role": STOCK_VIEWER_ROLE, "permlevel": 0}):
+        frappe.permissions.add_permission("Item", STOCK_VIEWER_ROLE, 0, "select")
+
+
 def refresh_wholesale_module_map():
     """Refresh only Frappe's cached app/module map after modules.txt is shipped."""
     frappe.cache().delete_value("app_modules")
@@ -195,6 +214,9 @@ def after_install():
     ensure_home_feature_settings()
     add_member_system_fields()
     ensure_whatsapp_module()
+    ensure_stock_viewer_role()
+    ensure_stock_viewer_item_select_permission()
+    sync_employee_stock_query_log()
     sync_whatsapp_doctypes()
     frappe.db.commit()
 
@@ -598,6 +620,19 @@ def sync_whatsapp_doctypes():
         json_path = os.path.join(base, doctype_name, doctype_name + ".json")
         if not os.path.exists(json_path):
             raise RuntimeError("Missing WhatsApp DocType: " + json_path)
+        import_file_by_path(json_path, force=True, ignore_version=True)
+
+
+def sync_employee_stock_query_log():
+    """Import the read-only backend archives for employee stock audit events."""
+    import os
+    from frappe.modules.import_file import import_file_by_path
+
+    base = os.path.join(os.path.dirname(__file__), "solua_wholesale", "doctype")
+    for doctype_name in ("solua_employee_stock_query_log", "solua_employee_stock_login_log"):
+        json_path = os.path.join(base, doctype_name, doctype_name + ".json")
+        if not os.path.exists(json_path):
+            raise RuntimeError("Missing employee stock audit DocType: " + json_path)
         import_file_by_path(json_path, force=True, ignore_version=True)
 
 
@@ -1324,7 +1359,6 @@ def add_wholesale_fields(commit=True):
         for dt in ("Sales Order", "Delivery Note")
     ] + [
         {"dt": "Sales Order", "fieldname": "custom_store_name", "label": "客户门店名称", "fieldtype": "Data", "insert_after": "customer_name"},
-        {"dt": "Sales Invoice", "fieldname": "custom_store_name", "label": "门店名称", "fieldtype": "Data", "read_only": 1, "no_copy": 1, "print_hide": 1, "insert_after": "customer_name"},
         {"dt": "Sales Order", "fieldname": "custom_store_phone", "label": "客户门店电话", "fieldtype": "Data", "insert_after": "custom_store_name"},
         {"dt": "Sales Order", "fieldname": "custom_store_address", "label": "客户门店地址记录", "fieldtype": "Link", "options": "Address", "hidden": 1, "read_only": 1, "no_copy": 1, "insert_after": "custom_store_phone"},
         {"dt": "Sales Order", "fieldname": "custom_customer_order_no", "label": "客户订单号", "fieldtype": "Data", "insert_after": "po_no"},

@@ -145,6 +145,35 @@ get_value_handler = lambda doctype, name, fieldname=None, *args, **kwargs: "6901
 api_barcodes = label_api._get_barcodes("TPL-RED", True)
 assert api_barcodes == [{"barcode": "6901234567890", "barcode_type": "EAN"}]
 
+# The two-up stock label is one physical page per two requested labels.
+layout = label_api._get_label_format("物料标签 60x20 双列")
+assert layout["page_width_mm"] == 60 and layout["page_height_mm"] == 20
+assert layout["columns"] == 2 and layout["column_gap_mm"] == 5.5
+assert layout["column_widths_mm"] == [26, 26]
+assert layout["padding_top_mm"] == 1.8
+page = label_api._render_label_page("<div class='solua-label-stock'>x</div>", layout)
+wrapped = label_api._wrap_print_page([page], layout)
+assert wrapped.count("class=\"label-page\"") == 1
+assert "@page { size: 60mm 20mm; margin: 0; }" in wrapped
+assert "labels ready to print" not in wrapped and "print-btn" not in wrapped
+
+# The two columns independently render one valid EAN13 with identical parameters.
+ean = "6953536436840"
+assert label_api._ean13_check_digit(ean) == "0"
+assert label_api._barcode_type_for_value(ean) == "ean13"
+ean_page = label_api._render_60x20_page("TEST", ean, "ean13", 0)
+assert ean_page.count('preserveAspectRatio="xMidYMid meet"') == 2
+assert ean_page.count('data-barcode-format="ean13"') == 2
+assert ean_page.count('data-module-width="1.2"') == 2
+assert ean_page.count('width="26mm" height="12mm"') == 2
+assert 'id="barcode-row0-col0"' in ean_page and 'id="barcode-row0-col1"' in ean_page
+assert 'width: 100%' not in label_api._wrap_print_page([ean_page], layout)
+
+label_js = (ROOT / "public" / "js" / "label_print.js").read_text(encoding="utf-8")
+assert "fonts.ready" in label_js
+assert "_wait_for_print_ready" in label_js
+assert "cloneNode" not in label_js and "width: 100%" not in label_js
+
 # Confirm the UI wizard's insert/save path remains covered by Item.validate.
 hooks = (ROOT / "hooks.py").read_text(encoding="utf-8")
 variants_source = (ROOT / "api" / "variants.py").read_text(encoding="utf-8")

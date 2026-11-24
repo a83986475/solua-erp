@@ -25,6 +25,8 @@ def daily_tasks():
 def weekly_tasks():
     """每周执行的任务"""
     generate_weekly_report()
+    frappe.enqueue("solua_home.api.telegram.send_weekly_reports", queue="long", job_id="telegram-weekly-reports", deduplicate=True)
+    frappe.enqueue("solua_home.api.telegram.send_weekly_financial_reports", queue="long", job_id="telegram-weekly-financial-reports", deduplicate=True)
     _log_info("每周任务执行完毕", "solua_home 定时任务")
 
 

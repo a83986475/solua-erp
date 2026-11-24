@@ -1,0 +1,95 @@
+{% extends "templates/web.html" %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block page_footer %}{% endblock %}
+
+{% block head_include %}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { min-height: 100%; background: #f7f3ea; }
+  body { color: #352a20; }
+  .signup-code-shell { min-height: 100vh; padding: 28px 14px 48px; }
+  .signup-code-card { width: min(720px, 100%); margin: 0 auto; padding: 30px 34px 36px; border: 1px solid #eadfce; border-radius: 22px; background: #fff; box-shadow: 0 22px 60px rgba(93, 67, 36, .12); }
+  .signup-code-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+  .signup-code-brand { color: #75502d; font-weight: 700; letter-spacing: .04em; }
+  .signup-code-card h1 { margin: 0; color: #352a20; font-size: 28px; }
+  .signup-code-card h2 { margin: 0 0 14px; color: #75502d; font-size: 18px; }
+  .signup-code-muted { color: #6f6051; font-size: 14px; }
+  .signup-code-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid #eee3d5; }
+  .signup-code-form { display: grid; gap: 12px; }
+  .signup-code-form label { display: grid; gap: 6px; color: #5f5042; font-size: 13px; font-weight: 600; }
+  .signup-code-form input, .signup-code-form select { min-height: 44px; border: 1px solid #dfd1bf; border-radius: 10px; padding: 8px 11px; background: #fffdf9; color: #352a20; }
+  .signup-code-form input[type="checkbox"] { min-height: 16px; width: 16px; }
+  .signup-code-checkbox { display: flex !important; grid-template-columns: none; align-items: center; gap: 8px !important; }
+  .signup-code-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .signup-code-button { min-height: 44px; border: 0; border-radius: 10px; padding: 8px 16px; background: #c29a5b; color: #fff; font-weight: 700; cursor: pointer; }
+  .signup-code-button.secondary { background: #f2eadf; color: #75502d; }
+  .signup-code-button.danger { background: #a44a3b; }
+  .signup-code-button:disabled { opacity: .55; cursor: wait; }
+  .signup-code-status { display: grid; gap: 10px; padding: 16px; border-radius: 12px; background: #fbf7f0; color: #5f5042; }
+  .signup-code-status strong { color: #352a20; }
+  .signup-code-value { display: flex; gap: 8px; }
+  .signup-code-value input { flex: 1; min-width: 0; font: 700 18px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
+  .signup-code-message { min-height: 22px; margin-top: 12px; color: #75502d; }
+  .signup-code-message.error { color: #a44a3b; }
+  @media (max-width: 560px) { .signup-code-shell { padding: 12px 8px 30px; } .signup-code-card { padding: 24px 20px 28px; border-radius: 18px; } .signup-code-value { display: grid; } }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<main class="signup-code-shell" id="signup-code" data-csrf="{{ csrf_token }}">
+  <section class="signup-code-card">
+    <div class="signup-code-head"><span class="signup-code-brand">Solua Home</span><span class="signup-code-muted">{{ current_user }}</span></div>
+    <h1>员工注册授权码</h1>
+    {% if not admin_allowed %}
+    <p class="signup-code-muted">只有 Administrator 或 System Manager 可以访问此页面。</p>
+    {% else %}
+    <p class="signup-code-muted">生成后把授权码交给员工；重新生成或撤销会立即使旧码失效。</p>
+    <section class="signup-code-section">
+      <h2>当前授权码</h2>
+      <div class="signup-code-status" id="signup-code-status">正在读取…</div>
+      <div class="signup-code-message" id="signup-code-message" role="status" aria-live="polite"></div>
+    </section>
+    <section class="signup-code-section">
+      <h2>生成或重新生成</h2>
+      <form class="signup-code-form" id="signup-code-form">
+        <label>有效期（留空表示永不过期）<input name="expires_at" type="datetime-local"></label>
+        <label>使用方式<select name="single_use"><option value="1">一次性使用（注册成功后自动失效）</option><option value="0">有效期内不限次数</option></select></label>
+        <div class="signup-code-actions"><button class="signup-code-button" type="submit">生成随机授权码</button><button class="signup-code-button danger" id="signup-code-revoke" type="button">撤销当前授权码</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </section>
+</main>
+{% if admin_allowed %}
+<script>
+(() => {
+  const root = document.getElementById("signup-code");
+  const status = document.getElementById("signup-code-status");
+  const message = document.getElementById("signup-code-message");
+  const form = document.getElementById("signup-code-form");
+  const button = form.querySelector("button[type=submit]");
+  const revoke = document.getElementById("signup-code-revoke");
+  const labels = {active:"生效中", expired:"已过期", used:"已使用", revoked:"已撤销", disabled:"未启用"};
+  const showMessage = (text, error = false) => { message.textContent = text || ""; message.className = "signup-code-message" + (error ? " error" : ""); };
+  const call = async (endpoint, values = {}) => {
+    const response = await fetch(endpoint, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Frappe-CSRF-Token": root.dataset.csrf, Accept: "application/json"}, body: new URLSearchParams(values)});
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.exc) throw new Error(payload.message || "请求失败");
+    return payload.message || payload;
+  };
+  const render = (data) => {
+    const expiry = data.expires_at ? data.expires_at.replace("T", " ") : "永不过期";
+    const mode = data.single_use ? "一次性使用" : "有效期内不限次数";
+    status.innerHTML = `<div><strong>状态：</strong>${labels[data.status] || data.status}</div><div class="signup-code-value"><input readonly value="${data.code || "—"}" aria-label="当前授权码"><button class="signup-code-button secondary" type="button" id="signup-code-copy">复制</button></div><div><strong>有效期：</strong>${expiry}　<strong>使用方式：</strong>${mode}</div><div><strong>生成者：</strong>${data.generated_by || "—"}　<strong>生成时间：</strong>${data.generated_at || "—"}</div>${data.used_at ? `<div><strong>使用时间：</strong>${data.used_at}</div>` : ""}${data.revoked_at ? `<div><strong>撤销时间：</strong>${data.revoked_at}</div>` : ""}`;
+    document.getElementById("signup-code-copy")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText(data.code || ""); showMessage("已复制授权码。"); } catch (_) { showMessage("复制失败，请手动复制。", true); } });
+  };
+  const load = async () => { try { const response = await fetch("/api/method/solua_home.api.employee_account.get_employee_signup_code_settings", {credentials: "same-origin", headers: {Accept: "application/json"}}); const payload = await response.json(); if (!response.ok || payload.exc) throw new Error(payload.message || "读取失败"); render(payload.message || payload); } catch (error) { status.textContent = error.message || "读取失败"; showMessage(error.message, true); } };
+  form.addEventListener("submit", async (event) => { event.preventDefault(); button.disabled = true; showMessage("处理中…"); try { render(await call("/api/method/solua_home.api.employee_account.generate_employee_signup_code", new FormData(form))); showMessage("授权码已生成，旧授权码已失效。"); form.reset(); } catch (error) { showMessage(error.message, true); } finally { button.disabled = false; } });
+  revoke.addEventListener("click", async () => { if (!window.confirm("确定撤销当前授权码吗？撤销后员工将无法继续使用它注册。")) return; revoke.disabled = true; showMessage("处理中…"); try { render(await call("/api/method/solua_home.api.employee_account.revoke_employee_signup_code")); showMessage("当前授权码已撤销。"); } catch (error) { showMessage(error.message, true); } finally { revoke.disabled = false; } });
+  load();
+})();
+</script>
+{% endif %}
+{% endblock %}

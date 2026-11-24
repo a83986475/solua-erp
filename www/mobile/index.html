@@ -17,7 +17,7 @@
     body.solua-mobile-page .navbar-nav { flex-direction: row !important; }
     body.solua-mobile-page .navbar .nav-item.dropdown { position: relative; }
     body.solua-mobile-page .navbar .dropdown-menu { position: absolute !important; top: 100% !important; right: 0 !important; left: auto !important; float: none !important; margin-top: 0 !important; }
-    body.solua-order-entry-page .navbar { display: none !important; }
+    body.solua-order-entry-page .navbar, body.solua-stock-employee-page .navbar { display: none !important; }
     .mobile-app { max-width: 760px; margin: 0 auto; padding: 14px 12px 42px; }
     body.solua-delivery-desktop .mobile-app { max-width: 1180px; }
     body.solua-delivery-desktop #delivery-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -205,7 +205,92 @@
 </style>
 
 <div class="mobile-app">
-    {% if not mobile_admin and not mobile_order_entry %}
+    {% if mobile_stock_employee %}
+    <div class="mobile-head">
+        <h1>Consulta de stock</h1>
+        {% if mobile_stock_employee_allowed %}<form id="employee-stock-logout" method="post" action="/api/method/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-default btn-sm" type="submit">Terminar sessão</button></form>{% endif %}
+    </div>
+    {% if frappe.session.user == "Guest" %}
+    <div class="mobile-panel mobile-login">
+        <h2>Consulta de stock</h2>
+        <p class="mobile-muted">Inicie sessão para consultar o stock.</p>
+        <a class="btn btn-primary" href="/login?redirect-to=/stock">Iniciar sessão</a>
+    </div>
+    {% elif not mobile_stock_employee_allowed %}
+    <div class="mobile-panel mobile-login">
+        <h2>Acesso não autorizado</h2>
+        <p class="mobile-muted">Esta página é apenas para colaboradores autorizados.</p>
+    </div>
+    {% else %}
+    <div class="mobile-feedback" id="employee-stock-feedback" hidden role="status" aria-live="polite"></div>
+    <div class="mobile-panel">
+        <div class="mobile-step-head"><span>Consultar artigo</span></div>
+        <form class="mobile-search" id="employee-stock-search">
+            <input id="employee-stock-query" class="form-control" type="search" autocomplete="off" inputmode="search" placeholder="Código ou código de barras" aria-label="Código ou código de barras">
+            <button class="btn btn-primary" type="submit">Pesquisar</button>
+        </form>
+        <button class="btn btn-default" type="button" id="employee-stock-open-camera" style="margin-top:8px">Ler código com a câmara</button>
+        <div class="mobile-camera" id="employee-stock-camera">
+            <video id="employee-stock-video" playsinline muted></video>
+            <div class="mobile-camera-actions">
+                <button class="btn btn-default" type="button" id="employee-stock-stop-camera">Fechar câmara</button>
+                <span class="mobile-muted" id="employee-stock-camera-status" aria-live="polite"></span>
+            </div>
+        </div>
+    </div>
+    <div class="mobile-panel">
+        <div class="mobile-result-head"><h2 id="employee-stock-result-title">Resultado</h2><span class="mobile-muted" id="employee-stock-status">Pronto</span></div>
+        <div class="mobile-grid mobile-detail-grid" id="employee-stock-results"><div class="mobile-empty">Pesquise um artigo para ver o stock disponível.</div></div>
+    </div>
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
+        const num = (value) => Number(value || 0).toLocaleString(undefined, {maximumFractionDigits: 2});
+        const state = {scanning: false, stream: null, reader: null, controls: null, busy: false};
+        const setStatus = (message, error = false) => { $("employee-stock-status").textContent = message; const box = $("employee-stock-feedback"); box.textContent = message; box.className = `mobile-feedback${error ? " error" : ""}`; box.hidden = !error; };
+        const stopCamera = () => { state.scanning = false; state.controls?.stop?.(); state.controls = null; state.reader?.reset?.(); state.reader = null; state.stream?.getTracks?.().forEach((track) => track.stop()); state.stream = null; $("employee-stock-video").srcObject = null; $("employee-stock-camera").style.display = "none"; };
+        async function call(barcode) {
+            const query = new URLSearchParams({barcode});
+            const response = await fetch(`/api/method/solua_home.api.mobile.lookup_employee_stock?${query}`, {credentials: "same-origin", headers: {Accept: "application/json"}});
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.exc) throw new Error("Não foi possível consultar o stock.");
+            return payload.message || {};
+        }
+        function render(data, query) {
+            const rows = data.variants || [];
+            $("employee-stock-result-title").textContent = rows.length ? `Resultados para ${query}` : "Sem resultados";
+            $("employee-stock-results").innerHTML = rows.length ? rows.map((row) => `<article class="mobile-card"><div class="mobile-card-body">${row.image ? `<img src="${esc(row.image)}" alt="" loading="lazy">` : ""}<div class="mobile-card-title">${esc(row.item_name || row.item_code)}</div><div class="mobile-card-line"><span class="mobile-card-label">Código</span><span>${esc(row.item_code)}</span></div><div class="mobile-card-line"><span class="mobile-card-label">Stock disponível</span><strong>${num(row.available_qty)} ${esc(row.uom)}</strong></div></div></article>`).join("") : '<div class="mobile-empty">Não foi encontrado nenhum artigo.</div>';
+        }
+        async function lookup(value, keepCamera = false) {
+            const barcode = String(value || "").trim();
+            if (!barcode || state.busy) return;
+            state.busy = true; setStatus("A consultar…");
+            if (!keepCamera) stopCamera();
+            try { const data = await call(barcode); render(data, barcode); setStatus(data.variants?.length ? "Consulta concluída" : "Sem resultados"); if (keepCamera) $("employee-stock-query").value = ""; }
+            catch (error) { setStatus(error.message || "Não foi possível consultar o stock.", true); }
+            finally { window.setTimeout(() => { state.busy = false; }, 500); }
+        }
+        async function openCamera() {
+            if (!navigator.mediaDevices?.getUserMedia) return setStatus("Este navegador não suporta a câmara.", true);
+            try {
+                const video = $("employee-stock-video"); $("employee-stock-camera").style.display = "block"; state.scanning = true;
+                const constraints = {video: {facingMode: {ideal: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}, audio: false};
+                if (window.BarcodeDetector) {
+                    const detector = new BarcodeDetector(); state.stream = await navigator.mediaDevices.getUserMedia(constraints); video.srcObject = state.stream; $("employee-stock-camera-status").textContent = "Aponte para o código…"; await video.play();
+                    const detect = async () => { if (!state.scanning) return; try { const codes = await detector.detect(video); if (codes[0]?.rawValue) await lookup(codes[0].rawValue, true); } catch (_) {} requestAnimationFrame(detect); }; requestAnimationFrame(detect); return;
+                }
+                if (window.ZXingBrowser?.BrowserMultiFormatReader) { state.reader = new window.ZXingBrowser.BrowserMultiFormatReader(); $("employee-stock-camera-status").textContent = "A iniciar a câmara…"; state.controls = await state.reader.decodeFromConstraints(constraints, video, (result) => lookup(result?.getText?.(), true)); state.stream = video.srcObject; return; }
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints); video.srcObject = state.stream; await video.play(); $("employee-stock-camera-status").textContent = "A câmara está aberta; introduza o código manualmente.";
+            } catch (_) { stopCamera(); setStatus("Não foi possível abrir a câmara. Verifique a permissão ou introduza o código manualmente.", true); }
+        }
+        $("employee-stock-search").addEventListener("submit", (event) => { event.preventDefault(); lookup($("employee-stock-query").value); });
+        $("employee-stock-open-camera").addEventListener("click", openCamera); $("employee-stock-stop-camera").addEventListener("click", stopCamera);
+        $("employee-stock-logout")?.addEventListener("submit", async (event) => { event.preventDefault(); try { await fetch(event.currentTarget.action, {method: "POST", credentials: "same-origin", headers: {"X-Frappe-CSRF-Token": "{{ csrf_token }}"}}); } finally { window.location.href = "/stock"; } });
+    })();
+    </script>
+    {% endif %}
+    {% elif not mobile_admin and not mobile_order_entry %}
     <div class="mobile-panel mobile-login">
         <h1>{% if mobile_order_entry %}Nova Encomenda{% elif desktop_delivery %}{{ _("送货中心") }}{% else %}{{ _("管理员移动台") }}{% endif %}</h1>
         {% if frappe.session.user == "Guest" %}
@@ -1732,6 +1817,7 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
     $("mobile-submit-order").addEventListener("click", () => saveOrder(true));
     $("mobile-restore-draft")?.addEventListener("click", restoreDraft);
     $("mobile-discard-draft")?.addEventListener("click", () => { clearSavedDraft(); setStatus("已清空未完成的开单草稿"); });
+    document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
     if ($("mobile-stock-only")) {
         $("mobile-stock-only").checked = state.stockOnly;
         $("mobile-stock-only").addEventListener("change", () => {
@@ -1743,7 +1829,6 @@ function soluaDeliveryMapRoutes(addresses, origin = "", returnToOrigin = false) 
             }
         });
     }
-    document.querySelectorAll("[data-mobile-product-view]").forEach((button) => button.addEventListener("click", () => applyProductView(button.dataset.mobileProductView)));
     document.addEventListener("click", (event) => {
         if (!event.target.closest(".mobile-query-wrap")) hideSuggestions();
         if (!event.target.closest(".mobile-customer-wrap")) hideCustomerSuggestions();

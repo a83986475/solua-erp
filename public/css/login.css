@@ -2,36 +2,51 @@
 
 html:has(.for-login),
 body:has(.for-login) {
-	background: #f3f6f1;
-	overflow: hidden !important;
+	background: #f7f3ea;
+	min-height: 100%;
+	overflow-x: hidden !important;
+	overflow-y: hidden !important;
+}
+
+body:has(.for-login) .page-content-wrapper {
+	min-height: 100dvh !important;
+	padding-top: 0 !important;
 }
 
 main.container:has(.for-login) {
 	max-width: none;
-	height: 100vh !important;
 	height: 100dvh !important;
 	min-height: 0 !important;
 	padding: 0;
-	background: #f3f6f1;
+	background: #f7f3ea;
 	overflow: hidden !important;
+}
+
+main.container:has(.for-login) .page-header-wrapper,
+main.container:has(.for-login) .page-header,
+main.container:has(.for-login) .page-breadcrumbs {
+	display: none !important;
+}
+
+main.container:has(.for-login) .page_content {
+	padding: 0 !important;
 }
 
 .for-login {
 	position: relative;
-	height: 100vh !important;
 	height: 100dvh !important;
 	min-height: 0 !important;
-	max-height: 100dvh !important;
+	max-height: none !important;
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	overflow: hidden !important;
-	padding: 32px 20px;
+	padding: 18px 20px 20px;
 	background:
-		radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.72), transparent 30%),
-		radial-gradient(circle at 88% 82%, rgba(205, 225, 211, 0.66), transparent 34%),
-		#f3f6f1;
+		radial-gradient(circle at 86% 18%, rgba(194, 153, 91, 0.12), transparent 32%),
+		radial-gradient(circle at 14% 82%, rgba(255, 255, 255, 0.48), transparent 36%),
+		#f7f3ea;
 }
 
 .for-login::before,
@@ -47,7 +62,7 @@ main.container:has(.for-login) {
 	height: 360px;
 	top: -170px;
 	right: -120px;
-	background: rgba(67, 116, 83, 0.12);
+	background: rgba(194, 153, 91, 0.11);
 }
 
 .for-login::after {
@@ -55,25 +70,25 @@ main.container:has(.for-login) {
 	height: 280px;
 	bottom: -150px;
 	left: -100px;
-	background: rgba(194, 153, 91, 0.14);
+	background: rgba(194, 153, 91, 0.11);
 }
 
 .for-login .login-content.page-card {
 	position: relative;
 	z-index: 1;
 	width: min(420px, 100%);
-	max-height: calc(100dvh - 32px);
-	overflow-y: auto;
+	max-height: calc(100dvh - 24px);
+	overflow: hidden;
 	margin: 0;
-	padding: 38px 40px 34px;
-	border: 1px solid rgba(50, 77, 59, 0.1);
+	padding: 20px 34px 22px;
+	border: 1px solid rgba(194, 153, 91, 0.18);
 	border-radius: 22px;
-	background: rgba(255, 255, 255, 0.94);
-	box-shadow: 0 22px 60px rgba(38, 65, 47, 0.14);
+	background: rgba(255, 255, 255, 0.97);
+	box-shadow: 0 22px 60px rgba(93, 72, 43, 0.12), 0 8px 24px rgba(194, 153, 91, 0.08);
 }
 
 .for-login .page-card-head {
-	padding: 0 0 26px;
+	padding: 0 0 20px;
 	text-align: left;
 }
 
@@ -81,11 +96,11 @@ main.container:has(.for-login) {
 	display: block !important;
 	width: min(280px, 100%) !important;
 	max-width: 280px !important;
-	height: 220px !important;
+	height: 210px !important;
 	max-height: none !important;
-	margin: 0 0 18px;
+	margin: 0 0 14px;
 	object-fit: cover !important;
-	object-position: center 40% !important;
+	object-position: center 24% !important;
 	content: url("/files/solua-logo.jpg") !important;
 }
 
@@ -95,8 +110,8 @@ main.container:has(.for-login) {
 
 .for-login .page-card-head-text h4 {
 	margin: 0;
-	color: #23362a;
-	font-size: 26px;
+	color: #413629;
+	font-size: 24px;
 	font-weight: 700;
 }
 
@@ -105,15 +120,15 @@ main.container:has(.for-login) {
 }
 
 .for-login .form-label {
-	margin-bottom: 7px;
-	color: #43564a;
+	margin-bottom: 4px;
+	color: #665844;
 	font-size: 13px;
 	font-weight: 600;
 }
 
 .for-login .form-control {
-	height: 46px;
-	border: 1px solid #dbe4dc;
+	height: 42px;
+	border: 1px solid #e4d9c6;
 	border-radius: 11px;
 	background: #fbfdfb;
 	box-shadow: none;
@@ -121,60 +136,175 @@ main.container:has(.for-login) {
 }
 
 .for-login .form-control:focus {
-	border-color: #6d9a79;
+	border-color: #c29a5b;
 	background: #fff;
-	box-shadow: 0 0 0 3px rgba(67, 116, 83, 0.14);
+	box-shadow: 0 0 0 3px rgba(194, 153, 91, 0.18);
+}
+
+.for-login input:-webkit-autofill,
+.for-login input:-webkit-autofill:hover,
+.for-login input:-webkit-autofill:focus,
+.for-login input:-webkit-autofill:active {
+	-webkit-box-shadow: 0 0 0 1000px #fffdf8 inset !important;
+	-webkit-text-fill-color: #413629 !important;
+	caret-color: #413629;
 }
 
 .for-login .page-card-actions {
-	padding-top: 8px;
+	padding-top: 4px;
 }
 
 .for-login .btn-login {
-	height: 46px;
+	height: 42px;
 	border: 0;
 	border-radius: 11px;
-	background: #356247;
+	background: #c29a5b !important;
+	border-color: #c29a5b !important;
 	color: #fff;
 	font-size: 15px;
 	font-weight: 700;
-	box-shadow: 0 8px 18px rgba(53, 98, 71, 0.2);
+	box-shadow: 0 8px 18px rgba(93, 72, 43, 0.16);
 }
 
 .for-login .btn-login:hover,
 .for-login .btn-login:focus {
-	background: #2b523a;
+	background: #a47d47 !important;
 	color: #fff;
 }
 
 .for-login .btn-login-option {
-	height: 42px;
-	margin-top: 10px;
-	border: 1px solid #dbe4dc;
+	height: 38px;
+	margin-top: 8px;
+	border: 1px solid #e4d9c6;
 	border-radius: 11px;
-	background: #fff;
-	color: #53665a;
+	background: #fff !important;
+	color: #665844 !important;
 }
 
 .for-login .btn-login-option:hover,
 .for-login .btn-login-option:focus {
-	border-color: #9db9a3;
-	background: #f6faf6;
-	color: #356247;
+	border-color: #c29a5b;
+	background: #fffaf0;
+	color: #8f6a3c;
 }
 
 .for-login .forgot-password-message a,
 .for-login .sign-up-message a {
-	color: #4f7d5d;
+	color: #a47d47;
+}
+
+.for-login .solua-login-account-link {
+	display: block;
+	margin-top: 8px;
+	color: #a47d47;
+	font-size: 13px;
+	text-align: center;
+	text-decoration: none;
+}
+
+.for-login .solua-login-account-link:hover,
+.for-login .solua-login-account-link:focus {
+	color: #8f6a3c;
+	text-decoration: underline;
+}
+
+.for-login .solua-login-language,
+.for-signup .solua-login-language,
+.for-forgot .solua-login-language,
+.for-login-with-email-link .solua-login-language {
+	position: absolute;
+	top: 12px;
+	right: 14px;
+	min-height: 32px;
+	padding: 5px 10px;
+	border: 1px solid #e4d9c6;
+	border-radius: 999px;
+	background: #fff;
+	color: #665844;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.for-signup .login-content.page-card,
+.for-forgot .login-content.page-card,
+.for-login-with-email-link .login-content.page-card {
+	position: relative;
+}
+
+footer.web-footer,
+.footer-info,
+.page-footer {
+	display: none !important;
+}
+
+.for-login .solua-login-language:hover,
+.for-login .solua-login-language:focus,
+.for-signup .solua-login-language:hover,
+.for-signup .solua-login-language:focus,
+.for-forgot .solua-login-language:hover,
+.for-forgot .solua-login-language:focus,
+.for-login-with-email-link .solua-login-language:hover,
+.for-login-with-email-link .solua-login-language:focus {
+	border-color: #c29a5b;
+	background: #fffaf0;
+	color: #8f6a3c;
+	outline: none;
 }
 
 @media (max-width: 480px) {
 	.for-login {
-		padding: 20px 14px;
+		padding: 8px 14px;
 	}
 
 	.for-login .login-content.page-card {
-		padding: 30px 24px 26px;
+		max-height: calc(100dvh - 16px);
+		padding: 18px 20px 20px;
 		border-radius: 18px;
+	}
+
+	.for-login .page-card-head .app-logo {
+		height: 210px !important;
+	}
+
+	.for-login .solua-login-language,
+	.for-signup .solua-login-language,
+	.for-forgot .solua-login-language,
+	.for-login-with-email-link .solua-login-language {
+		top: 12px;
+		right: 14px;
+	}
+}
+
+@media (max-height: 700px) {
+	.for-login .login-content.page-card {
+		padding-top: 14px;
+		padding-bottom: 16px;
+	}
+
+	.for-login .page-card-head {
+		padding-bottom: 8px;
+	}
+
+	.for-login .page-card-head .app-logo {
+		height: 210px !important;
+		margin-bottom: 10px;
+	}
+
+	.for-login .page-card-head-text h4 {
+		font-size: 22px;
+	}
+
+	.for-login .form-control {
+		height: 40px;
+	}
+
+	.for-login .btn-login {
+		height: 40px;
+	}
+
+	.for-login .btn-login-option {
+		height: 36px;
+		margin-top: 6px;
 	}
 }

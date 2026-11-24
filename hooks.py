@@ -38,13 +38,17 @@ doc_events = {
         ],
         "on_submit": "solua_home.api.wecom.enqueue_sales_order_submit_send",
         "before_update_after_submit": "solua_home.api.sales.validate_sales_order_stock",
-        "on_update_after_submit": "solua_home.api.pick_list_update.update_draft_pick_lists_after_sales_order",
+        "on_update_after_submit": [
+            "solua_home.api.pick_list_update.update_draft_pick_lists_after_sales_order",
+            "solua_home.api.wecom.enqueue_sales_order_update_send",
+        ],
     },
     "Payment Entry": {
         "before_validate": "solua_home.cash_discount.validate_payment_entry",
         "validate": "solua_home.cash_discount.validate_payment_entry",
         "before_submit": "solua_home.cash_discount.validate_payment_entry",
         "before_update_after_submit": "solua_home.cash_discount.validate_payment_entry",
+        "on_submit": "solua_home.api.telegram.enqueue_payment_margin_check",
     },
     "Quotation": {
         "validate": "solua_home.api.sales.validate_quotation",
@@ -173,6 +177,14 @@ before_request = [
     "solua_home.api.delete_guard.install",
 ]
 
+on_session_creation = [
+    "solua_home.api.mobile.log_employee_stock_login",
+]
+
+on_logout = [
+    "solua_home.api.mobile.log_employee_stock_logout",
+]
+
 # ------------------- 类重写 -------------------
 extend_doctype_class = {
     "Sales Invoice": "solua_home.override.sales_invoice.CustomSalesInvoice",
@@ -274,7 +286,8 @@ app_include_css = [
 ]
 
 # 网站与登录页品牌样式（不修改 Frappe 核心模板）
-web_include_css = "/assets/solua_home/css/login.css?v=login-logo-3"
+web_include_css = "/assets/solua_home/css/login.css?v=login-logo-16"
+web_include_js = "/assets/solua_home/js/login_bilingual.js?v=login-bilingual-4"
 
 # 全局 JS：Link 输入框有内容时点击也弹出下拉（全站表单生效）+ 标签打印（Ctrl+L）+ 零售参数/商品打包/打印导入导出
 app_include_js = [
@@ -285,8 +298,9 @@ app_include_js = [
     "/assets/solua_home/js/quantity_validation.js?v=return-qty-20261005a",
     "/assets/solua_home/js/quantity_display_precision_v20261004.js?v=order-qty-integer-20261105",
     "/assets/solua_home/js/query_report_custom_columns_v20261109.js?v=query-report-custom-columns-20261109a",
+    "/assets/solua_home/js/report_credit_note_display_v20261113.js?v=credit-note-display-20261113a",
     "/assets/solua_home/js/linked_delete_guard_v20261111.js?v=linked-delete-guard-20261111b",
-    "/assets/solua_home/js/label_print.js?v=no-floaters-20260917",
+    "/assets/solua_home/js/label_print.js?v=label-barcode-20261114b",
     "/assets/solua_home/js/promotion_wizard.js?v=no-floaters-20260917",
     "/assets/solua_home/js/retail_settings_panel.js?v=retail-settings-20261005a",
     "/assets/solua_home/js/print_format_import_export.js?v=print-format-import-export-20261005a",
