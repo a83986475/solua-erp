@@ -37,6 +37,7 @@ doc_events = {
         ],
         "on_submit": "solua_home.api.wecom.enqueue_sales_order_submit_send",
         "before_update_after_submit": "solua_home.api.sales.validate_sales_order_stock",
+        "on_update_after_submit": "solua_home.api.wecom.enqueue_sales_order_update_send",
     },
     "Payment Entry": {
         "before_validate": "solua_home.cash_discount.validate_payment_entry",

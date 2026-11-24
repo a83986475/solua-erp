@@ -127,17 +127,54 @@ def apply_customer_print_preference(doc, method=None):
     doc.custom_print_merge_order_code = 0 if preference == "不合并货号" else 1
 
 
-def enqueue_sales_order_submit_send(doc, method=None):
+def _sales_order_export_values(doc):
+    header_fields = {
+        "customer", "customer_name", "company", "transaction_date", "delivery_date", "po_no", "po_date",
+        "customer_address", "shipping_address_name", "address_display", "shipping_address", "contact_person",
+        "contact_display", "contact_mobile", "currency", "grand_total", "net_total", "discount_amount",
+        "payment_terms_template", "terms",
+    }
+    header_fields.update(
+        field.fieldname for field in doc.meta.fields
+        if field.allow_on_submit and field.fieldtype not in ("Table", "Table MultiSelect")
+        and not field.fieldname.startswith("custom_wecom_")
+    )
+    row_fields = (
+        "item_code", "item_name", "description", "qty", "uom", "conversion_factor", "warehouse",
+        "delivery_date", "rate", "amount", "additional_notes", "pos_additional_notes", "custom_additional_notes",
+    )
+    return (
+        {field: doc.get(field) for field in header_fields},
+        [tuple(row.get(field) for field in row_fields) for row in doc.get("items", [])],
+    )
+
+
+def enqueue_sales_order_update_send(doc, method=None, previous=None):
+    # The Update Items override writes notes after the parent save.
+    if previous is None:
+        if frappe.flags.get("_solua_stock_previous_doc"):
+            return
+        previous = doc.get_doc_before_save()
+    if previous is not None and _sales_order_export_values(doc) == _sales_order_export_values(previous):
+        return
+    enqueue_sales_order_submit_send(doc, updated=True)
+
+
+def enqueue_sales_order_submit_send(doc, method=None, *, updated=False):
     """Queue both customer files after a Sales Order transaction commits."""
     if doc.doctype != "Sales Order" or int(doc.docstatus or 0) != 1:
         return
+    job_id = f"wecom-sales-order-submit:{doc.name}"
+    if updated:
+        job_id = f"wecom-sales-order-update:{doc.name}:{doc.modified}"
     frappe.enqueue(
         "solua_home.api.wecom.send_submitted_sales_order_to_wechat",
         queue="short",
         enqueue_after_commit=True,
-        job_id=f"wecom-sales-order-submit:{doc.name}",
+        job_id=job_id,
         deduplicate=True,
         sales_order=doc.name,
+        updated=updated,
     )
 
 
@@ -155,13 +192,13 @@ def _set_sales_order_wecom_status(name, status, error="", sent_at=None):
     frappe.db.commit()
 
 
-def _send_with_retries(sender, name):
+def _send_with_retries(sender, doc, filename):
     import time
 
     last_error = None
     for attempt in range(3):
         try:
-            return sender(name)
+            return sender(doc, filename)
         except Exception as error:
             last_error = error
             if attempt < 2:
@@ -169,23 +206,41 @@ def _send_with_retries(sender, name):
     raise last_error
 
 
-def send_submitted_sales_order_to_wechat(sales_order):
-    """Send submitted Sales Order PDF and XLSX without affecting order submission."""
-    doc = frappe.get_doc("Sales Order", sales_order)
-    if int(doc.docstatus or 0) != 1:
-        return {"status": "skipped", "reason": "not submitted"}
-    if doc.get("custom_wecom_send_status") == "已发送":
-        return {"status": "already sent"}
+def send_submitted_sales_order_to_wechat(sales_order, updated=False):
+    """Send a PDF and XLSX from the same saved order version."""
+    from frappe.utils import get_datetime
+    from frappe.utils.synchronization import filelock
+    from solua_home.api.export import _sales_order_customer_pdf_filename
+
+    with filelock(f"wecom-sales-order:{sales_order}", timeout=120):
+        doc = frappe.get_doc("Sales Order", sales_order)
+        if not updated and doc.get("custom_wecom_send_status") == "已发送":
+            return {"status": "already sent"}
+        if int(doc.docstatus or 0) != 1:
+            return {"status": "skipped", "reason": "not submitted"}
+        doc.check_permission("read")
+        stem = _sales_order_customer_pdf_filename(doc)[:-4]
+        if updated:
+            from solua_home.printing.wholesale import _collect
+
+            # Refresh the print snapshot in memory, including notes that were cleared.
+            doc.custom_wholesale_snapshot = frappe.as_json(_collect(doc, use_snapshot=False))
+            stem += f"_更新-{get_datetime(doc.modified):%m%d-%H%M%S}"
+        return _send_sales_order_files(doc, stem)
+
+
+def _send_sales_order_files(doc, stem):
+    sales_order = doc.name
 
     _set_sales_order_wecom_status(sales_order, "发送中")
     results = {}
     errors = []
     for label, sender in (
-        ("PDF", send_sales_order_customer_pdf_to_wechat),
-        ("XLSX", send_sales_order_customer_xlsx_to_wechat),
+        ("PDF", _send_sales_order_pdf),
+        ("XLSX", _send_sales_order_xlsx),
     ):
         try:
-            results[label] = _send_with_retries(sender, sales_order)
+            results[label] = _send_with_retries(sender, doc, f"{stem}.{label.lower()}")
         except Exception as error:
             errors.append(f"{label}: {error}")
 
@@ -202,37 +257,36 @@ def send_submitted_sales_order_to_wechat(sales_order):
 
 @frappe.whitelist()
 def send_sales_order_customer_pdf_to_wechat(name):
+    from solua_home.api.export import _sales_order_customer_pdf_filename, get_export_document
+
+    doc = get_export_document("Sales Order", name)
+    return _send_sales_order_pdf(doc, _sales_order_customer_pdf_filename(doc))
+
+
+def _send_sales_order_pdf(doc, filename):
     webhook_url, key = _webhook_config()
 
     from solua_home.api.a4_designer import _active_print_format
-    from solua_home.api.export import (
-        _render_document_pdf,
-        _sales_order_customer_pdf_filename,
-        get_export_document,
-    )
-
-    doc = get_export_document("Sales Order", name)
+    from solua_home.api.export import _render_document_pdf
     print_format = _active_print_format("Sales Order")
     if not print_format:
         frappe.throw("销售订单没有可用的打印格式")
     merge_customer = bool(int(doc.get("custom_print_merge_order_code") or 0))
     pdf = _render_document_pdf(doc, print_format, merge_customer=merge_customer)
-    filename = _sales_order_customer_pdf_filename(doc)
     return _send_file(webhook_url, key, filename, pdf, "application/pdf")
 
 
 @frappe.whitelist()
 def send_sales_order_customer_xlsx_to_wechat(name):
-    webhook_url, key = _webhook_config()
-    from solua_home.api.export import (
-        _customer_sales_order_table,
-        _sales_order_customer_pdf_filename,
-        _xlsx_bytes,
-        get_export_document,
-    )
+    from solua_home.api.export import _sales_order_customer_pdf_filename, get_export_document
 
     doc = get_export_document("Sales Order", name)
-    filename = f"{_sales_order_customer_pdf_filename(doc)[:-4]}.xlsx"
+    return _send_sales_order_xlsx(doc, f"{_sales_order_customer_pdf_filename(doc)[:-4]}.xlsx")
+
+
+def _send_sales_order_xlsx(doc, filename):
+    webhook_url, key = _webhook_config()
+    from solua_home.api.export import _customer_sales_order_table, _xlsx_bytes
     merge_customer = bool(int(doc.get("custom_print_merge_order_code") or 0))
     xlsx = _xlsx_bytes(_customer_sales_order_table(doc, merge_customer=merge_customer), "客户表格", wrap_columns=(3,))
     return _send_file(
