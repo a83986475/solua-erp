@@ -208,7 +208,6 @@ def _send_with_retries(sender, doc, filename):
 
 def send_submitted_sales_order_to_wechat(sales_order, updated=False):
     """Send a PDF and XLSX from the same saved order version."""
-    from frappe.utils import get_datetime
     from frappe.utils.synchronization import filelock
     from solua_home.api.export import _sales_order_customer_pdf_filename
 
@@ -225,7 +224,6 @@ def send_submitted_sales_order_to_wechat(sales_order, updated=False):
 
             # Refresh the print snapshot in memory, including notes that were cleared.
             doc.custom_wholesale_snapshot = frappe.as_json(_collect(doc, use_snapshot=False))
-            stem += f"_更新-{get_datetime(doc.modified):%m%d-%H%M%S}"
         return _send_sales_order_files(doc, stem)
 
 
