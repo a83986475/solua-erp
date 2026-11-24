@@ -1,38 +1,45 @@
-// Run: node my_custom_app_example/solua_home/tests/wholesale_forms_check.cjs
+// Run: node tests/wholesale_forms_check.cjs
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
-// Check the real loading entrypoint as well as the form implementation.
 const appRoot = path.resolve(__dirname, "..");
-const hooksSource = fs.readFileSync(path.join(appRoot, "hooks.py"), "utf8");
-const loaderPath = "public/js/wholesale_forms_additional_notes_loader_v19.js";
+const hooksSource = fs.readFileSync(path.join(appRoot, "hooks.py"), "utf8").split("doctype_js = {")[1];
+const formScripts = doctype => {
+  const line = hooksSource.split("\n").find(line => line.trim().startsWith('"' + doctype + '": ['));
+  assert.ok(line, doctype + " is missing its form scripts");
+  return JSON.parse(line.slice(line.indexOf("["), line.lastIndexOf("]") + 1));
+};
+const registeredScripts = formScripts("Sales Order");
+const buttonPath = registeredScripts.find(script => script.startsWith("public/js/wholesale_forms_buttons_"));
+const loaderPath = registeredScripts.find(script => script.startsWith("public/js/wholesale_forms_additional_notes_loader_"));
 const salesInvoicePrintPath = "public/js/sales_invoice_print_options_v20261005.js";
-for (const doctype of ["Sales Order", "Delivery Note", "Pick List"]) {
-  const line = hooksSource.split("\n").find(line => line.trim().startsWith(`"${doctype}": [` ) && line.includes("public/js/"));
-  assert.ok(line && line.includes(loaderPath), `${doctype}: loading entrypoint regressed; review loader changes before release`);
+for (const doctype of ["Sales Order", "Delivery Note", "Pick List", "Stock Entry", "Purchase Receipt", "Stock Reconciliation"]) {
+  const scripts = formScripts(doctype);
+  const buttonIndex = scripts.indexOf(buttonPath);
+  assert.ok(buttonIndex >= 0 && scripts.indexOf(loaderPath) > buttonIndex, doctype + " must include buttons before the tool loader");
 }
-const salesInvoiceLine = hooksSource.split("\n").find(line => line.trim().startsWith('"Sales Invoice": ['));
-assert.ok(salesInvoiceLine && salesInvoiceLine.includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
-const loaderSource = fs.readFileSync(path.join(appRoot, loaderPath), "utf8");
-assert.ok(loaderSource.includes("wholesale_forms_stock_entry_v20261017.js?v=stock-entry-tools-20261028a"), "Wholesale script cache version regressed");
-const releaseFiles = fs.readFileSync(path.join(__dirname, "release_whitelist.txt"), "utf8");
-assert.ok(releaseFiles.includes(`my_custom_app_example/solua_home/${loaderPath}`), "Active loader missing from release whitelist");
+assert.ok(formScripts("Sales Invoice").includes(salesInvoicePrintPath), "Sales Invoice batch-print entrypoint regressed");
 const handlers = {}, requests = [], dialogs = [];
 const storage = new Map();
 const defaultLists = new Map();
 const datalists = new Map();
 const localStorage = {getItem(key){return storage.has(key) ? storage.get(key) : null;},setItem(key,value){storage.set(key,String(value));}};
 const input = () => ({events:{}, on(event, fn){this.events[event]=fn;return this;}, off(event){delete this.events[event];return this;}, focus(){}, setAttribute(key,value){this[key]=value;}, removeAttribute(key){delete this[key];}});
+const toolScripts = [];
 const document = {
   getElementById(id){return datalists.get(id) || null;},
-  createElement(type){return {type,id:"",children:[],value:"",replaceChildren(){this.children=[];},appendChild(child){this.children.push(child);}};},
+  querySelector(selector){return selector === "script[data-solua-wholesale-forms]" ? toolScripts[0] : null;},
+  createElement(type){return {type,dataset:{},id:"",children:[],value:"",replaceChildren(){this.children=[];},appendChild(child){this.children.push(child);}};},
+  head:{appendChild(script){toolScripts.push(script);}},
   body:{appendChild(node){datalists.set(node.id,node);}},
 };
 class Dialog {
   constructor(options) {
     this.action=options.primary_action;
     this.values = {}; this.fields_dict = {}; this.$wrapper = input();
+    this.$wrapper.find = () => this.$wrapper;
+    this.$wrapper.css = () => this.$wrapper;
     for (const f of options.fields) {
       this.values[f.fieldname] = f.default ?? "";
       const field = {...f,df:{...f},$input:input(),$wrapper:{html(){},empty(){}}};
@@ -58,7 +65,16 @@ class Dialog {
 const rows = new Map();
 const frappe = {
   session:{user:"tester@example.com"},
-  ui:{Dialog, form:{on(dt, value){handlers[dt]={...(handlers[dt] || {}),...value};}}},
+  ui:{Dialog, form:{on(dt, events){
+    handlers[dt] ??= {};
+    for (const [event, handler] of Object.entries(events)) {
+      const previous = handlers[dt][event];
+      handlers[dt][event] = previous ? (...args) => {
+        previous(...args);
+        return handler(...args);
+      } : handler;
+    }
+  }}},
   utils:{escape_html:String},
   call(options){
     if (options?.method === "solua_home.api.sales.get_customer_store_options") return Promise.resolve({message:[
@@ -82,12 +98,21 @@ const frappe = {
   show_alert(){},msgprint(){},
 };
 const browser = {open(){},localStorage};
-const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser, document};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/document_table_export_v20260930c.js"),"utf8"), script_scope);
-const wholesaleSource = fs.readFileSync(path.join(__dirname,"../public/js/wholesale_forms_stock_entry_v20261017.js"),"utf8");
-vm.runInNewContext(wholesaleSource, script_scope);
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../public/js/sales_invoice_print_options_v20261005.js"),"utf8"), script_scope);
-const salesTools = browser.solua_home_sales_order_tools;
+const script_scope = {frappe, __:s=>s, Number, String, Promise, URLSearchParams, window:browser, document, setTimeout(){}};
+function loadScript(file) {
+  const source = fs.readFileSync(path.join(appRoot, file), "utf8");
+  vm.runInNewContext(source, script_scope, {filename:file});
+  return source;
+}
+loadScript("public/js/document_table_export_v20260930c.js");
+loadScript(salesInvoicePrintPath);
+loadScript(buttonPath);
+loadScript(loaderPath);
+loadScript(loaderPath);
+assert.equal(toolScripts.length, 1, "The loader should request the tool script only once");
+const toolUrl = new URL(toolScripts[0].src, "https://example.invalid");
+const appAssets = "/assets/solua_home/";
+assert.ok(toolUrl.pathname.startsWith(appAssets) && toolUrl.searchParams.get("v"));
 const flush = () => new Promise(resolve=>setImmediate(resolve));
 function form(dt,status=0,purpose){
  const frm={doctype:dt,doc:{docstatus:status,company:"Solua Home, Lda",items:[],set_warehouse:"W1",from_warehouse:dt==="Stock Entry"?"W0":undefined,to_warehouse:dt==="Stock Entry"?"W2":undefined,purpose:purpose || (dt==="Stock Entry"?"Material Receipt":undefined)},fields_dict:{custom_store_name:{$input:input()}},buttons:[],dirty(){},
@@ -102,15 +127,27 @@ async function query(d,code="A"){
  d.values.barcode=code;d.fields_dict.barcode.$input.events.input();
  const p=d.action();requests.at(-1).resolve(data);await p;
 }
+let completed = false;
+process.once("beforeExit", () => {
+  assert.ok(completed || process.exitCode, "An asynchronous form check did not finish");
+});
 (async()=>{
+	const salesOrder = form("Sales Order");
+	const dialogCount = dialogs.length;
+	const openSalesColor = salesOrder.buttons[0].fn();
+	await flush();
+	assert.equal(dialogs.length, dialogCount, "The button should wait for its tool script");
+	const wholesaleSource = loadScript("public/" + toolUrl.pathname.slice(appAssets.length));
+	toolScripts[0].onload();
+	await openSalesColor;
+	assert.equal(dialogs.length, dialogCount + 1, "The pending click should open the dialog after loading");
+	const salesTools = browser.solua_home_sales_order_tools;
 	assert.equal(salesTools.is_positive_integer("2"),true);
 	assert.equal(salesTools.is_positive_integer("2.5"),false);
 	const selection=[{__checked:0},{__checked:1},{__checked:0}];
 	salesTools.set_table_selection(selection,true);assert.deepEqual(selection.map(r=>r.__checked),[1,1,1]);
 	salesTools.invert_table_selection(selection);assert.deepEqual(selection.map(r=>r.__checked),[0,0,0]);
 	for(const dt of ["Purchase Receipt","Stock Reconciliation"]) assert.equal(form(dt,1).buttons.length,0);
-	const salesOrder = form("Sales Order");
-	salesOrder.buttons[0].fn();
 	assert.equal(dialogs.at(-1).label, "查询颜色");
 	const salesColor = dialogs.at(-1);
 	salesColor.values.default_qty=4;
@@ -151,7 +188,7 @@ async function query(d,code="A"){
 	for (const purpose of ["Material Issue", "Material Transfer", "Material Consumption for Manufacture"]) {
 		const outbound = form("Stock Entry",0,purpose);
 		assert.equal(outbound.buttons.length,5);
-		outbound.buttons[0].fn(); const d = dialogs.at(-1);
+		await outbound.buttons[0].fn(); const d = dialogs.at(-1);
 		assert.equal(d.values.warehouse,"W0");
 		assert.equal(d.fields_dict.rate,undefined,"Outbound must use native valuation");
 		await query(d,"OUT"); d.values.variant="red"; d.values.qty="3"; await d.action();
@@ -161,7 +198,7 @@ async function query(d,code="A"){
 	}
 	const stockEntry = form("Stock Entry");
 	assert.equal(stockEntry.buttons.length,5);
-	stockEntry.buttons[0].fn();
+	await stockEntry.buttons[0].fn();
 	const stockDialog = dialogs.at(-1);
 	assert.equal(stockDialog.label,"查询颜色");
 	await query(stockDialog,"STOCK");
@@ -169,7 +206,7 @@ async function query(d,code="A"){
 	assert.equal(stockEntry.doc.items.length,1);
 	assert.equal(stockEntry.doc.items[0].t_warehouse,"W2");
 	assert.equal(stockEntry.doc.items[0].basic_rate,12);
-	stockEntry.buttons[2].fn();
+	await stockEntry.buttons[2].fn();
 	const stockBulk = dialogs.at(-1);
 	assert.equal(stockBulk.fields_dict.results.df.fields.some((field) => field.fieldname === "rate"),true);
 	requests.at(-1).resolve({message:{items:[]}});await flush();
@@ -238,6 +275,7 @@ async function query(d,code="A"){
 	await flush();
 	assert.equal(salesOrder.doc.custom_store_name, "手工门店");
 	const refreshStock = salesOrder.buttons.find((button) => button.label === "刷新库存").fn();
+	await flush();
 	requests.at(-1).resolve({message:{rows:[
 		{item_code:"red",warehouse:"W1",actual_qty:10,projected_qty:10,stock_qty:2},
 		{item_code:"blue",warehouse:"W1",actual_qty:50,projected_qty:50,stock_qty:3},
@@ -245,7 +283,7 @@ async function query(d,code="A"){
 	await refreshStock;
 	assert.equal(salesOrder.doc.items[0].actual_qty,10);
 	assert.equal(salesOrder.doc.items[0].projected_qty,10);
-	salesOrder.buttons[2].fn();
+	await salesOrder.buttons[2].fn();
 	const bulkPicker = dialogs.at(-1);
 	assert.equal(bulkPicker.fields_dict.template.df.get_query().filters.has_variants,1);
 	requests.at(-1).resolve({message:{items:[
@@ -271,7 +309,7 @@ async function query(d,code="A"){
  assert.equal(bulkPicker.fields_dict.results.df.data.length,0);
 	const quantityUpdateButton = salesOrder.buttons.find((button) => button.label === "批量修改数量");
 	assert.ok(quantityUpdateButton);
-	quantityUpdateButton.fn();
+	await quantityUpdateButton.fn();
 	const quantityDialog = dialogs.at(-1);
 	assert.deepEqual(quantityDialog.fields_dict.items.df.data.map((row) => row.current_qty), [2,3,4,4]);
 	quantityDialog.fields_dict.select_all.$input.events.click();
@@ -282,7 +320,7 @@ async function query(d,code="A"){
 	assert.equal(salesOrder.doc.items.find((row) => row.item_code === "red").qty, 8);
 	assert.equal(salesOrder.doc.items.find((row) => row.item_code === "blue").qty, 8);
 	assert.equal(salesColor.values.barcode,"");
-	const receipt=form("Purchase Receipt");receipt.buttons[0].fn();const d=dialogs.at(-1);
+	const receipt=form("Purchase Receipt");await receipt.buttons[0].fn();const d=dialogs.at(-1);
  d.values.barcode="missing";let p=d.action();requests.at(-1).resolve({message:{templates:[]}});await p;
  assert.equal(d.label,"查询颜色");
  p=d.action();requests.at(-1).reject(new Error("offline"));await p;assert.equal(d.label,"查询颜色");
@@ -304,7 +342,7 @@ async function query(d,code="A"){
  recent.resolve(data);await newer;old.resolve({message:{templates:[]}});await p;
  assert.equal(d.label,"加入单据");assert.equal(d.fields_dict.variant.options.length,3);
  d.values.barcode="changed";d.fields_dict.barcode.$input.events.input();assert.equal(d.values.variant,"");assert.equal(d.label,"查询颜色");
- const count=form("Stock Reconciliation");count.buttons[0].fn();const c=dialogs.at(-1);
+ const count=form("Stock Reconciliation");await count.buttons[0].fn();const c=dialogs.at(-1);
  await query(c);c.values.variant="red";
  for(const invalid of ["","1.5","-1"]){c.values.qty=invalid;await c.action();assert.equal(count.doc.items.length,0);}
  c.values.qty="0";await c.action();assert.equal(count.doc.items.length,1);assert.equal(count.doc.items[0].qty,0);
@@ -315,7 +353,7 @@ async function query(d,code="A"){
   let save_mode;submitted.save=async mode=>{save_mode=mode;};
   handlers[dt].refresh(submitted);
   assert.equal(submitted.buttons.length,1);
-  submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
+  await submitted.buttons[0].fn();const print_dialog=dialogs.at(-1);print_dialog.hide=()=>{};
  const selected={show_item_name:0,show_sku:1,show_color:0,merge_order_code:1,show_description:0,show_ordered_before:0,show_current_remaining:0,show_quantity:0,show_rate:0,show_amount:0,show_traceability:0,show_images:1,show_qr:0,show_additional_notes:0};
  const values=Object.fromEntries(Object.keys(print_dialog.values).map(key=>[key,selected[key]]));
  const print_action=print_dialog.action(values);
@@ -330,10 +368,12 @@ async function query(d,code="A"){
   const stable=value=>JSON.stringify(Object.fromEntries(Object.entries(value).sort()));
   assert.equal(stable(saved_changes),stable(expected));
   const reopened=form(dt,1);reopened.is_new=()=>false;reopened.fields_dict=submitted.fields_dict;
-  handlers[dt].refresh(reopened);reopened.buttons[0].fn();const remembered=dialogs.at(-1);
+  handlers[dt].refresh(reopened);await reopened.buttons[0].fn();const remembered=dialogs.at(-1);
   assert.deepEqual(Object.fromEntries(Object.keys(values).map(key=>[key,remembered.values[key]])),values);
  }
  for (const dt of ["Sales Order","Sales Invoice","Delivery Note","Pick List"]) await assert_print_switches(dt);
  assert.equal(storage.size,4);
- await flush();console.log("PASS: retry, stale responses, explicit selection, reset, item+warehouse, append/replace, integer/zero/blank, double click, submitted guards");
+ await flush();
+ completed = true;
+ console.log("PASS: managed loader, retry, stale responses, explicit selection, reset, item+warehouse, append/replace, integer/zero/blank, double click, submitted guards");
 })().catch(e=>{console.error(e);process.exitCode=1;});

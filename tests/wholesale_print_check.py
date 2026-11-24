@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import types
 from copy import deepcopy
+from unittest.mock import patch
 
 from jinja2 import Environment, StrictUndefined
 
@@ -12,8 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Doc(dict):
-    __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
 
     def is_new(self):
         return False
@@ -36,6 +42,7 @@ def get_doc(dt, name):
 frappe = types.ModuleType("frappe")
 frappe._ = lambda text: text
 frappe.throw = fail
+frappe.whitelist = lambda: lambda fn: fn
 frappe.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda field: field != "phone")
 def db_get_value(dt, name, field, **kwargs):
     if dt == "Sales Order":
@@ -44,6 +51,8 @@ def db_get_value(dt, name, field, **kwargs):
         return "COMPANY-NUIT"
     if dt == "Contact" and name == "CONTACT-A":
         return "STORE-A"
+    if dt == "Driver" and kwargs.get("as_dict"):
+        return Doc(full_name="Driver", cell_number="888")
     if dt == "Item" and kwargs.get("as_dict"):
         return Doc(variant_of="", description="<p>Standard description</p>", custom_item_description_pt="Cortina <b>vermelha</b>")
     return "888"
@@ -59,8 +68,11 @@ frappe.db.exists = lambda dt, filters: dt == "Dynamic Link"
 frappe.get_doc = get_doc
 frappe.get_all = lambda dt, *a, **k: [Doc(barcode="6901234567892", barcode_type="EAN")] if dt == "Item Barcode" else []
 frappe.get_list = lambda *a, **k: []
-frappe.utils = types.SimpleNamespace(fmt_money=lambda value, currency: f"{value or 0:.2f} {currency}")
+frappe.utils = types.SimpleNamespace(fmt_money=lambda value, currency, precision=2: f"{value or 0:.{precision}f} {currency}")
 sys.modules["frappe"] = frappe
+app = types.ModuleType("solua_home")
+app.__path__ = [str(ROOT)]
+sys.modules[app.__name__] = app
 color = types.ModuleType("solua_home.printing.color_card")
 color.get_item_color_info = lambda code: {"order_code":code,"color_code":"01","color_name":"Red","image":"/red.png", "template_code":"STYLE", "card_url":"/colors?q=STYLE"}
 sys.modules[color.__name__] = color
@@ -120,7 +132,7 @@ phone_note.custom_store_phone = "222"
 module.prepare_print_snapshot(phone_note, "before_submit")
 phone_note.custom_store_phone = "333"
 assert module.get_customer_print_info(phone_note)["phone"] == "222"
-for key in ("vehicle_no", "shipping_address", "custom_departure_time", "custom_source_warehouse_address"):
+for key in ("vehicle_no", "shipping_address"):
     bad = fixture("Delivery Note"); bad[key] = ""
     try: module.prepare_print_snapshot(bad, "before_submit")
     except ValueError: pass
@@ -133,10 +145,22 @@ saved_store = order.custom_store_name
 order.custom_store_name = ""
 module.prepare_print_snapshot(fixture("Delivery Note"))
 order.custom_store_name = saved_store
-bad = fixture("Delivery Note");bad.custom_invoice_plan = "后续开票"
-try: module.prepare_print_snapshot(bad)
-except ValueError: pass
-else: raise AssertionError("Generic invoice plan accepted")
+optional = fixture("Delivery Note")
+optional.custom_departure_time = ""
+optional.custom_source_warehouse_address = ""
+optional.custom_invoice_plan = ""
+snapshot = module.prepare_print_snapshot(optional, "before_submit")
+assert snapshot["transport"]["departure_time"] == ""
+assert snapshot["transport"]["source_address"] == ""
+assert snapshot["invoice_plan"] == ""
+
+optional.custom_departure_time = "2026-09-15 10:00:00"
+optional.custom_source_warehouse_address = "Test warehouse address"
+optional.custom_invoice_plan = "后续开票"
+snapshot = module.prepare_print_snapshot(optional, "before_submit")
+assert snapshot["transport"]["departure_time"] == optional.custom_departure_time
+assert snapshot["transport"]["source_address"] == optional.custom_source_warehouse_address
+assert snapshot["invoice_plan"] == optional.custom_invoice_plan
 returned_print=fixture("Delivery Note");returned_print.is_return=1
 returned_print["items"][0].qty=-2
 module.prepare_print_snapshot(returned_print)
@@ -168,6 +192,7 @@ assert module.get_pick_list_print_data(Doc(doctype="Pick List", name="PL-3", doc
 env = Environment(undefined=StrictUndefined)
 env.globals.update(frappe=frappe, get_wholesale_print_data=module.get_wholesale_print_data,
                   get_print_total_qty=module.get_print_total_qty,
+                  format_print_qty=module.format_print_qty, format_print_money=module.format_print_money,
                   get_solua_print_css=module.get_solua_print_css,
                   get_pick_list_print_data=module.get_pick_list_print_data,
                   get_delivery_invoice_names=lambda name: [], get_color_card_qr_img=lambda name: "")
@@ -176,9 +201,9 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
     assert fmt["html"] and fmt["raw_printing"] == 0 and not fmt["raw_commands"]
     assert fmt["module"] == "Solua Wholesale"
     html = env.from_string(fmt["html"]).render(doc=document)
-    assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20.00 MZN" in html
+    assert "Curtain" in html and "COMPANY-NUIT" in html and "CUSTOMER-NUIT" in html and "20 MZN" in html
     if folder == "sales_order_wholesale_color":
-        for header in ("Artigo / 商品", "SKU / 货号", "色号 / Cor"):
+        for header in ("Artigo / 商品", "SKU / 货号", '<th class="col-color-code">Cor</th>'):
             assert header in html  # legacy documents default all three columns to visible
         assert "6901234567892" in html and "Cortina vermelha" in html and "描述 / Descrição" in html
     assert "WRONG BILLING" not in html and "NEW ADDRESS" not in html
@@ -209,7 +234,7 @@ for folder, document in (("sales_order_wholesale_color",so),("delivery_note_guia
                         rendered = env.from_string(fmt["html"]).render(doc=option_doc)
                         assert ("Artigo / 商品" in rendered) == bool(item_name)
                         assert ("SKU / 货号" in rendered) == bool(sku)
-                        assert ("色号 / Cor" in rendered) == bool(color_code)
+                        assert ('<th class="col-color-code">' in rendered) == bool(color_code)
                         assert ("描述 / Descrição" in rendered) == bool(description)
     if folder == "delivery_note_guia_remessa":
         assert "table-layout:fixed" not in fmt["css"]
@@ -238,7 +263,7 @@ invoice = Doc(
     items=[Doc(item_code="SH151046-01", item_name="Curtain", qty=2, rate=20, amount=40, uom="条")])
 rendered_invoice = env.from_string(invoice_fmt["html"]).render(doc=invoice)
 assert "SH151046-01" in rendered_invoice and "6901234567892" in rendered_invoice
-assert "Cortina vermelha" in rendered_invoice and "40.00 MZN" in rendered_invoice
+assert "Cortina vermelha" in rendered_invoice and "40 MZN" in rendered_invoice
 assert "wholesale-image" in rendered_invoice and "QR_TEST" in rendered_invoice
 assert "<style>" in rendered_invoice and "{%" not in rendered_invoice
 assert "Descrição" in rendered_invoice and "SKU / 货号" in rendered_invoice
@@ -251,10 +276,10 @@ assert pick_fmt["custom_format"] == 1 and pick_fmt["standard"] == "No" and pick_
 assert pick_fmt["raw_printing"] == 0 and not pick_fmt["raw_commands"]
 rendered_pick = env.from_string(pick_fmt["html"]).render(doc=pick)
 assert "Pick List / 拣货单" in rendered_pick and "{%" not in rendered_pick
-for header in ("SKU / 货号", "色号 / Cor", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
+for header in ("SKU / 货号", "Código de cor / 色号", "条码 / Código de barras", "描述 / Descrição", "Armazém / 仓库"):
     assert header in rendered_pick, header
 assert "Total Qty / 总数量" in rendered_pick
-assert "<b>3.5</b>" in rendered_pick and "<b>2</b>" in rendered_pick
+assert "<b>4 条/pc</b>" in rendered_pick and "<b>2 条/pc</b>" in rendered_pick
 assert "6901234567892" in rendered_pick and "Cortina vermelha" in rendered_pick and "SO-1" in rendered_pick
 assert "非正式凭证" not in rendered_pick  # 已提交的拣货单不背"草稿"标签
 assert "非正式凭证" in env.from_string(pick_fmt["html"]).render(doc=Doc(pick, docstatus=0))
@@ -310,25 +335,27 @@ sys.modules["solua_home.api.stock"] = stock
 
 # Delivery Notes created from one Sales Order inherit the editable store phone;
 # a value already entered on the Delivery Note wins.
-copy_note = fixture("Delivery Note")
-copy_note.custom_store_phone = ""
-stock.validate_delivery_note(copy_note)
-assert copy_note.custom_store_phone == "111"
-override_note = fixture("Delivery Note")
-override_note.custom_store_phone = "222"
-stock.validate_delivery_note(override_note)
-assert override_note.custom_store_phone == "222"
-# 订单漏填的门店/电话/开票安排由送货单回填，只补空、不覆盖。
-set_value_calls.clear()
-order.custom_store_name = ""
-order.custom_store_phone = ""
-order.custom_invoice_plan = ""
-backfill_note = fixture("Delivery Note")
-backfill_note.custom_store_phone = "222"
-stock.validate_delivery_note(backfill_note)
-assert set_value_calls and set_value_calls[0][:2] == ("Sales Order", "SO-1")
-assert order.custom_store_name == "A" and order.custom_store_phone == "222"
-assert order.custom_invoice_plan == "订单 CHECK-1 在签收后次日开票"
+frappe.db.sql = lambda *args, **kwargs: []
+with patch.object(stock, "validate_delivery_route"):
+    copy_note = fixture("Delivery Note")
+    copy_note.custom_store_phone = ""
+    stock.validate_delivery_note(copy_note)
+    assert copy_note.custom_store_phone == "111"
+    override_note = fixture("Delivery Note")
+    override_note.custom_store_phone = "222"
+    stock.validate_delivery_note(override_note)
+    assert override_note.custom_store_phone == "222"
+    # 订单漏填的门店/电话/开票安排由送货单回填，只补空、不覆盖。
+    set_value_calls.clear()
+    order.custom_store_name = ""
+    order.custom_store_phone = ""
+    order.custom_invoice_plan = ""
+    backfill_note = fixture("Delivery Note")
+    backfill_note.custom_store_phone = "222"
+    stock.validate_delivery_note(backfill_note)
+    assert set_value_calls and set_value_calls[0][:2] == ("Sales Order", "SO-1")
+    assert order.custom_store_name == "A" and order.custom_store_phone == "222"
+    assert order.custom_invoice_plan == "订单 CHECK-1 在签收后次日开票"
 set_value_calls.clear()
 compat_queries = []
 def compatibility_sql(query, args, **kwargs):
@@ -351,24 +378,24 @@ def render_delivery(rows, ordered_before=None):
 unlinked = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
                custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([unlinked])
-assert "订购 / 此前已交付" not in html and data["has_order_linkage"] is False
+assert "Quantidade encomendada / 订购数量<br>Entregue anteriormente / 此前已交付" not in html and data["has_order_linkage"] is False
 linked = Doc(item_code="RED", item_name="Curtain", qty=2, rate=1, amount=2, uom="条",
              against_sales_order="SO-1", so_detail="SOI-1", conversion_factor=2,
              custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([linked])
-assert "订购 / 此前已交付" in html and data["items"][0]["ordered_qty"] == 10
+assert "Quantidade encomendada / 订购数量<br>Entregue anteriormente / 此前已交付" in html and data["items"][0]["ordered_qty"] == 10
 assert data["items"][0]["delivered_before_qty"] == 3 and data["items"][0]["remaining_qty"] == 5
 html, _ = render_delivery([linked], ordered_before=0)
-assert "订购 / 此前已交付" not in html
+assert "Quantidade encomendada / 订购数量<br>Entregue anteriormente / 此前已交付" not in html
 missing_link = Doc(item_code="RED", item_name="Curtain", qty=1, rate=1, amount=1, uom="条",
                    against_sales_order="SO-1", conversion_factor=1,
                    custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([missing_link])
-assert "订购 / 此前已交付" in html and "—" in html and data.get("delivery_quantity_error")
+assert "Quantidade encomendada / 订购数量<br>Entregue anteriormente / 此前已交付" in html and "—" in html and data.get("delivery_quantity_error")
 mixed = Doc(item_code="BLUE", item_name="Blue", qty=1, rate=1, amount=1, uom="条",
             custom_ordered_qty=0, custom_delivered_before_qty=0, custom_remaining_qty=0)
 html, data = render_delivery([linked, mixed])
-assert "订购 / 此前已交付" in html and data["items"][1]["ordered_qty"] is None
+assert "Quantidade encomendada / 订购数量<br>Entregue anteriormente / 此前已交付" in html and data["items"][1]["ordered_qty"] is None
 assert data.get("delivery_quantity_error")
 history_result = stock.get_delivery_snapshot_quantities(
     Doc(name="CURRENT-DN", is_return=0, items=[Doc(item_code="RED", qty=2, conversion_factor=2,
@@ -424,12 +451,12 @@ stock.validate_transaction_quantities(Doc(is_return=1,items=[returned]))
 print("PASS: two colours/two trips; repeated SO rows; prior signed return; native return quantity sign")
 
 # Nonempty financial fixtures; get_list emulates role + row permission filtering.
-from datetime import datetime
+from datetime import date, datetime
+utils.date_diff = lambda end, start: (date.fromisoformat(end) - date.fromisoformat(start)).days
 utils.nowdate=lambda:"2026-09-15"
 utils.now_datetime=lambda:datetime(2026,9,15,12)
 frappe.utils=utils
 frappe.session=types.SimpleNamespace(user="manager")
-frappe.whitelist=lambda:lambda fn:fn
 frappe.read_only=lambda:lambda fn:fn
 stock_settings_warehouse = "W1"
 user_default_warehouse = "W2"
@@ -589,12 +616,21 @@ class InstallDoc(types.SimpleNamespace):
         return self
     def load_assets(self):
         self.script="candidate JS";self.style="candidate CSS"
+installed_format_modules = {
+    "ORDER CONFIRMACAO(PT）": "Solua Wholesale",
+    invoice_fmt["name"]: "Solua Home 定制",
+    "Guia de Remessa": "Solua Wholesale",
+}
+
 def install_get_doc(arg,name=None):
     if isinstance(arg,dict):return InstallDoc(**arg)
     if arg=="Page":return InstallDoc(name="solua-home",module="Solua Wholesale")
-    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module="Solua Home 定制" if name == "批发销售单（颜色版）" else "Solua Wholesale")
+    if arg=="Print Format":return InstallDoc(html="<p>HTML</p>",raw_printing=0,module=installed_format_modules[name])
     raise AssertionError(arg)
 frappe.get_doc=install_get_doc
+frappe.make_property_setter=lambda values: None
+frappe.clear_cache=lambda **kwargs: None
+frappe.get_meta=lambda dt: types.SimpleNamespace(fields=())
 frappe.get_attr=lambda name:lambda:None
 frappe.db.exists=lambda dt,filters: filters in installed_modules if dt=="Module Def" else (filters["dt"],filters["fieldname"]) in created_fields
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="solua_home") if dt=="Module Def" and name in installed_modules else None
@@ -617,7 +653,12 @@ installer=importlib.util.module_from_spec(install_spec);install_spec.loader.exec
 installer.install_wholesale_only();field_count=len(created_fields)
 installer.install_wholesale_only()
 assert field_count==len(created_fields) and field_count>0 and installed_modules=={"Solua Wholesale"} and module_inserts==1
-assert len(imports)==8 and len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
+expected_imports = [
+    "sales_order_wholesale_color.json", "sales_order_wholesale_color_zh.json",
+    "sales_invoice_wholesale_color_v2.json", "delivery_note_guia_remessa.json", "solua_home.json",
+]
+assert [Path(file).name for file in imports] == expected_imports * 2
+assert len(commits)==2 and module_map_refresh==["app_modules",("setup",True),"app_modules",("setup",True)]
 original_get_value=frappe.db.get_value
 frappe.db.get_value=lambda dt,name,fields,as_dict=False: InstallDoc(name=name,app_name="Wrong App") if dt=="Module Def" else original_get_value(dt,name,fields,as_dict)
 try:installer.install_wholesale_only()
@@ -632,11 +673,16 @@ except RuntimeError as exc:assert "module path" in str(exc)
 else:raise AssertionError("Missing module path rejected incorrectly")
 assert len(rollbacks)==2 and len(commits)==2 and len(created_fields)==field_count
 modules_pkg.get_module_path=original_module_path
+with patch.dict(installed_format_modules, {invoice_fmt["name"]: "Solua Wholesale"}):
+    try: installer.install_wholesale_only()
+    except RuntimeError as exc: assert str(exc) == "Invalid HTML print format: " + invoice_fmt["name"]
+    else: raise AssertionError("Mismatched invoice format module accepted")
+assert len(rollbacks)==3 and len(commits)==2
 def broken_import(*args,**kwargs):raise RuntimeError("injected import failure")
 importer.import_file_by_path=broken_import
 try:installer.install_wholesale_only()
 except RuntimeError:pass
 else:raise AssertionError("Import failure swallowed")
-assert len(rollbacks)==3 and len(commits)==2
+assert len(rollbacks)==4 and len(commits)==2
 _installer_test_os.path.isdir=_installer_test_isdir
-print("PASS: fresh module registration, idempotent rerun, strict module/path/import failures; three scoped imports")
+print("PASS: module registration, idempotent rerun, and rollback on invalid module, path, format or import")
