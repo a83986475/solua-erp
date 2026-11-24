@@ -160,9 +160,39 @@ def enqueue_sales_order_update_send(doc, method=None, previous=None):
     enqueue_sales_order_submit_send(doc, updated=True)
 
 
+_SALES_ORDER_AUTO_SEND_KEY = "solua_wecom_sales_order_auto_send"
+
+
+def _sales_order_auto_send_enabled():
+    value = frappe.db.get_value(
+        "DefaultValue", {"parent": "__default", "defkey": _SALES_ORDER_AUTO_SEND_KEY}, "defvalue"
+    )
+    return value != "0"
+
+
+@frappe.whitelist()
+def get_sales_order_auto_send():
+    frappe.only_for("System Manager")
+    return _sales_order_auto_send_enabled()
+
+
+@frappe.whitelist(methods=["POST"])
+def set_sales_order_auto_send(enabled):
+    from frappe.defaults import set_global_default
+
+    frappe.only_for("System Manager")
+    value = str(enabled)
+    if value not in ("0", "1"):
+        frappe.throw(_("自动发送设置无效"))
+    set_global_default(_SALES_ORDER_AUTO_SEND_KEY, value)
+    return value == "1"
+
+
 def enqueue_sales_order_submit_send(doc, method=None, *, updated=False):
     """Queue both customer files after a Sales Order transaction commits."""
     if doc.doctype != "Sales Order" or int(doc.docstatus or 0) != 1:
+        return
+    if not _sales_order_auto_send_enabled():
         return
     job_id = f"wecom-sales-order-submit:{doc.name}"
     if updated:
@@ -212,6 +242,8 @@ def send_submitted_sales_order_to_wechat(sales_order, updated=False):
     from solua_home.api.export import _sales_order_customer_pdf_filename
 
     with filelock(f"wecom-sales-order:{sales_order}", timeout=120):
+        if not _sales_order_auto_send_enabled():
+            return {"status": "skipped", "reason": "auto send disabled"}
         doc = frappe.get_doc("Sales Order", sales_order)
         if not updated and doc.get("custom_wecom_send_status") == "已发送":
             return {"status": "already sent"}
